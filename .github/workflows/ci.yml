@@ -40,6 +40,11 @@ jobs:
       - name: Production frontend build
         run: npm run build
 
+      - name: Validate collector Python syntax and CLI
+        run: |
+          python3 -m py_compile collector.py
+          python3 collector.py --help
+
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
