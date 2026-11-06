@@ -109,7 +109,7 @@ def report(prs, events):
         "> nhận tín hiệu từ workflow auto-merge và xác thực PR, SHA cùng CI xanh.",
         "> Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,",
         "> không tự suy đoán là merge thủ công hay tự động.", "",
-        "Cập nhật: **%s** · Repository: \`%s\`" % (now, REPO), "",
+        "Cập nhật: **%s** · Repository: `%s`" % (now, REPO), "",
         "## 📊 Dashboard", "",
         "| Chỉ số | Giá trị |",
         "|---|---:|",
@@ -120,12 +120,12 @@ def report(prs, events):
         "| Nguồn merge chưa xác minh | %d |" % unknown,
         "",
         "### Phân bố bằng chứng", "",
-        "\`\`\`mermaid",
+        "```mermaid",
         "pie showData",
         '    "Auto-merge verified" : %d' % len(recognized),
         '    "Chưa xác minh" : %d' % unknown,
-        "\`\`\`", "",
-        "\`Auto-merge \` %s **%d/%d**" % (bar(len(recognized), total), len(recognized), total),
+        "```", "",
+        "`Auto-merge ` %s **%d/%d**" % (bar(len(recognized), total), len(recognized), total),
         "", "## ✅ Vì sao từng PR được auto-merge?", "",
         "| PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |",
         "|---|---|---|---|---|",
@@ -133,7 +133,7 @@ def report(prs, events):
     for p in sorted(recognized, key=lambda p: p["merged_at"] or "", reverse=True)[:75]:
         ev = by_pr[p["number"]]
         kind = "Workflow/config" if ev["workflow_change"] else "Code/docs"
-        reason = ("CI green trên HEAD \`%s\`; GitHub chấp nhận merge; "
+        reason = ("CI green trên HEAD `%s`; GitHub chấp nhận merge; "
                   "[Run #%s](https://github.com/%s/actions/runs/%s)" %
                   (ev["head_sha"][:8], ev["run_id"], REPO, ev["run_id"]))
         lines.append("| [#%d](%s) %s | %s | %s | ✅ | %s |" % (
@@ -149,7 +149,7 @@ def report(prs, events):
               (share, workflows, len(recognized)),
             "- **Quality gate:** %d auto-merge có bằng chứng CI thành công trên SHA chính xác." % len(recognized),
             "- **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.",
-            "- **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền \`Workflows: write\`; CI xanh không tự cấp quyền.",
+            "- **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.",
             "- **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.",
         ]
     else:
@@ -165,7 +165,7 @@ def report(prs, events):
         "- Collector ghi nhận sự kiện do workflow gửi, xác thực tên run, PR merged, exact SHA và CI check thành công.",
         "- Trạng thái không conflict / branch rules được GitHub thực thi lúc merge thành công; không lưu ảnh chụp ruleset lịch sử.",
         "- CI xanh là điều kiện cần, không phải bảo đảm thay đổi không có lỗi. Insights là quy tắc phân tích, không phải nhận định AI sinh tự động.",
-        "- Tệp sự kiện: \`data/collector-events.json\`; script tạo báo cáo: \`collector.py\`.",
+        "- Tệp sự kiện: `data/collector-events.json`; script tạo báo cáo: `collector.py`.",
         "",
     ]
     return "\n".join(lines)
