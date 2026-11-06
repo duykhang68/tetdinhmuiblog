@@ -24,7 +24,6 @@ concurrency:
 jobs:
   tests:
     name: Researcher regression tests
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -40,12 +39,6 @@ jobs:
 
   collect:
     name: Diagnose incidents, update GitHub knowledge
-    if: >-
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.repository.full_name == github.repository &&
-       contains(fromJSON('["failure","timed_out","startup_failure"]'), github.event.workflow_run.conclusion))
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     permissions:
@@ -68,17 +61,26 @@ jobs:
       - name: Regression check before privileged researcher work
         run: python -m unittest discover -s tests -p test_researcher.py -v
 
-      - name: Diagnose failed CI and record reviewed recovery knowledge
-        if: github.event_name == 'workflow_run'
+      - name: Evaluate every event without skipping the job
         env:
           GITHUB_TOKEN: ${{ secrets.AUTO_MERGE_WORKFLOW_TOKEN || github.token }}
-        run: python researcher.py --mode ci
-
-      - name: Identify recurrent PR merge conflicts
-        if: github.event_name != 'workflow_run'
-        env:
-          GITHUB_TOKEN: ${{ secrets.AUTO_MERGE_WORKFLOW_TOKEN || github.token }}
-        run: python researcher.py --mode conflicts
+        shell: bash
+        run: |
+          case "${{ github.event_name }}" in
+            workflow_run)
+              python researcher.py --mode ci
+              ;;
+            schedule|workflow_dispatch)
+              python researcher.py --mode conflicts
+              ;;
+            pull_request)
+              echo 'Researcher tests completed. PR event is validation-only; no privileged repository writes.'
+              ;;
+            *)
+              echo 'ERROR: Unsupported researcher event' >&2
+              exit 1
+              ;;
+          esac
 
       - name: Report researcher execution summary
         if: always()
