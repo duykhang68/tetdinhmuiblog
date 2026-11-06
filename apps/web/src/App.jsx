@@ -184,7 +184,7 @@ export default function App(){
       <div className="brand"><span className="brandmark">d.</span><div><strong>Duy Nguyen <em>Editor</em></strong><small>Reddit-inspired · Blogger CMS</small></div></div>
       <div className="top-actions"><span className={'conn '+(connected?'online':'')}>{connected?'● Blogger đã kết nối':'○ Chưa kết nối'}</span>{connected?<button className="quiet" onClick={logout}>Ngắt kết nối</button>:<a className="primary" href="/auth/google/start">Kết nối Blogger ↗</a>}</div>
     </header>
-    {diagramOpen&&<DiagramStudio onClose={()=>setDiagramOpen(false)}/>}
+    {diagramOpen&&<DiagramStudio sourceHTML={html} sourceTitle={title} onClose={()=>setDiagramOpen(false)}/>}
     <main className="kit-main">
       <div className="kit-page-head">
         <div><div className="kit-eyebrow">EDITOR KIT <span>/</span> BLOGGER &amp; DRIVE</div><h1>Không gian viết của bạn<span>.</span></h1><p>Một ý tưởng hay, một bài viết chỉn chu.</p></div>
