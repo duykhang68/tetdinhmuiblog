@@ -1,0 +1,91 @@
+name: PR Status · Colored Labels
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
+    branches: [main]
+  workflow_run:
+    workflows: ["CI · Quality Gate"]
+    types: [completed]
+  schedule:
+    - cron: '13 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+  statuses: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: pr-status-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Reconcile status labels
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.repository.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner,repo} = context.repo;
+            const labels = {
+              'status:open': ['D8B4FE','OPEN - waiting for all merge conditions'],
+              'status:ci-pending': ['FDE68A','CI PENDING'],
+              'status:failed': ['FECACA','FAILED - inspect check runs'],
+              'status:passed-ok-to-auto-merge': ['BBF7D0','PASSED OK TO AUTO-MERGE']
+            };
+            for (const [name,[color,description]] of Object.entries(labels)) {
+              try { await github.rest.issues.getLabel({owner,repo,name}); }
+              catch(err) {
+                if(err.status !== 404) throw err;
+                try { await github.rest.issues.createLabel({owner,repo,name,color,description}); }
+                catch(e) { if(e.status !== 422) throw e; }
+              }
+            }
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner,repo,base:'main',state:'open',per_page:100
+            });
+            for (const listed of prs) {
+              // Read current head and mergeability, never rely on an old event payload.
+              const {data:pr} = await github.rest.pulls.get({owner,repo,pull_number:listed.number});
+              const sha = pr.head.sha;
+              const {data:checks} = await github.rest.checks.listForRef({
+                owner,repo,ref:sha,per_page:100,filter:'latest'
+              });
+              const {data:combined} = await github.rest.repos.getCombinedStatusForRef({
+                owner,repo,ref:sha
+              });
+              const jobs = checks.check_runs.filter(c => c.name !== 'Reconcile status labels');
+              const failedCheck = jobs.some(c => c.status === 'completed' &&
+                !['success','skipped','neutral'].includes(c.conclusion));
+              const failedStatus = combined.statuses.some(s => ['error','failure'].includes(s.state));
+              const required = jobs.find(c => c.name === 'Test and build (Node 22)');
+              const greenCI = required?.status === 'completed' && required?.conclusion === 'success';
+              const unresolved = pr.draft || pr.mergeable !== true ||
+                !['clean','has_hooks'].includes(pr.mergeable_state);
+              const pending = !greenCI || jobs.some(c=>c.status !== 'completed');
+              const desired = (failedCheck || failedStatus) ? 'status:failed' :
+                (pending ? 'status:ci-pending' :
+                 (unresolved ? 'status:open' : 'status:passed-ok-to-auto-merge'));
+              const existing = await github.paginate(github.rest.issues.listLabelsOnIssue,{
+                owner,repo,issue_number:pr.number,per_page:100
+              });
+              for (const item of existing) {
+                if (item.name.startsWith('status:') && item.name !== desired) {
+                  await github.rest.issues.removeLabel({
+                    owner,repo,issue_number:pr.number,name:item.name
+                  });
+                }
+              }
+              if (!existing.some(l=>l.name === desired)) {
+                await github.rest.issues.addLabels({
+                  owner,repo,issue_number:pr.number,labels:[desired]
+                });
+              }
+              core.info('PR #'+pr.number+' '+sha.slice(0,7)+' -> '+desired);
+            }
