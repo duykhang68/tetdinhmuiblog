@@ -41,9 +41,9 @@ jobs:
             for (const number of numbers) {
             const {data: pr} = await github.rest.pulls.get({owner, repo, pull_number:number});
             if (pr.base.ref !== 'main' || pr.head.repo.full_name !== context.repo.owner + '/' + context.repo.repo) {
-              core.notice('Only same-repository PRs into main are classified'); return;
+              core.notice('Skipped external or non-main PR #' + number); continue;
             }
-            if (pr.state !== 'open') { core.notice('PR is not open'); return; }
+            if (pr.state !== 'open') { core.notice('PR #' + number + ' is no longer open'); continue; }
 
             // Always read trusted base-release metadata, not untrusted PR content.
             const { data: releases } = await github.rest.repos.listReleases({owner, repo, per_page:100});
