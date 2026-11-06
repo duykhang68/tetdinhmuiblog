@@ -142,6 +142,8 @@ jobs:
                 context: 'taxonomy/type:' + category,
                 description: categoryInfo[category][0].slice(0, 140)
               });
-              if (mergedPR) await labelRelatedPR(commit.sha, category);
+              if (mergedPR && (isMergeCommit || mergedPR.merge_commit_sha === commit.sha)) {
+                await labelRelatedPR(commit.sha, classify(mergedPR.title));
+              }
               core.info(commit.sha.slice(0, 7) + ' → type:' + category);
             }
