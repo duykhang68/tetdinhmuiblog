@@ -57,6 +57,17 @@ jobs:
           tar -czf editor-web.tar.gz -C apps/web/dist .
           sha256sum editor-web.tar.gz > editor-web.tar.gz.sha256
 
+      - name: Verify packaged release checksum and frontend integrity
+        run: |
+          sha256sum --check editor-web.tar.gz.sha256
+          mkdir -p /tmp/verified-editor-web
+          tar -xzf editor-web.tar.gz -C /tmp/verified-editor-web
+          test -s /tmp/verified-editor-web/index.html
+          if grep -q 'localhost:5173' /tmp/verified-editor-web/index.html; then
+            echo 'Release HTML unexpectedly references local dev server' >&2
+            exit 1
+          fi
+
       - name: Publish tagged GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
