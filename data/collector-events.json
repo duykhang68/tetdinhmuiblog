@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "pr": 23,
+    "head_sha": "950063a2bfbae82b652f36d400a93568a92a03a5",
+    "merge_sha": "f85813a345f5dc8acbe8cf6118b60448a32718f1",
+    "merged_at": "2026-11-06T16:17:55Z",
+    "run_id": 42251027089,
+    "ci": "success",
+    "workflow_change": true
+  }
+]
