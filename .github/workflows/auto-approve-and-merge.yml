@@ -151,6 +151,22 @@ jobs:
                 } catch (e) {
                   core.warning('POST_MERGE_CI_DISPATCH_FAILED: ' + e.message);
                 }
+                // Record verified merge evidence and refresh collector.md.
+                // Dispatch failures never change the already-successful merge.
+                try {
+                  await github.rest.actions.createWorkflowDispatch({
+                    owner, repo, workflow_id: 'auto-merge-collector.yml', ref: 'main',
+                    inputs: {
+                      pr: String(pr.number),
+                      sha: sha,
+                      run_id: String(context.runId)
+                    }
+                  });
+                  core.notice('COLLECTOR_QUEUED PR #' + pr.number);
+                } catch (e) {
+                  core.warning('COLLECTOR_DISPATCH_FAILED PR #' + pr.number +
+                    ': HTTP ' + (e.status || 'unknown') + ' - ' + e.message);
+                }
                 // One merge per run: next CI completion continues the queue.
                 return;
               } catch (error) {
