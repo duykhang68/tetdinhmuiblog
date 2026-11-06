@@ -22,30 +22,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  tests:
-    name: Researcher regression tests
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-      - run: python -m unittest discover -s tests -p test_researcher.py -v
-
   collect:
     name: Diagnose incidents, update GitHub knowledge
-    if: >-
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.repository.full_name == github.repository &&
-       contains(fromJSON('["failure","timed_out","startup_failure"]'), github.event.workflow_run.conclusion))
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     permissions:
@@ -68,7 +46,7 @@ jobs:
       - name: Regression check before privileged researcher work
         run: python -m unittest discover -s tests -p test_researcher.py -v
 
-      - name: Diagnose failed CI and record reviewed recovery knowledge
+      - name: Evaluate completed CI (green runs are no-op, not skipped jobs)
         if: github.event_name == 'workflow_run'
         env:
           GITHUB_TOKEN: ${{ secrets.AUTO_MERGE_WORKFLOW_TOKEN || github.token }}
