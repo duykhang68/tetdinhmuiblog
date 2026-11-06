@@ -88,3 +88,10 @@ button,.primary{transition:background-color .14s ease,color .14s ease,transform 
 .reddit-title{display:block;resize:vertical;min-height:77px;max-height:210px;overflow-y:auto;font-family:inherit}
 
 .drive-panel h2{font-size:17px;margin-top:0}.drive-panel p,.drive-panel small{font-size:12px;line-height:1.6;color:#627077}.drive-panel label{display:block;font-size:12px;margin:12px 0 6px}.drive-panel input{width:100%;padding:10px;border:1px solid #dce2e5;border-radius:8px;font-size:12px}.drive-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0}.drive-panel .save{margin-bottom:12px}.drive-panel a{font-size:12px}.drive-message{font-size:12px;line-height:1.6;margin:12px 0;overflow-wrap:anywhere}.drive-files{max-height:270px;overflow:auto}.drive-files .postitem{width:100%;text-align:left}.drive-files .postitem span{overflow-wrap:anywhere}
+
+/* Editor typography contrast — colors and font weights only. */
+.welcome p,.welcome-note,.helpbar p,.sidebar-foot p,.micro {color:#566570;font-weight:600}
+.app-footer,.app-footer a {color:#43535e;font-weight:650}
+.editor-footer,.editor-footer span,.status {color:#566570;font-weight:600}
+.editor-footer strong {color:#1c1c1c;font-weight:750}
+.brand small,.postitem small,.paper .meta {color:#566570;font-weight:600}
