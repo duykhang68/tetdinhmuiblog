@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import './DiagramStudio.css';
 
 const ORIGIN = 'https://embed.diagrams.net';
-const URL = ORIGIN + '/?embed=1&proto=json&spin=1&ui=kennedy&noExitBtn=1';
+const EMBED_URL = ORIGIN + '/?embed=1&proto=json&spin=1&ui=kennedy&noExitBtn=1';
 const STORE = 'dn-diagram-studio-v1';
 const EMPTY = '<mxfile host="app.diagrams.net"><diagram name="Page-1"><mxGraphModel dx="1000" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850"><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>';
 
@@ -30,7 +30,6 @@ export default function DiagramStudio({onClose}) {
   const [name, setName] = useState('blogger-workflow');
   const [message, setMessage] = useState('Đang mở draw.io…');
   const [dirty, setDirty] = useState(false);
-  const [preview, setPreview] = useState('');
   const send = useCallback(payload => {
     if (!frame.current?.contentWindow) return;
     frame.current.contentWindow.postMessage(JSON.stringify(payload), ORIGIN);
@@ -114,7 +113,7 @@ export default function DiagramStudio({onClose}) {
         </div>
       </div>
       <div className="diagram-notice" role="status">{message} {dirty?' · Đang ghi thay đổi…':''}</div>
-      <iframe ref={frame} className="diagram-frame" title="Draw.io diagram editor" src={URL} allow="clipboard-read; clipboard-write"/>
+      <iframe ref={frame} className="diagram-frame" title="Draw.io diagram editor" src={EMBED_URL} allow="clipboard-read; clipboard-write"/>
       <footer className="diagram-foot"><span>Sơ đồ tự lưu trong trình duyệt này; xuất .drawio để sao lưu và chỉnh sửa lại.</span><a href="https://www.drawio.com/docs/reference/embed-mode/" target="_blank" rel="noopener noreferrer">Hướng dẫn draw.io ↗</a></footer>
     </div>
   </div>;
