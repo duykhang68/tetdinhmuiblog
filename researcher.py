@@ -262,7 +262,7 @@ def check_ci(gh: GitHub, event: dict) -> None:
     run = gh.call("GET", "/actions/runs/" + str(run["id"]))
     if run.get("name") != "CI · Quality Gate":
         return
-    jobs = gh.paged("/actions/runs/" + str(run["id"]) + "/jobs")
+    jobs = gh.call("GET", "/actions/runs/" + str(run["id"]) + "/jobs?per_page=100").get("jobs", [])
     rec = classify_ci(run, jobs)
     if rec is None:
         print("INFO RESEARCHER-CI-PASSED run #" + str(run["id"]))
