@@ -268,6 +268,14 @@ def check_ci(gh: GitHub, event: dict) -> None:
         print("INFO RESEARCHER-CI-PASSED run #" + str(run["id"]))
         return
     record_incident(gh, rec)
+    # Healthy CI runs never create Self-Healing runs. A confirmed failed
+    # push to main may dispatch the existing main-only repair workflow.
+    if run.get("event") == "push" and run.get("head_branch") == "main":
+        gh.call("POST", "/actions/workflows/self-healing.yml/dispatches", {
+            "ref": "main",
+            "inputs": {"incident_run_id": str(run["id"])},
+        })
+        print("NOTICE RESEARCHER-SELF-HEALING-DISPATCHED " + str(run["id"]))
     attempt = int(run.get("run_attempt") or 1)
     if rec["code"] == "CI-RUNNER-STARTUP" and attempt < MAX_RUN_ATTEMPTS:
         gh.call("POST", "/actions/runs/" + str(run["id"]) + "/rerun-failed-jobs", {})
