@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import './DiagramStudio.css';
+import {findDiagramCandidates,makeDrawioXML} from './autoVisualize.js';
 
 const ORIGIN = 'https://embed.diagrams.net';
 const EMBED_URL = ORIGIN + '/?embed=1&proto=json&spin=1&ui=kennedy&noExitBtn=1';
@@ -22,12 +23,13 @@ function downloadDataURI(uri, filename) {
   const a = document.createElement('a');
   a.href = uri; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
 }
-export default function DiagramStudio({onClose}) {
+export default function DiagramStudio({onClose,sourceHTML='',sourceTitle=''}) {
   const frame = useRef(null);
   const lastXML = useRef(savedDiagram());
   const pendingExport = useRef(null);
   const [ready, setReady] = useState(false);
-  const [name, setName] = useState('blogger-workflow');
+  const [candidates, setCandidates] = useState([]);
+  const [name, setName] = useState(sourceTitle.slice(0,80) || 'blogger-workflow');
   const [message, setMessage] = useState('Đang mở draw.io…');
   const [dirty, setDirty] = useState(false);
   const send = useCallback(payload => {
@@ -74,6 +76,20 @@ export default function DiagramStudio({onClose}) {
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [send,persist,name]);
+  const scanDraft = () => {
+    const found = findDiagramCandidates(sourceHTML);
+    setCandidates(found);
+    setMessage(found.length ? 'Phát hiện ' + found.length + ' đoạn có thể minh họa. Chọn một đoạn để dựng sơ đồ.' : 'Không tìm thấy danh sách ít nhất 3 bước rõ ràng. Bạn vẫn có thể vẽ thủ công.');
+  };
+  const generateFrom = candidate => {
+    if (!ready) return;
+    if (!window.confirm('Thay bản sơ đồ hiện tại bằng sơ đồ tự tạo từ "' + candidate.heading + '"?')) return;
+    const xml = makeDrawioXML(candidate);
+    persist(xml);
+    send({action:'load',xml,autosave:true,exportProtocol:true});
+    setName(candidate.heading.slice(0,80));
+    setMessage('Đã tạo sơ đồ theo nội dung bài nháp. Kiểm tra và chỉnh sửa trước khi dùng.');
+  };
   const importFile = async event => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -112,6 +128,7 @@ export default function DiagramStudio({onClose}) {
           <button className="diagram-close" aria-label="Đóng Diagram Studio" onClick={onClose}>✕</button>
         </div>
       </div>
+      {sourceHTML&&<div className="diagram-auto"><button className="diagram-btn" onClick={scanDraft}>✦ Phân tích bài nháp · Auto Visualize</button>{candidates.map(c=><button className="diagram-candidate" type="button" key={c.id} disabled={!ready} onClick={()=>generateFrom(c)} title={c.steps.join(" → ")}>{c.heading} <span>{c.steps.length} bước</span></button>)}</div>}
       <div className="diagram-notice" role="status">{message} {dirty?' · Đang ghi thay đổi…':''}</div>
       <iframe ref={frame} className="diagram-frame" title="Draw.io diagram editor" src={EMBED_URL} allow="clipboard-read; clipboard-write"/>
       <footer className="diagram-foot"><span>Sơ đồ tự lưu trong trình duyệt này; xuất .drawio để sao lưu và chỉnh sửa lại.</span><a href="https://www.drawio.com/docs/reference/embed-mode/" target="_blank" rel="noopener noreferrer">Hướng dẫn draw.io ↗</a></footer>
