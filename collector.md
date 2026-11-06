@@ -5,15 +5,15 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-06 16:18 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-06 16:20 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 23 |
-| AUTO-MERGED có bằng chứng | 1 |
-| Auto-merge PR thường | 0 |
+| PR đã merge (tối đa 300 PR gần đây) | 24 |
+| AUTO-MERGED có bằng chứng | 2 |
+| Auto-merge PR thường | 1 |
 | Auto-merge PR thay đổi workflow | 1 |
 | Nguồn merge chưa xác minh | 22 |
 
@@ -21,22 +21,23 @@ Cập nhật: **2026-11-06 16:18 UTC** · Repository: `duykhang68/tetdinhmuiblog
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 1
+    "Auto-merge verified" : 2
     "Chưa xác minh" : 22
 ```
 
-`Auto-merge ` █░░░░░░░░░░░░░░░░░ **1/23**
+`Auto-merge ` ██░░░░░░░░░░░░░░░░ **2/24**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#24](https://github.com/duykhang68/tetdinhmuiblog/pull/24) docs: transform README into visual Blogger Studio dashb | 2026-11-06T16:20:36Z | Code/docs | ✅ | CI green trên HEAD `b44756a6`; GitHub chấp nhận merge; [Run #42251447389](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42251447389) |
 | [#23](https://github.com/duykhang68/tetdinhmuiblog/pull/23) feat(ci): process auto-merges in separate 60-second PR  | 2026-11-06T16:17:55Z | Workflow/config | ✅ | CI green trên HEAD `950063a2`; GitHub chấp nhận merge; [Run #42251027089](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42251027089) |
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 100.0% (1/1).
-- **Quality gate:** 1 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 50.0% (1/2).
+- **Quality gate:** 2 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
