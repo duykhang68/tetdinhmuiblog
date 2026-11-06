@@ -23,12 +23,13 @@ function downloadDataURI(uri, filename) {
   const a = document.createElement('a');
   a.href = uri; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
 }
-export default function DiagramStudio({onClose,sourceHTML='',sourceTitle=''}) {
+export default function DiagramStudio({onClose,sourceHTML='',sourceTitle='',autoStart=false}) {
   const frame = useRef(null);
-  const lastXML = useRef(savedDiagram());
+  const initialCandidates = useRef(findDiagramCandidates(sourceHTML));
+  const lastXML = useRef(autoStart && initialCandidates.current.length ? makeDrawioXML(initialCandidates.current[0]) : savedDiagram());
   const pendingExport = useRef(null);
   const [ready, setReady] = useState(false);
-  const [candidates, setCandidates] = useState([]);
+  const [candidates, setCandidates] = useState(autoStart ? initialCandidates.current : []);
   const [name, setName] = useState(sourceTitle.slice(0,80) || 'blogger-workflow');
   const [message, setMessage] = useState('Đang mở draw.io…');
   const [dirty, setDirty] = useState(false);
@@ -52,7 +53,7 @@ export default function DiagramStudio({onClose,sourceHTML='',sourceTitle=''}) {
       if (!data || typeof data !== 'object') return;
       if (data.event === 'init') {
         setReady(true); send({action:'load',xml:lastXML.current,autosave:true,exportProtocol:true});
-        setMessage('Sẵn sàng. Vẽ trực tiếp trên khung draw.io.');
+        setMessage(autoStart && initialCandidates.current.length ? 'Đã dựng sơ đồ từ bản nháp. Hãy duyệt nội dung và chỉnh sửa trước khi xuất ảnh.' : 'Sẵn sàng. Vẽ trực tiếp trên khung draw.io.');
       } else if (data.event === 'autosave' && typeof data.xml === 'string') {
         setDirty(true); persist(data.xml);
       } else if (data.event === 'save' && typeof data.xml === 'string') {
