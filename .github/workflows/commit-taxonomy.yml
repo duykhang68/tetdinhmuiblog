@@ -135,7 +135,8 @@ jobs:
                 owner, repo, commit_sha: commit.sha, per_page: 100
               });
               const mergedPR = associated.find(pr => pr.merged_at && pr.base.ref === 'main');
-              const category = mergedPR ? classify(mergedPR.title) : classify(commit.commit.message);
+              const isMergeCommit = /^Merge pull request #\\d+/.test(commit.commit.message.split('\\n')[0]);
+              const category = isMergeCommit && mergedPR ? classify(mergedPR.title) : classify(commit.commit.message);
               await github.rest.repos.createCommitStatus({
                 owner, repo, sha: commit.sha, state: 'success',
                 context: 'taxonomy/type:' + category,
