@@ -60,7 +60,7 @@ export default function App(){
   const [restorable,setRestorable]=useState(null);
   const [communityOpen,setCommunityOpen]=useState(false),[communitySearch,setCommunitySearch]=useState('');
   const [draftsOpen,setDraftsOpen]=useState(false),[tagsOpen,setTagsOpen]=useState(false);
-  const [diagramOpen,setDiagramOpen]=useState(false);
+  const [diagramOpen,setDiagramOpen]=useState(false),[diagramAuto,setDiagramAuto]=useState(false);
   const sourceRef=useRef(null),previewFrom=useRef('compose');
   const suppress=useRef(false),inflight=useRef(false),editorCurrent=useRef(null),revision=useRef(0);
   const editor=useEditor({
@@ -184,11 +184,11 @@ export default function App(){
       <div className="brand"><span className="brandmark">d.</span><div><strong>Duy Nguyen <em>Editor</em></strong><small>Reddit-inspired · Blogger CMS</small></div></div>
       <div className="top-actions"><span className={'conn '+(connected?'online':'')}>{connected?'● Blogger đã kết nối':'○ Chưa kết nối'}</span>{connected?<button className="quiet" onClick={logout}>Ngắt kết nối</button>:<a className="primary" href="/auth/google/start">Kết nối Blogger ↗</a>}</div>
     </header>
-    {diagramOpen&&<DiagramStudio sourceHTML={html} sourceTitle={title} onClose={()=>setDiagramOpen(false)}/>}
+    {diagramOpen&&<DiagramStudio autoStart={diagramAuto} sourceHTML={html} sourceTitle={title} onClose={()=>setDiagramOpen(false)}/>}
     <main className="kit-main">
       <div className="kit-page-head">
         <div><div className="kit-eyebrow">EDITOR KIT <span>/</span> BLOGGER &amp; DRIVE</div><h1>Không gian viết của bạn<span>.</span></h1><p>Một ý tưởng hay, một bài viết chỉn chu.</p></div>
-        <div className="kit-page-actions"><button className="kit-button" onClick={()=>setDiagramOpen(true)}>◇ Sơ đồ</button><button className="kit-button" onClick={()=>changeMode(mode==='preview'?previewFrom.current:'preview')} aria-pressed={mode==='preview'}><span aria-hidden="true">◉</span> {mode==='preview'?'Quay lại viết':'Xem trước'}</button><button className="kit-button" onClick={download}><span aria-hidden="true">↓</span> Lưu HTML</button><button className="kit-button kit-copy" onClick={copyHTML}><span aria-hidden="true">⧉</span> Sao chép HTML</button></div>
+        <div className="kit-page-actions"><button className="kit-button" onClick={()=>{setDiagramAuto(false);setDiagramOpen(true);}}>◇ Sơ đồ</button><button className="kit-button" onClick={()=>{setDiagramAuto(true);setDiagramOpen(true);}}>✦ Auto Visualize</button><button className="kit-button" onClick={()=>changeMode(mode==='preview'?previewFrom.current:'preview')} aria-pressed={mode==='preview'}><span aria-hidden="true">◉</span> {mode==='preview'?'Quay lại viết':'Xem trước'}</button><button className="kit-button" onClick={download}><span aria-hidden="true">↓</span> Lưu HTML</button><button className="kit-button kit-copy" onClick={copyHTML}><span aria-hidden="true">⧉</span> Sao chép HTML</button></div>
       </div>
       <nav className="kit-navigation" aria-label="Điều hướng trình soạn thảo">
         <button disabled={!connected||driveBusy} className="community-trigger" onClick={()=>{setCommunitySearch('');setCommunityOpen(true);}} aria-expanded={communityOpen}><span className="kit-blog-dot" aria-hidden="true">{(currentBlog?.name||'B')[0].toUpperCase()}</span><span className="kit-selected-blog">{currentBlog?.name||'Blogger chưa kết nối'}</span><span aria-hidden="true">⌄</span></button>
