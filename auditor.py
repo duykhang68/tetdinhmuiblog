@@ -134,7 +134,7 @@ def issue_text(run, rec, knowledge, evidence):
 def issue_for_run(issues, run_id):
     needle = "run:" + str(run_id)
     return next((x for x in issues if x.get("title", "").startswith("[AUDITOR]") and
-                 needle in x["title"] and "pull_request" not in x), None)
+                 x["title"].endswith(needle) and "pull_request" not in x), None)
 
 
 def is_retriable(run, rec):
