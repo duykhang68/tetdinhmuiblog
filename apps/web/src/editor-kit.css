@@ -133,3 +133,46 @@
 @media(max-width:820px){.kit-main{width:calc(100% - 28px);margin-top:22px}.kit-page-head{align-items:flex-start;flex-direction:column;gap:16px}.kit-page-actions{justify-content:flex-start}.kit-page-head h1{font-size:29px}.kit-workspace{grid-template-columns:180px minmax(0,1fr);gap:12px}.kit-block-button{font-size:11px;padding:7px 5px;gap:7px}.kit-block-list{padding:9px 7px}.kit-panel-heading{padding:13px 12px;gap:8px}.kit-panel h2{font-size:12px}.kit-heading-mark{width:27px;height:29px;font-size:16px}.kit-panel-heading p{font-size:9px}.kit-title-area{padding:19px 19px 0}.kit-paper-meta{padding:17px 19px 0}.kit-paper-meta>span:last-child{display:none}.kit-writing-area{padding:22px 20px}.kit-compose-head{padding:9px 12px 9px 19px}.kit-content-label{display:none}.kit-compose-head .modes{width:100%;justify-content:space-between}.kit-navigation{padding:10px 12px}.kit-tags-hint{display:none}.kit-navigation-actions{gap:4px}.kit-navigation .drafts-link{font-size:11px}.kit-navigation .drafts-count{display:none}.kit-navigation .kit-button{font-size:11px;padding:7px 10px}}
 @media(max-width:620px){.kit-main{width:calc(100% - 24px);margin:20px auto 25px}.kit-page-head{margin-bottom:18px}.kit-eyebrow{font-size:9px}.kit-page-head h1{font-size:27px}.kit-page-head p{font-size:12px}.kit-page-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%}.kit-page-actions .kit-button{font-size:10px;padding:8px 6px;gap:5px;min-height:37px}.kit-page-actions .kit-button>span{font-size:13px}.kit-navigation{flex-wrap:wrap;gap:10px}.kit-navigation .community-trigger{max-width:100%;flex:1}.kit-navigation-actions{width:100%;justify-content:space-between;border-top:1px solid #edf0f2;padding-top:9px}.kit-workspace{display:flex;flex-direction:column;gap:14px}.kit-blocks{position:static;max-height:none;overflow:visible;width:100%;order:0}.kit-block-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 7px;padding:10px}.kit-block-category{grid-column:1/-1;font-size:8px;margin:3px 7px;padding-top:9px}.kit-block-button{font-size:11px;min-height:36px;padding:5px;gap:7px}.kit-block-plus{display:none}.kit-block-mark{width:24px;height:24px;font-size:14px}.kit-block-foot{font-size:9px;padding:9px 15px}.kit-panel-heading{min-height:60px;padding:12px 15px}.kit-panel h2{font-size:13px}.kit-panel-heading p{font-size:10px}.kit-paper{width:100%;order:1}.kit-paper .reddit-title{font-size:26px;min-height:91px}.kit-paper .toolbar{padding:9px 12px;gap:4px}.kit-paper .tool{padding:6px 8px;font-size:11px}.kit-paper .tool-divider{display:none}.kit-writing-area{padding:22px 18px;min-height:330px}.kit-writing-area .tiptap{min-height:300px;font-size:15px}.kit-paper-status{padding:13px 17px;gap:10px}.kit-word-count{font-size:9px}.kit-right{width:100%;display:grid;grid-template-columns:1fr;order:2;gap:14px}.kit-right .kit-publish-panel .kit-panel-body{display:block;padding:16px}.kit-publish-actions{grid-template-columns:1fr 1fr}.kit-publish-actions .save,.kit-publish-actions .publish{font-size:11px;padding:10px}.kit-publish-actions .publish{justify-content:center;gap:10px}.kit-destination strong{font-size:13px}.kit-publish-steps strong{font-size:12px}.kit-publish-steps p{font-size:11px}.kit-publish-steps li{padding:13px 0}.kit-writing-tips .kit-panel-body{padding:18px}.kit-bottom-note{font-size:9px;margin-top:19px}.kit-layout .app-footer{padding:15px 18px;line-height:1.6}.kit-source{padding:15px}.kit-source textarea{min-height:380px}.kit-paper .tag-panel input{min-width:100%}}
 @media(prefers-reduced-motion:reduce){.kit-layout button{transition:none}}
+
+/* Text contrast hotfix — reference: HealthDaily Reddit Editor Kit (4).
+   Typography/colors only. No changes to spacing, layout or behavior. */
+.kit-layout .kit-eyebrow,
+.kit-layout .kit-page-head p,
+.kit-layout .kit-panel-heading p,
+.kit-layout .kit-block-foot,
+.kit-layout .kit-paper-meta,
+.kit-layout .kit-title-label,
+.kit-layout .kit-content-label,
+.kit-layout .kit-tags-hint,
+.kit-layout .kit-word-count,
+.kit-layout .kit-post-reference small,
+.kit-layout .kit-post-reference>span,
+.kit-layout .kit-autosync small,
+.kit-layout .kit-publish-steps p,
+.kit-layout .kit-bottom-note,
+.kit-layout .app-footer {color:#566570;font-weight:600}
+.kit-layout .kit-page-head h1,
+.kit-layout .kit-panel h2,
+.kit-layout .kit-destination strong {color:#1c1c1c;font-weight:800}
+.kit-layout .kit-block-button,
+.kit-layout .kit-navigation .drafts-link,
+.kit-layout .kit-paper .tool,
+.kit-layout .kit-compose-head .modes button,
+.kit-layout .kit-publish-steps strong,
+.kit-layout .kit-publish-actions .save {color:#35434c;font-weight:700}
+.kit-layout .kit-state,
+.kit-layout .kit-save-status strong,
+.kit-layout .kit-autosync>span,
+.kit-layout .kit-post-reference code,
+.kit-layout .kit-destination a {color:#495b66;font-weight:700}
+.kit-layout .kit-save-status small,
+.kit-layout .kit-word-count,
+.kit-layout .kit-local-note,
+.kit-layout .kit-writing-tips .kit-local-note,
+.kit-layout .kit-writing-tips p {color:#566570;font-weight:600}
+.kit-layout .kit-bottom-note>span {color:#c74a18}
+.kit-layout .kit-layout .app-footer,
+.kit-layout .app-footer,
+.kit-layout .app-footer a {color:#42525c;font-weight:650}
+.kit-layout .kit-paper .reddit-title::placeholder,
+.kit-layout .kit-writing-area .tiptap.ProseMirror-focused:empty:before {color:#677780;font-weight:600}
