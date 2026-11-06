@@ -132,6 +132,47 @@ jobs:
                 continue;
               }
 
+              // SERIAL MERGE QUEUE: every successful PR merge is separated by
+              // at least 60 seconds. The shared concurrency group prevents
+              // simultaneous workers; one worker merges exactly one PR.
+              const recentClosed = await github.paginate(github.rest.pulls.list, {
+                owner, repo, state: 'closed', base: 'main',
+                sort: 'updated', direction: 'desc', per_page: 100
+              });
+              const latestMergeMs = Math.max(0, ...recentClosed
+                .filter(p => p.merged_at)
+                .map(p => Date.parse(p.merged_at) || 0));
+              const waitMs = Math.max(0, 60000 - (Date.now() - latestMergeMs));
+              if (waitMs > 0) {
+                core.info('QUEUE_WAIT PR #' + pr.number + ': ' +
+                  Math.ceil(waitMs / 1000) + ' seconds until merge window.');
+                await new Promise(resolve => setTimeout(resolve, waitMs + 1000));
+              }
+
+              // Re-check the current HEAD and CI after waiting; no stale
+              // success, draft, or late conflict may pass the queue gate.
+              const { data: gate } = await github.rest.pulls.get({
+                owner, repo, pull_number: pr.number
+              });
+              if (gate.state !== 'open' || gate.draft || gate.head.sha !== sha ||
+                  gate.mergeable !== true ||
+                  ['dirty', 'blocked', 'draft', 'unknown', 'behind'].includes(gate.mergeable_state)) {
+                core.warning('QUEUE_STALE PR #' + pr.number +
+                  ': HEAD or mergeability changed while waiting.');
+                continue;
+              }
+              const { data: finalChecks } = await github.rest.checks.listForRef({
+                owner, repo, ref: sha, per_page: 100, filter: 'latest'
+              });
+              if (!finalChecks.check_runs.some(c =>
+                c.name === required && c.app?.slug === 'github-actions' &&
+                c.head_sha === sha && c.status === 'completed' &&
+                c.conclusion === 'success')) {
+                core.warning('QUEUE_CI_CHANGED PR #' + pr.number +
+                  ': required CI is not green for current HEAD.');
+                continue;
+              }
+
               try {
                 const { data: result } = await github.rest.pulls.merge({
                   owner, repo, pull_number: pr.number, sha,
@@ -167,7 +208,17 @@ jobs:
                   core.warning('COLLECTOR_DISPATCH_FAILED PR #' + pr.number +
                     ': HTTP ' + (e.status || 'unknown') + ' - ' + e.message);
                 }
-                // One merge per run: next CI completion continues the queue.
+                // A separate run processes the next PR; the 60-second
+                // gate above preserves spacing even when events race.
+                try {
+                  await github.rest.actions.createWorkflowDispatch({
+                    owner, repo, workflow_id: 'auto-approve-and-merge.yml', ref: 'main'
+                  });
+                  core.info('QUEUE_NEXT_DISPATCHED after PR #' + pr.number);
+                } catch (e) {
+                  core.warning('QUEUE_DISPATCH_FAILED: ' + e.message +
+                    '; scheduled reconciliation will recover the queue.');
+                }
                 return;
               } catch (error) {
                 core.warning('MERGE_BLOCKED PR #' + pr.number +
