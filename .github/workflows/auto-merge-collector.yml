@@ -20,7 +20,7 @@ on:
 
 permissions:
   contents: write
-  actions: read
+  actions: write
   checks: read
   pull-requests: read
 
@@ -60,6 +60,8 @@ jobs:
           python collector.py "${args[@]}"
 
       - name: Commit dashboard and evidence if changed
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -68,12 +70,16 @@ jobs:
             echo "COLLECTOR_UNCHANGED"
             exit 0
           fi
-          git commit -m "docs(collector): update auto-merge evidence dashboard [skip ci]"
+          git commit -m "docs(collector): update auto-merge evidence dashboard"
           for attempt in 1 2 3; do
             git fetch origin main
             git rebase origin/main
             if git push origin HEAD:main; then
               echo "COLLECTOR_PUBLISHED"
+              # GITHUB_TOKEN pushes do not normally trigger CI, so dispatch
+              # the required quality gate explicitly for this new main HEAD.
+              gh workflow run ci.yml --ref main
+              echo "COLLECTOR_CI_DISPATCHED"
               exit 0
             fi
             sleep 2
