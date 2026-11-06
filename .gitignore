@@ -1,0 +1,13 @@
+node_modules/
+**/node_modules/
+**/.env
+**/.env.*
+!**/.env.example
+**/dist/
+apps/server/data/*
+!apps/server/data/.gitkeep
+.DS_Store
+*.log
+
+# Local backups
+.hotfix-backups/
