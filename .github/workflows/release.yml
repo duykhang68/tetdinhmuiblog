@@ -65,8 +65,7 @@ jobs:
           gh release create "$VERSION" editor-web.tar.gz editor-web.tar.gz.sha256 \
             --target "$GITHUB_SHA" \
             --title "$VERSION" \
-            --generate-notes \
-            --verify-tag=false
+            --generate-notes
 
 # IMPORTANT: This workflow packages the Vite frontend. It does not deploy
 # the Node.js backend or expose the application to the internet.
