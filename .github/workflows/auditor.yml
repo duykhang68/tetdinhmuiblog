@@ -1,0 +1,63 @@
+name: Auditor · One-Minute CI Failure Watch
+
+# GitHub cron's shortest interval is five minutes. Each worker performs
+# five checks spaced by 60 seconds; scheduling may drift.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+
+concurrency:
+  group: auditor-ci-incident-watch
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Check current red X marks every 60 seconds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - name: Checkout only trusted main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate auditor and researcher
+        run: |
+          python -m py_compile auditor.py researcher.py
+          python -m unittest discover -s tests -p 'test_auditor.py' -v
+
+      - name: Poll GitHub Actions five times, 60 seconds apart
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python auditor.py --cycles 5 --interval 60
+
+      - name: Publish audit Markdown artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auditor-report-${{ github.run_id }}
+          path: auditor.md
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f auditor.md ]]; then
+            cat auditor.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'ERROR AUDITOR-NO-REPORT: script stopped before report was written' >> "$GITHUB_STEP_SUMMARY"
+          fi
