@@ -35,7 +35,7 @@ jobs:
       - name: Approve PRs and merge only after successful required CI
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.AUTO_MERGE_WORKFLOW_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
             const required = 'Test and build (Node 22)';
