@@ -22,5 +22,5 @@ export function parseArticle(content, name = 'Bài viết') {
     const heading = content.match(/^# (.+)(?:\r?\n|$)/);
     if (heading) { title = heading[1]; content = content.slice(heading[0].length); }
   }
-  return {title, labels, series:frontmatter.series, html: DOMPurify.sanitize(marked.parse(content), {ADD_ATTR: ['class', 'data-kind'], FORBID_TAGS: ['style','iframe','object','embed']})};
+  return {title, labels, html: DOMPurify.sanitize(marked.parse(content), {ADD_ATTR: ['class', 'data-kind'], FORBID_TAGS: ['style','iframe','object','embed']}), series:frontmatter.series};
 }
