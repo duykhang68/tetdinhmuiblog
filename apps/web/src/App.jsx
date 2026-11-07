@@ -23,6 +23,7 @@ import {emptySeries, editableSeries, extractSeriesFromHTML, withSeriesHTML, norm
 import './components/series.css';
 
 const EDITOR_QUICK_LINKS = [
+  {title: 'Voice Studio · Text to WAV', description: 'Tạo giọng thuyết minh từ văn bản bằng Azure, Gemini hoặc Groq và xuất WAV.', href: '/voice-studio/', symbol: '◉', accent: 'expenses'},
   {title: 'TypesettingTools · Subtitle & Karaoke', description: 'Căn timing phụ đề, karaoke và xuất SRT, VTT, ASS, LRC.', href: '/typesetting-tools/', symbol: '♫', accent: 'expenses'},
   {title: 'Wikipedia AI Writer · Việt Hàn Anh', description: 'Viết bài từ Wikipedia bằng Gemini/Groq và đồng bộ từ vựng vào Google Sheets.', href: '/wikipedia-writer/', symbol: '✦', accent: 'expenses'},
   {title: 'Rollback ID Dashboard', description: 'Theo dõi lịch sử deploy và thao tác rollback an toàn từ GitHub.', href: '/rollback-dashboard/', symbol: '↶', accent: 'expenses'},
