@@ -85,7 +85,7 @@ export async function onRequest({request,env}) {
       else if(request.method==='GET'&&pathname==='/api/quality-gate'){await accessToken();out=response(await getQualityGateSnapshot({fetcher:fetch,githubToken:String(env.GITHUB_TOKEN||env.RESEARCH_GITHUB_TOKEN||'').trim(),cloudflare:{accountId:env.CLOUDFLARE_ACCOUNT_ID,projectName:env.CLOUDFLARE_PAGES_PROJECT,token:env.CLOUDFLARE_API_TOKEN}}));}
       else if(request.method==='GET'&&pathname==='/api/research-insights'){await accessToken();out=response(await loadResearchInsights({fetcher:fetch,token:String(env.GITHUB_TOKEN||env.RESEARCH_GITHUB_TOKEN||'').trim(),charge}));}
       else if(request.method==='GET'&&pathname==='/api/blogs'){const r=await googleApi('GET','/users/self/blogs');out=response({blogs:(r.items||[]).map(b=>({id:String(b.id),name:b.name,url:b.url})),defaultBlogId:cfg.blogId||null});}
-      else if(request.method==='GET'&&pathname==='/api/posts'){const blog=checkedBlog(url.searchParams.get('blogId'));const status=url.searchParams.get('status')||'draft';if(!['draft','live'].includes(status))throw failure(400,'status phải là draft hoặc live');const r=await googleApi('GET',`/blogs/${blog}/posts`,{status:status.toUpperCase(),view:'ADMIN',fetchBodies:'false',orderBy:'UPDATED',maxResults:'30',pageToken:(url.searchParams.get('pageToken')||'').slice(0,800)});out=response({posts:(r.items||[]).map(p=>{const x=safePost(p);delete x.content;return x;}),nextPageToken:r.nextPageToken||null});}
+      else if(request.method==='GET'&&pathname==='/api/posts'){const blog=checkedBlog(url.searchParams.get('blogId'));const status=url.searchParams.get('status')||'draft';if(!['draft','live','scheduled'].includes(status))throw failure(400,'status phải là draft, live hoặc scheduled');const r=await googleApi('GET',`/blogs/${blog}/posts`,{status:status.toUpperCase(),view:'ADMIN',fetchBodies:'false',orderBy:'UPDATED',maxResults:'30',pageToken:(url.searchParams.get('pageToken')||'').slice(0,800)});out=response({posts:(r.items||[]).map(p=>{const x=safePost(p);delete x.content;return x;}),nextPageToken:r.nextPageToken||null});}
       else if(request.method==='GET'&&/^\/api\/posts\/\d+$/.test(pathname)){const blog=checkedBlog(url.searchParams.get('blogId'));out=response({post:safePost(await getPost(blog,pathname.split('/').pop()))});}
       else if(request.method==='GET'&&pathname==='/api/series'){
         const blog=checkedBlog(url.searchParams.get('blogId'));
@@ -107,7 +107,32 @@ export async function onRequest({request,env}) {
       }
       else if(request.method==='POST'&&pathname==='/api/drafts'){verifyWrite();const body=await readBody(request),blog=checkedBlog(body.blogId),payload=normalizeInput(body);payload.content=sanitizeContent(payload.content);out=response({post:safePost(await googleApi('POST',`/blogs/${blog}/posts`,{isDraft:'true'},payload))},201);}
       else if(request.method==='PATCH'&&/^\/api\/drafts\/\d+$/.test(pathname)){verifyWrite();const body=await readBody(request),blog=checkedBlog(body.blogId),id=pathname.split('/').pop(),current=await getPost(blog,id);draftOnly(current);if(!body.expectedUpdated||body.expectedUpdated!==current.updated)throw failure(409,'Bản nháp đã thay đổi. Hãy tải lại bài trước khi lưu.');const payload=normalizeInput(body);payload.content=sanitizeContent(payload.content);out=response({post:safePost(await googleApi('PATCH',`/blogs/${blog}/posts/${id}`,{},payload))});}
-      else if(request.method==='POST'&&/^\/api\/publish\/\d+$/.test(pathname)){verifyWrite();const body=await readBody(request),blog=checkedBlog(body.blogId),id=pathname.split('/').pop(),current=await getPost(blog,id);draftOnly(current);if(!body.expectedUpdated||body.expectedUpdated!==current.updated)throw failure(409,'Bản nháp thay đổi trước khi Publish. Hãy tải lại trước.');out=response({post:safePost(await googleApi('POST',`/blogs/${blog}/posts/${id}/publish`))});}
+      else if((request.method==='POST'||request.method==='DELETE')&&/^\/api\/schedule\/\d+$/.test(pathname)){
+         verifyWrite();
+         const input=await readBody(request),blog=checkedBlog(input.blogId),id=pathname.split('/').pop();
+         let publishDate=null;
+         if(request.method==='POST'){
+           publishDate=String(input.publishDate||'');
+           if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/.test(publishDate)||!Number.isFinite(Date.parse(publishDate)))throw failure(400,'Ngày giờ xuất bản phải có định dạng RFC 3339 và múi giờ rõ ràng.');
+           if(Date.parse(publishDate)<=Date.now()+120000)throw failure(400,'Lịch đăng phải cách thời gian hiện tại ít nhất 2 phút.');
+           if(Date.parse(publishDate)>Date.now()+2*365*86400000)throw failure(400,'Chỉ hỗ trợ đặt lịch trong vòng 2 năm.');
+         }
+         const current=await getPost(blog,id),state=String(current.status||'').toLowerCase();
+         if(!['draft','scheduled'].includes(state))throw failure(409,'Chỉ có thể lên lịch với bản nháp hoặc bài đang lên lịch.');
+         if(!input.expectedUpdated||input.expectedUpdated!==current.updated)throw failure(409,'Bài viết đã thay đổi trên Blogger. Tải lại trước khi thay đổi lịch.');
+         if(request.method==='DELETE'){
+           if(state!=='scheduled')throw failure(409,'Bài viết hiện không có lịch đăng.');
+           out=response({post:safePost(await googleApi('POST',`/blogs/${blog}/posts/${id}/revert`))});
+         }else{
+           if(state==='scheduled')await googleApi('POST',`/blogs/${blog}/posts/${id}/revert`);
+           try{
+             const post=await googleApi('POST',`/blogs/${blog}/posts/${id}/publish`,{publishDate});
+             if(String(post.status||'').toLowerCase()!=='scheduled')throw failure(502,'Blogger chưa xác nhận trạng thái Scheduled. Hãy kiểm tra bài trên Blogger.');
+             out=response({post:safePost(post)});
+           }catch(e){if(state==='scheduled')e.message+=' Bài có thể đã về trạng thái nháp. Hãy làm mới danh sách.';throw e;}
+         }
+       }
+       else if(request.method==='POST'&&/^\/api\/publish\/\d+$/.test(pathname)){verifyWrite();const body=await readBody(request),blog=checkedBlog(body.blogId),id=pathname.split('/').pop(),current=await getPost(blog,id);draftOnly(current);if(!body.expectedUpdated||body.expectedUpdated!==current.updated)throw failure(409,'Bản nháp thay đổi trước khi Publish. Hãy tải lại trước.');out=response({post:safePost(await googleApi('POST',`/blogs/${blog}/posts/${id}/publish`))});}
       else throw failure(404,'Không tìm thấy endpoint');
     }
     return withSession(out);
