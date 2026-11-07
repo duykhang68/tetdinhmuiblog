@@ -1,5 +1,6 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {api} from './api.js';
+import {loadPublicQualityGate} from './services/qualityGatePublic.mjs';
 import './quality-gate.css';
 
 const REPO = 'duykhang68/tetdinhmuiblog';
@@ -95,18 +96,6 @@ export default function QualityGateInsights() {
     api('/status').then(s => {if(active)setAuth(s.connected ? 'ok' : 'required');}).catch(e => {if(active){setAuth('required');setProblem(e.message);}});
     return () => {active = false;};
   }, []);
-  const load = useCallback(async () => {
-    if (auth !== 'ok' || document.hidden) return;
-    setBusy(true);
-    try {
-      const result = await api('/quality-gate');
-      setSnapshot(result);
-      setProblem('');
-    } catch (e) {
-      if (e.status === 401) {setAuth('required');setSnapshot(null);}
-      setProblem(e.message || 'Không thể đọc dữ liệu CI.');
-    } finally {setBusy(false);}
-  }, [auth]);
   useEffect(() => {
     if (auth !== 'ok') return;
     let active = true;
@@ -115,9 +104,19 @@ export default function QualityGateInsights() {
       setBusy(true);
       try {
         const result = await api('/quality-gate');
-        if(active){setSnapshot(result);setProblem('');}
+        if (!Array.isArray(result.jobs) || !result.ci) throw new Error('Backend chưa trả đủ dữ liệu GitHub.');
+        if(active){setSnapshot({...result,source:'server'});setProblem('');}
       } catch(e) {
-        if(active){if(e.status === 401){setAuth('required');setSnapshot(null);}setProblem(e.message || 'Không thể đọc dữ liệu CI.');}
+        if (!active) return;
+        if (e.status === 401 || e.status === 403) {setAuth('required');setSnapshot(null);setProblem('Phiên đăng nhập Google không còn hợp lệ.');return;}
+        // GitHub API can rate-limit Cloudflare's shared outbound IP. A session-gated
+        // browser call uses the viewer's public-IP quota, without exposing tokens.
+        try {
+          const result = await loadPublicQualityGate();
+          if(active){setSnapshot(result);setProblem(result.stale?'Đang hiển thị bản GitHub đã lưu gần nhất; lần đồng bộ mới thất bại.':'');}
+        } catch(publicError) {
+          if(active)setProblem('Backend: '+(e.message || 'HTTP error')+' · GitHub dự phòng: '+(publicError.message || 'Không kết nối được.'));
+        }
       } finally {if(active)setBusy(false);}
     };
     fetchSnapshot();
@@ -153,8 +152,9 @@ export default function QualityGateInsights() {
     <main className="qg-main">
       <header className="qg-topbar"><div className="qg-breadcrumb">Workspace <Icon name="chevron" size={13}/> Engineering <Icon name="chevron" size={13}/> <strong>Quality Gate</strong></div><div className="qg-topbar-actions"><span className="qg-secure"><Icon name="lock" size={14}/> GOOGLE OAUTH</span><button className="qg-icon-button" onClick={refresh} disabled={busy} title="Refresh GitHub Actions" aria-label="Làm mới dữ liệu"><Icon name="refresh" size={18}/></button></div></header>
       <div className="qg-content" id="overview">
-        <div className="qg-hero"><div><div className="qg-eyebrow"><span className="qg-live-spark"/> LIVE ENGINEERING OVERVIEW <span className="qg-hero-separator">/</span> MAIN BRANCH</div><h1>CI / Quality Gate <span>Insights.</span></h1><p>Giám sát sức khỏe pipeline, kiểm định chất lượng và tín hiệu triển khai từ dữ liệu thực.</p><div className="qg-hero-meta"><span><Icon name="git" size={15}/> {REPO}</span><span className="qg-meta-separator">•</span><span>{snapshot?'Dữ liệu lúc ' + fmtDate(snapshot.fetchedAt):'Đang tải dữ liệu…'}</span></div></div><div className="qg-hero-side"><div className="qg-hero-ring"><Icon name="shield" size={32}/></div><span>QUALITY OPERATIONS</span><strong>{snapshot ? (problem ? 'DEGRADED' : 'MONITORING') : 'CONNECTING'}</strong></div></div>
+        <div className="qg-hero"><div><div className="qg-eyebrow"><span className="qg-live-spark"/> LIVE ENGINEERING OVERVIEW <span className="qg-hero-separator">/</span> MAIN BRANCH</div><h1>CI / Quality Gate <span>Insights.</span></h1><p>Giám sát sức khỏe pipeline, kiểm định chất lượng và tín hiệu triển khai từ dữ liệu thực.</p><div className="qg-hero-meta"><span><Icon name="git" size={15}/> {REPO}</span><span className="qg-meta-separator">•</span><span>{snapshot?'Dữ liệu lúc ' + fmtDate(snapshot.fetchedAt):'Đang tải dữ liệu…'}</span></div></div><div className="qg-hero-side"><div className="qg-hero-ring"><Icon name="shield" size={32}/></div><span>QUALITY OPERATIONS</span><strong>{snapshot ? (problem ? 'DEGRADED' : snapshot.source==='github-browser'?'FALLBACK':'MONITORING') : 'CONNECTING'}</strong></div></div>
         {problem && <div className="qg-error" role="alert"><Icon name="warning" size={17}/>{problem}{snapshot && ' · Dữ liệu đang hiển thị là bản đồng bộ gần nhất.'}</div>}
+        {snapshot?.source==='github-browser' && <div className="qg-source-notice" role="status"><Icon name="pulse" size={17}/> GitHub Actions đang được lấy trực tiếp qua API công khai dự phòng. Đồng bộ tối đa mỗi 5 phút để tránh rate limit; bảng có cả job chi tiết và workflow run summary. Không cần token trong trình duyệt.</div>}
         <section className="qg-metrics" aria-label="Quality Gate KPIs">
           <KPI icon="pulse" label="CI SUCCESS RATE" value={ci ? fmtNumber(ci.successRate,'%') : '—'} hint={ci ? fmtNumber(ci.passed) + ' passed / ' + fmtNumber(ci.failed) + ' failed' : 'Đang đồng bộ GitHub Actions'} tone="mint" detail={ci ? 'Trên ' + ci.total + ' lượt CI gần nhất; loại trừ pending, skipped, cancelled.' : ''}/>
           <KPI icon="code" label="CODE COVERAGE" value={fmtNumber(snapshot?.coverage?.linePercent,'%')} hint={snapshot?.coverage?.measuredAt ? 'Report ' + fmtDate(snapshot.coverage.measuredAt) : 'Chưa có báo cáo coverage được xác thực'} tone="blue"/>
@@ -165,9 +165,9 @@ export default function QualityGateInsights() {
           <div className="qg-panel qg-trend-panel"><div className="qg-panel-header"><div><div className="qg-section-kicker">HISTORICAL PERFORMANCE</div><h2>CI pipeline health</h2><p>Xu hướng kết quả CI trong 14 ngày gần nhất · UTC</p></div><div className="qg-legend"><span><i className="qg-legend-pass"/> Passed</span><span><i className="qg-legend-fail"/> Failed</span></div></div><TrendChart history={snapshot?.history || []}/></div>
           <div className="qg-panel qg-composition"><div className="qg-panel-header"><div><div className="qg-section-kicker">EXECUTION BREAKDOWN</div><h2>Build outcomes</h2><p>{ci ? ci.total + ' CI runs sampled' : 'Đang tải'}</p></div><Icon name="pulse" size={19}/></div><div className="qg-breakdown-main"><strong>{fmtNumber(ci?.total)}</strong><span>Total CI runs</span></div><div className="qg-stacked">{['passed','failed','running','other'].map((k) => {const count=k==='other'?ci?.excluded:ci?.[k];return <div key={k} className={'qg-stack-'+k} style={{width: ci?.total? (100*count/ci.total)+'%':'0%'}} title={k+': '+(count??'—')}/>;})}</div><div className="qg-breakdown-list">{[['Passed','passed',ci?.passed],['Failed','failed',ci?.failed],['Running','running',ci?.running],['Other / excluded','other',ci?.excluded]].map(([label,key,value])=><div key={key}><span><i className={'qg-small-dot qg-dot-'+key}/>{label}</span><strong>{fmtNumber(value)}</strong></div>)}</div><div className="qg-data-note">Success rate = passed / (passed + failed). Chưa hoàn tất và các kết luận khác không được tính vào mẫu số.</div></div>
         </section>
-        <section className="qg-panel qg-pipelines" id="pipelines"><div className="qg-panel-header"><div><div className="qg-section-kicker">REAL-TIME STATUS / JOB EXECUTIONS</div><h2>Recent pipeline jobs <span className="qg-count">{snapshot?.jobs?.length ?? '—'}</span></h2><p>Dữ liệu GitHub Actions · tự kiểm tra mỗi 90 giây, không phải luồng log trực tiếp</p></div><span className="qg-sync-indicator"><span className={'qg-pulse '+(problem?'qg-pulse-error':'')}/>{problem?'Sync error':busy?'Syncing…':snapshot?'API connected':'Connecting…'}</span></div>
+        <section className="qg-panel qg-pipelines" id="pipelines"><div className="qg-panel-header"><div><div className="qg-section-kicker">REAL-TIME STATUS / JOB EXECUTIONS</div><h2>{snapshot?.source==='github-browser'?'Recent workflows & jobs':'Recent pipeline jobs'} <span className="qg-count">{snapshot?.jobs?.length ?? '—'}</span></h2><p>{snapshot?.source==='github-browser'?'Nguồn: GitHub API công khai · làm mới tối đa mỗi 5 phút':'Nguồn: GitHub Actions · kiểm tra mỗi 90 giây, không phải luồng log trực tiếp'}</p></div><span className="qg-sync-indicator"><span className={'qg-pulse '+(problem?'qg-pulse-error':'')}/>{problem?'Sync error':busy?'Syncing…':snapshot?.source==='github-browser'?'GitHub direct':snapshot?'API connected':'Connecting…'}</span></div>
           <div className="qg-filters"><div className="qg-filter-tabs" aria-label="Filter job status">{[['all','All'],['passed','Passed'],['failed','Failed'],['running','Running']].map(([value,label])=><button key={value} type="button" className={filter===value?'selected':''} onClick={()=>updateFilter(value)} aria-pressed={filter===value}>{label}</button>)}</div><div className="qg-filter-controls"><label className="qg-search"><Icon name="search" size={17}/><input type="search" value={query} onChange={e=>{setQuery(e.target.value);setPage(1);}} placeholder="Search job, SHA, branch…" aria-label="Search pipeline jobs"/></label><select aria-label="Filter workflows" value={workflow} onChange={e=>{setWorkflow(e.target.value);setPage(1);}}><option value="all">All workflows</option>{choices.map(name=><option key={name} value={name}>{name}</option>)}</select></div></div>
-          <div className="qg-table-scroll"><table className="qg-table"><thead><tr><th>JOB / WORKFLOW</th><th>COMMIT</th><th>BRANCH</th><th>STARTED</th><th>STATUS</th><th>LOGS</th></tr></thead><tbody>{visibleJobs.map(j=><tr key={j.runId+'-'+j.id}><td><strong>{j.name}</strong><small>{j.workflow} · {j.event}</small></td><td><code>{j.sha}</code></td><td><span className="qg-branch">{j.branch||'—'}</span></td><td>{fmtDate(j.startedAt)}</td><td><Status value={j.status}/></td><td><a className="qg-log-link" href={j.url} target="_blank" rel="noopener noreferrer" aria-label={'Mở GitHub job log: '+j.name}>View logs <Icon name="arrow" size={14}/></a></td></tr>)}{!visibleJobs.length && <tr><td colSpan={6} className="qg-empty">{busy&&!snapshot?'Đang đọc GitHub Actions…':'Không có job nào phù hợp với bộ lọc.'}</td></tr>}</tbody></table></div>
+          <div className="qg-table-scroll"><table className="qg-table"><thead><tr><th>JOB / WORKFLOW</th><th>COMMIT</th><th>BRANCH</th><th>STARTED</th><th>STATUS</th><th>LOGS</th></tr></thead><tbody>{visibleJobs.map(j=><tr key={j.runId+'-'+j.id}><td><strong>{j.name}</strong><small>{j.workflow} · {j.event}</small></td><td><code>{j.sha}</code></td><td><span className="qg-branch">{j.branch||'—'}</span></td><td>{fmtDate(j.startedAt)}</td><td><Status value={j.status}/></td><td><a className="qg-log-link" href={j.url} target="_blank" rel="noopener noreferrer" aria-label={'Mở GitHub job log: '+j.name}>View logs <Icon name="arrow" size={14}/></a></td></tr>)}{!visibleJobs.length && <tr><td colSpan={6} className="qg-empty">{busy&&!snapshot?'Đang đọc GitHub Actions…':problem&&!snapshot?'Không thể đồng bộ GitHub. Xem lỗi và thử Làm mới.':'Không có job nào phù hợp với bộ lọc.'}</td></tr>}</tbody></table></div>
           <div className="qg-table-footer"><span>Showing {visibleJobs.length} / {filteredJobs.length} matched jobs · latest {snapshot?.sample?.recentWorkflowRuns ?? '—'} workflow runs</span><div><button disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Previous</button><span>{Math.min(page,totalPages)} / {totalPages}</span><button disabled={page>=totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))}>Next</button></div></div>
         </section>
         <section className="qg-security-grid" id="security"><div className="qg-panel"><div className="qg-panel-header"><div><div className="qg-section-kicker">SECURITY POSTURE</div><h2>Vulnerability severity</h2></div><Icon name="shield" size={20}/></div><div className="qg-severity">{[['CRITICAL','critical'],['MAJOR','major'],['MINOR','minor']].map(([label,key])=><div key={key}><span className={'qg-severity-icon qg-severity-'+key}/><span>{label}</span><strong>{fmtNumber(security?.[key])}</strong></div>)}</div><p className="qg-data-note">Giá trị “—” là chưa được cung cấp qua báo cáo bảo mật, không có nghĩa là 0 lỗ hổng.</p></div><div className="qg-panel"><div className="qg-panel-header"><div><div className="qg-section-kicker">MAINTAINABILITY</div><h2>Code smells & data integrity</h2></div><Icon name="code" size={20}/></div><div className="qg-maintain"><strong>{fmtNumber(security?.codeSmells)}</strong><span>Verified code smells</span></div><p>Để hiển thị coverage, severity và code smells, xuất báo cáo JSON có timestamp từ hệ thống phân tích chất lượng mã nguồn.</p><a href={'https://github.com/'+REPO+'/blob/main/docs/QUALITY-GATE-INSIGHTS.md'} target="_blank" rel="noopener noreferrer">View data contract <Icon name="arrow" size={14}/></a></div></section>
