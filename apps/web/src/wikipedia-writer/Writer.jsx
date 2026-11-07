@@ -136,7 +136,7 @@ export default function Writer(){
   // Never overwrite a previous session. Each manual sync is an independent, recoverable version.
   const metadata={name:backupFilename(current.title),mimeType:'application/json',parents:['appDataFolder']};
   const boundary='wikiwriter'+Date.now();
-  const body='--'+boundary+'\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n'+JSON.stringify(metadata)+'\\r\\n--'+boundary+'\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n'+value+'\\r\\n--'+boundary+'--';
+  const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+value+'\r\n--'+boundary+'--';
   const result=await googleRequest('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,createdTime,modifiedTime',token,{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body});
   setDriveFile(result);setLastSync(new Date().toLocaleString('vi-VN'));setDirty(false);
   setDriveBackups(old=>[result,...old.filter(f=>f.id!==result.id)]);
