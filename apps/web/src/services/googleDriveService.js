@@ -373,10 +373,90 @@ export function createDriveService({fetcher = (...args) => fetch(...args), oauth
       revision:Number(file.version||1),updatedAt:file.createdTime||file.modifiedTime||new Date(now()).toISOString(),
       data:stored.data,fileName:file.name};
   }
+  // Payroll backups are AES-GCM ciphertext ONLY. No plaintext salary data, PDF
+  // bytes, file name or employee data appear in Drive metadata.
+  const PAYROLL_TAG='dn_payroll';
+  const PAYROLL_VALUE='encrypted_snapshot_v1';
+  const PAYROLL_FIELDS='id,name,mimeType,createdTime,modifiedTime,version,appProperties';
+  async function listPayrollSnapshots(){
+    let cursor='',files=[],pages=0;
+    do{
+      const params=new URLSearchParams({
+        q:"trashed = false and appProperties has { key = 'dn_payroll' and value = 'encrypted_snapshot_v1' }",
+        fields:'nextPageToken,files('+PAYROLL_FIELDS+')',orderBy:'createdTime desc',pageSize:'100'
+      });
+      if(cursor)params.set('pageToken',cursor);
+      const response=await (await request(API+'?'+params)).json();
+      files.push(...(response.files||[]).filter(file=>file.appProperties?.[PAYROLL_TAG]===PAYROLL_VALUE));
+      cursor=response.nextPageToken||'';
+      if(++pages>100)throw new Error('Quá nhiều bản sao Payroll trên Drive.');
+    }while(cursor);
+    return files.sort((a,b)=>String(b.createdTime||b.modifiedTime||'').localeCompare(String(a.createdTime||a.modifiedTime||''))||String(b.id).localeCompare(String(a.id)));
+  }
+  async function readPayrollEncryptedSnapshot(file){
+    if(!file?.id)throw new Error('Snapshot Payroll thiếu ID.');
+    const response=await request(API+'/'+encodeURIComponent(file.id)+'?alt=media');
+    let data;
+    try{data=JSON.parse(await response.text());}
+    catch{throw new Error('Backup Payroll trên Drive không phải JSON hợp lệ.');}
+    if(data?.kind!=='duynguyen-payroll-encrypted-v1'||typeof data.ciphertext!=='string'||
+      typeof data.salt!=='string'||typeof data.iv!=='string'){
+      throw new Error('Backup Payroll không đúng định dạng mã hóa; không phục hồi dữ liệu lạ.');
+    }
+    return {data,file,baseId:String(data.baseId||'')};
+  }
+  async function readPayrollState(){
+    const ownerId=await driveIdentity();
+    const files=await listPayrollSnapshots();
+    if(!files.length)return {ownerId,exists:false,snapshotId:'',updatedAt:null,data:null};
+    const current=files[0],loaded=await readPayrollEncryptedSnapshot(current);
+    return {ownerId,exists:true,snapshotId:String(current.id),
+      updatedAt:current.createdTime||current.modifiedTime||null,data:loaded.data,
+      baseId:loaded.baseId,revision:Number(current.version||1)};
+  }
+  async function savePayrollEncryptedSnapshot(encrypted,expectedFileId=''){
+    if(encrypted?.kind!=='duynguyen-payroll-encrypted-v1'||typeof encrypted.ciphertext!=='string'||
+      typeof encrypted.salt!=='string'||typeof encrypted.iv!=='string')
+      throw new Error('Chỉ được upload snapshot Payroll đã mã hóa.');
+    const checked=await listPayrollSnapshots();
+    if(String(checked[0]?.id||'')!==String(expectedFileId||'')){
+      const error=new Error('Có bản sao Payroll mới trên Drive. Chưa đồng bộ để tránh ghi đè xung đột.');
+      error.status=409;error.code='PAYROLL_CONFLICT';throw error;
+    }
+    const record={...encrypted,baseId:expectedFileId||''};
+    const json=JSON.stringify(record);
+    if(new Blob([json]).size>4*1024*1024)
+      throw new Error('Bản sao Payroll đã mã hóa quá 4 MB; giảm số dòng trước khi đồng bộ.');
+    const uuid=crypto.randomUUID();
+    const name='DuyNguyen-Payroll-Encrypted-'+new Date(now()).toISOString().replace(/[:.]/g,'-')+'-'+uuid.slice(0,8)+'.json';
+    const metadata={name,mimeType:'application/json',
+      description:'Encrypted Payroll & C&B backup · only owner passphrase can decrypt',
+      appProperties:{[PAYROLL_TAG]:PAYROLL_VALUE,base_id:String(expectedFileId||'root')}};
+    const boundary='dn_payroll_'+uuid.replace(/-/g,'');
+    const body=new Blob([
+      '--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n',
+      JSON.stringify(metadata),
+      '\r\n--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n',
+      json,'\r\n--'+boundary+'--\r\n'
+    ]);
+    const result=await request('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields='+encodeURIComponent(PAYROLL_FIELDS),{
+      method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body
+    });
+    const file=await result.json();
+    if(!file?.id)throw new Error('Không có ID bản sao Payroll trên Drive.');
+    const readback=await readPayrollEncryptedSnapshot(file);
+    if(JSON.stringify(readback.data)!==JSON.stringify(record))
+      throw new Error('Nội dung backup Payroll đọc lại khác bản đã upload.');
+    return {ownerId:await driveIdentity(),exists:true,snapshotId:String(file.id),
+      updatedAt:file.createdTime||file.modifiedTime||new Date(now()).toISOString(),
+      data:readback.data};
+  }
+
   return {login, disconnect, connected, listBlogPosts, readMarkdown, saveMarkdownToDrive,
     driveIdentity,listExpenseSnapshots,readExpenseSnapshot,readExpenseState,saveExpenseSnapshot,
     listStarbucksSnapshots,readStarbucksSnapshot,readStarbucksState,saveStarbucksSnapshot,
-    listHighlandsSnapshots,readHighlandsSnapshot,readHighlandsState,saveHighlandsSnapshot};
+    listHighlandsSnapshots,readHighlandsSnapshot,readHighlandsState,saveHighlandsSnapshot,
+    listPayrollSnapshots,readPayrollEncryptedSnapshot,readPayrollState,savePayrollEncryptedSnapshot};
 
 }
 export const googleDrive = createDriveService();
