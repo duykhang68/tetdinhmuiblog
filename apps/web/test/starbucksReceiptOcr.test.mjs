@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { parseStarbucksReceipt } from '../src/starbucks-insights/receiptOcr.js';
+import { cleanReceiptName, parseStarbucksReceipt } from '../src/starbucks-insights/receiptOcr.js';
 
 const sora = [
   'STARBUCKS REWARDS',
@@ -42,6 +42,36 @@ test('Starbucks Rewards screenshot fills transaction without double-counting ext
   assert.equal(result.fields.cups, '1'); // Personal Cup không phải đồ uống thứ hai.
   assert.equal(result.fields.payment, 'pos');
   assert.equal(result.warnings.length, 0);
+});
+
+test('OCR removes icon artifacts around store and item names from the uploaded Starbucks screenshot', () => {
+  const noisyText = sora
+    .replace('Sora Mall', 'Sora Mall %')
+    .replace('Pure Matcha Latte ₫80,000', '-_ Pure Matcha Latte ₫80,000');
+  const result = parseStarbucksReceipt(noisyText);
+  assert.equal(result.fields.store, 'Sora Mall');
+  assert.equal(result.fields.item, 'Pure Matcha Latte');
+  assert.equal(result.fields.baseAmount, '80000');
+  assert.equal(result.fields.extraAmount, '5000');
+  assert.equal(result.fields.discountAmount, '10000');
+  assert.equal(result.fields.amount, '75000');
+  assert.equal(result.fields.orderId, 'O200147006');
+  assert.equal(result.warnings.length, 0);
+});
+
+test('OCR name cleanup preserves legitimate internal punctuation, sizes and percentages', () => {
+  assert.equal(cleanReceiptName('Sora Mall %'), 'Sora Mall');
+  assert.equal(cleanReceiptName('Sora Mall%'), 'Sora Mall');
+  assert.equal(cleanReceiptName('  › -_ Pure Matcha Latte -_  '), 'Pure Matcha Latte');
+  assert.equal(cleanReceiptName('Cold Brew - Vanilla'), 'Cold Brew - Vanilla');
+  assert.equal(cleanReceiptName('Caffè Latte (L)'), 'Caffè Latte (L)');
+  assert.equal(cleanReceiptName('Original 100%'), 'Original 100%');
+  assert.equal(cleanReceiptName('Starbucks Reserve'), 'Starbucks Reserve');
+  const text = sora.replace('Sora Mall', '› Sora Mall% >')
+    .replace('Pure Matcha Latte ₫80,000', '• Pure Matcha Latte -_ ₫80,000');
+  const receipt = parseStarbucksReceipt(text);
+  assert.equal(receipt.fields.store, 'Sora Mall');
+  assert.equal(receipt.fields.item, 'Pure Matcha Latte');
 });
 
 test('OCR supports accentless labels, price on next line, and unknown discount reason', () => {
