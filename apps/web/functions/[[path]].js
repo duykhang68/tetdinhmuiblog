@@ -5,13 +5,14 @@ import { loadResearchInsights } from '../src/services/researchInsights.mjs';
 import { loadGa4Traffic } from '../src/services/ga4Traffic.mjs';
 import { makeOutboundBudget, googleQuotaError } from '../src/services/freeQuotaPolicy.mjs';
 import { getQualityGateSnapshot } from '../src/services/qualityGateData.mjs';
+import {loadExpenseCloud,writeExpenseCloud} from '../src/expenses/cloudStore.mjs';
 
 const SCOPE = 'https://www.googleapis.com/auth/blogger';
 const BLOGGER_BASE = 'https://www.googleapis.com/blogger/v3';
 const SESSION_SECONDS = 7 * 24 * 60 * 60;
 const TE = new TextEncoder();
 const TD = new TextDecoder();
-const allowedMethods = ['GET','POST','PATCH'];
+const allowedMethods = ['GET','POST','PATCH','PUT'];
 function failure(status, message) { return Object.assign(new Error(message), { status }); }
 function base64url(bytes) {
   let str=''; for (const n of new Uint8Array(bytes)) str += String.fromCharCode(n);
@@ -44,6 +45,14 @@ function seriesFromContent(html) {
 }
 function normalizeInput(b) {const title=String(b?.title||'').trim(),content=String(b?.content||'');if(!title||title.length>200)throw failure(400,'Tiêu đề phải có 1–200 ký tự');if(content.length>250000)throw failure(400,'Bài viết vượt quá 250.000 ký tự HTML');if(!Array.isArray(b?.labels))throw failure(400,'labels phải là một danh sách');const labels=[...new Set(b.labels.map(x=>String(x).trim()).filter(Boolean))];if(labels.length>20||labels.some(x=>x.length>80))throw failure(400,'Nhãn tối đa 20 mục, mỗi nhãn 80 ký tự');return {title,content,labels};}
 function sanitizeContent(html) {return sanitizeHtml(html,{allowedTags:[...new Set([...sanitizeHtml.defaults.allowedTags,'img','h1','h2','figure','figcaption','aside','details','summary','hr','s','u','table','thead','tbody','tr','th','td'])],allowedAttributes:{a:['href','title','target','rel'],img:['src','alt','title','width','height','loading'],'*':['class'],td:['colspan','rowspan'],th:['colspan','rowspan','scope'],aside:['data-kind','data-series','hidden'],details:['open']},allowedSchemes:['http','https','mailto'],allowedSchemesByTag:{img:['http','https']},allowProtocolRelative:false,disallowedTagsMode:'discard',transformTags:{a:sanitizeHtml.simpleTransform('a',{rel:'noopener noreferrer'},true)}});}
+async function readExpenseBody(req) {
+  const limit=1_700_000;
+  const declared=Number(req.headers.get('content-length')||0);
+  if(declared>limit)throw failure(413,'Gói đồng bộ quá lớn (tối đa 1,7 MB).');
+  const raw=await req.text();
+  if(TE.encode(raw).length>limit)throw failure(413,'Gói đồng bộ quá lớn (tối đa 1,7 MB).');
+  try{return JSON.parse(raw);}catch{throw failure(400,'JSON đồng bộ không hợp lệ');}
+}
 async function readBody(req) {const n=Number(req.headers.get('content-length')||0);if(n>300000)throw failure(413,'Yêu cầu quá lớn');const text=await req.text();if(TE.encode(text).length>300000)throw failure(413,'Yêu cầu quá lớn');try{return text?JSON.parse(text):{};}catch{throw failure(400,'Dữ liệu JSON không hợp lệ');}}
 async function tokenRequest(cfg,form,charge) {charge();const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(form),signal:AbortSignal.timeout(15000)});const data=await r.json().catch(()=>({}));const quota=googleQuotaError(r.status,data);if(quota)throw quota;if(!r.ok)throw failure(401,'Google từ chối token: '+String(data.error||'Không xác định').slice(0,150));return data;}
 function configuration(env) {const get=k=>String(env[k]||'').trim();const c={clientId:get('GOOGLE_CLIENT_ID'),clientSecret:get('GOOGLE_CLIENT_SECRET'),redirect:get('GOOGLE_REDIRECT_URI'),frontend:get('FRONTEND_ORIGIN'),secret:get('APP_SECRET'),blogId:get('BLOGGER_BLOG_ID')};if(!c.clientId||!c.clientSecret||!c.redirect||!c.frontend||!c.secret||c.secret.length<48)throw failure(503,'Thiếu cấu hình Google OAuth/APP_SECRET trên Cloudflare');if(!c.redirect.startsWith(c.frontend+'/auth/google/callback'))throw failure(503,'OAuth callback phải thuộc frontend origin');return c;}
@@ -64,17 +73,35 @@ export async function onRequest({request,env}) {
     function verifyWrite(){if(request.headers.get('Origin')!==cfg.frontend)throw failure(403,'Nguồn yêu cầu không được phép');if(!equals(request.headers.get('x-csrf-token'),s.csrf))throw failure(403,'Thiếu hoặc sai CSRF token; hãy tải lại trang');}
     async function accessToken(){if(s.token?.access&&s.token.expires>Date.now()+60000)return s.token.access;if(!s.token?.refresh)throw failure(401,'Phiên đăng nhập hết hạn. Kết nối Google lại.');const v=await tokenRequest(cfg,{client_id:cfg.clientId,client_secret:cfg.clientSecret,refresh_token:s.token.refresh,grant_type:'refresh_token'},charge);s.token.access=v.access_token;s.token.expires=Date.now()+(v.expires_in||3600)*1000;return s.token.access;}
     async function googleApi(method,route,query={},body){const u=new URL(BLOGGER_BASE+route);for(const [k,v] of Object.entries(query))if(v!==undefined&&v!=='')u.searchParams.set(k,v);const call=async token=>{charge();return fetch(u,{method,headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)});};let r=await call(await accessToken());if(r.status===401&&s.token.refresh){s.token.expires=0;r=await call(await accessToken());}const data=await r.json().catch(()=>({}));const quota=googleQuotaError(r.status,data);if(quota)throw quota;if(!r.ok){const msg=String(data?.error?.message||r.statusText||'Google API error').slice(0,350);throw failure([401,403,404].includes(r.status)?r.status:502,`Blogger API: ${msg} (${method} ${route}, HTTP ${r.status})`);}return data;}
+    async function expenseOwnerId(){
+      if(s.expenseOwnerId)return s.expenseOwnerId;
+      const user=await googleApi('GET','/users/self');
+      if(!/^\d{1,30}$/.test(String(user?.id||'')))throw failure(502,'Không nhận được ID tài khoản Blogger hợp lệ.');
+      s.expenseOwnerId=String(user.id);
+      return s.expenseOwnerId;
+    }
     function checkedBlog(id){id=numericId(id);if(cfg.blogId&&id!==cfg.blogId)throw failure(403,'Blog ID không khớp BLOGGER_BLOG_ID');return id;}
     async function getPost(blog,id){return googleApi('GET',`/blogs/${blog}/posts/${numericId(id)}`,{view:'ADMIN'});}
     function draftOnly(post){if(String(post.status||'').toLowerCase()!=='draft')throw failure(409,'Bài viết đã xuất bản hoặc không phải bản nháp. Không ghi đè bài đang công khai.');}
     let out;
     if(request.method==='GET'&&pathname==='/api/status') {if(!s)s=fresh();out=response({connected:!!s.token,csrf:s.csrf,defaultBlogId:cfg.blogId||null});}
-    else if(request.method==='GET'&&pathname==='/auth/google/start') {if(!s)s=fresh();const state=randomToken(),verifier=randomToken(48);const analyticsRequested=url.searchParams.get('return_to')==='research-insights'&&url.searchParams.get('analytics')==='1';s.flow={state,verifier,expires:Date.now()+600000,analyticsRequested,returnTo:url.searchParams.get('return_to')==='/quality-gate'?'/quality-gate':url.searchParams.get('return_to')==='research-insights'?'/research-insights.html':'/'};const digest=await crypto.subtle.digest('SHA-256',TE.encode(verifier));const auth=new URL('https://accounts.google.com/o/oauth2/v2/auth');for(const [k,v] of Object.entries({client_id:cfg.clientId,redirect_uri:cfg.redirect,response_type:'code',scope:analyticsRequested?SCOPE+' https://www.googleapis.com/auth/analytics.readonly':SCOPE,access_type:'offline',prompt:'consent',state,code_challenge:base64url(digest),code_challenge_method:'S256'}))auth.searchParams.set(k,v);out=redirect(auth.toString());}
-    else if(request.method==='GET'&&pathname==='/auth/google/callback') {if(!s?.flow||s.flow.expires<Date.now()||!equals(s.flow.state,url.searchParams.get('state')))throw failure(400,'OAuth state không khớp hoặc đã hết hạn. Hãy kết nối lại.');const verifier=s.flow.verifier,analyticsRequested=!!s.flow.analyticsRequested,returnTo=['/quality-gate','/research-insights.html'].includes(s.flow.returnTo)?s.flow.returnTo:'/';s.flow=null;if(url.searchParams.has('error'))throw failure(400,'Google từ chối truy cập');const code=url.searchParams.get('code');if(!code)throw failure(400,'Google không trả authorization code');const result=await tokenRequest(cfg,{client_id:cfg.clientId,client_secret:cfg.clientSecret,code,code_verifier:verifier,redirect_uri:cfg.redirect,grant_type:'authorization_code'},charge);const refresh=result.refresh_token||s.token?.refresh;if(!refresh)throw failure(401,'Chưa có refresh token. Hãy thu hồi quyền app trong Google Account rồi kết nối lại.');s=fresh();s.token={access:result.access_token,refresh,expires:Date.now()+(result.expires_in||3600)*1000,analytics:analyticsRequested&&(!result.scope||result.scope.split(/\s+/).includes('https://www.googleapis.com/auth/analytics.readonly'))};out=redirect(cfg.frontend+returnTo+'?connected=1');}
+    else if(request.method==='GET'&&pathname==='/auth/google/start') {if(!s)s=fresh();const state=randomToken(),verifier=randomToken(48);const analyticsRequested=url.searchParams.get('return_to')==='research-insights'&&url.searchParams.get('analytics')==='1';s.flow={state,verifier,expires:Date.now()+600000,analyticsRequested,returnTo:url.searchParams.get('return_to')==='expenses'?'/expenses/':url.searchParams.get('return_to')==='/quality-gate'?'/quality-gate':url.searchParams.get('return_to')==='research-insights'?'/research-insights.html':'/'};const digest=await crypto.subtle.digest('SHA-256',TE.encode(verifier));const auth=new URL('https://accounts.google.com/o/oauth2/v2/auth');for(const [k,v] of Object.entries({client_id:cfg.clientId,redirect_uri:cfg.redirect,response_type:'code',scope:analyticsRequested?SCOPE+' https://www.googleapis.com/auth/analytics.readonly':SCOPE,access_type:'offline',prompt:'consent',state,code_challenge:base64url(digest),code_challenge_method:'S256'}))auth.searchParams.set(k,v);out=redirect(auth.toString());}
+    else if(request.method==='GET'&&pathname==='/auth/google/callback') {if(!s?.flow||s.flow.expires<Date.now()||!equals(s.flow.state,url.searchParams.get('state')))throw failure(400,'OAuth state không khớp hoặc đã hết hạn. Hãy kết nối lại.');const verifier=s.flow.verifier,analyticsRequested=!!s.flow.analyticsRequested,returnTo=['/quality-gate','/research-insights.html','/expenses/'].includes(s.flow.returnTo)?s.flow.returnTo:'/';s.flow=null;if(url.searchParams.has('error'))throw failure(400,'Google từ chối truy cập');const code=url.searchParams.get('code');if(!code)throw failure(400,'Google không trả authorization code');const result=await tokenRequest(cfg,{client_id:cfg.clientId,client_secret:cfg.clientSecret,code,code_verifier:verifier,redirect_uri:cfg.redirect,grant_type:'authorization_code'},charge);const refresh=result.refresh_token||s.token?.refresh;if(!refresh)throw failure(401,'Chưa có refresh token. Hãy thu hồi quyền app trong Google Account rồi kết nối lại.');s=fresh();s.token={access:result.access_token,refresh,expires:Date.now()+(result.expires_in||3600)*1000,analytics:analyticsRequested&&(!result.scope||result.scope.split(/\s+/).includes('https://www.googleapis.com/auth/analytics.readonly'))};out=redirect(cfg.frontend+returnTo+'?connected=1');}
     else if(request.method==='POST'&&pathname==='/api/logout') {mustAuth();verifyWrite();return response({ok:true},200,{'Set-Cookie':clearCookie()});}
     else {
       mustAuth();
-      if(request.method==='GET'&&pathname==='/api/ga4-traffic'){
+      if(request.method==='GET'&&pathname==='/api/expenses-state'){
+        const owner=await expenseOwnerId();
+        const snapshot=await loadExpenseCloud({db:env.EXPENSES_DB,ownerId:owner});
+        out=response({...snapshot,ownerId:owner});
+      }
+      else if(request.method==='PUT'&&pathname==='/api/expenses-state'){
+        verifyWrite();
+        const owner=await expenseOwnerId();
+        const incoming=await readExpenseBody(request);
+        out=response(await writeExpenseCloud({db:env.EXPENSES_DB,ownerId:owner,expectedRevision:incoming?.expectedRevision,data:incoming?.data}));
+      }
+      else if(request.method==='GET'&&pathname==='/api/ga4-traffic'){
         if(!s.token.analytics)out=response({status:'needs_consent'});
         else {
           const ga4=await loadGa4Traffic({fetcher:fetch,token:await accessToken(),propertyId:String(env.GA4_PROPERTY_ID||s.ga4PropertyId||'563038949'),charge});

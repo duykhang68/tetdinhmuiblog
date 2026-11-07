@@ -1,0 +1,43 @@
+/* Cloudflare sync controls fit the existing Reddit OrangeRed light design. */
+.ex-cloud-note{min-height:35px}
+.ex-cloud-note.ex-cloud-synced,.ex-cloud-note.ex-cloud-ready{background:#e9f6ed;color:#0a7446}
+.ex-cloud-note.ex-cloud-pending,.ex-cloud-note.ex-cloud-conflict{background:#fff1de;color:#995f12}
+.ex-cloud-note.ex-cloud-unconfigured,.ex-cloud-note.ex-cloud-auth,
+.ex-cloud-note.ex-cloud-error{background:#fff0e8;color:#bb4215}
+.ex-cloud-note.ex-cloud-syncing,.ex-cloud-note.ex-cloud-checking{background:#f1f2f4;color:#56616a}
+.ex-cloud-note.ex-cloud-pending .ex-live-dot,.ex-cloud-note.ex-cloud-conflict .ex-live-dot{background:#d79a33;box-shadow:0 0 0 4px #fbe4b8}
+.ex-cloud-note.ex-cloud-unconfigured .ex-live-dot,
+.ex-cloud-note.ex-cloud-auth .ex-live-dot,
+.ex-cloud-note.ex-cloud-error .ex-live-dot{background:#ff4500;box-shadow:0 0 0 4px #ffe0d2}
+.ex-cloud-note.ex-cloud-syncing .ex-live-dot,
+.ex-cloud-note.ex-cloud-checking .ex-live-dot{background:#77838b;box-shadow:0 0 0 4px #e1e5e9}
+.ex-sync-button:disabled{opacity:.6}
+.ex-cloud-summary{
+  margin:-12px 0 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:7px 18px;
+  color:#67747d;
+  font-size:11px;
+  line-height:1.5;
+  padding:0 3px;
+}
+.ex-cloud-summary a{color:#ce3900;font-weight:800}
+.ex-cloud-conflict{
+  background:#fffbf7;
+  border:1px solid #f3d4b5;
+  padding:17px 21px;
+  margin:0 0 18px;
+}
+.ex-cloud-conflict-heading{display:flex;align-items:flex-start;gap:12px;color:#9b620f}
+.ex-cloud-conflict-heading>svg{flex:0 0 auto;margin-top:2px}
+.ex-cloud-conflict-heading strong{font-size:13px;color:#824d0b}
+.ex-cloud-conflict-heading p{font-size:11px;color:#786c5b;line-height:1.6;margin:6px 0 0}
+.ex-cloud-conflict-actions{display:flex;gap:9px;flex-wrap:wrap;margin:14px 0 0 32px}
+@media(max-width:700px){
+  .ex-cloud-summary{margin:-5px 0 16px;flex-direction:column;align-items:flex-start}
+  .ex-cloud-conflict-actions{margin-left:0}
+  .ex-cloud-conflict-actions .ex-btn{width:100%;white-space:normal}
+}
