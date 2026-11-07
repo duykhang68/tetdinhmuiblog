@@ -51,6 +51,10 @@ test('OAuth state + Blogger lists, pagination, diagnostics and draft create/patc
       if(!['DRAFT','LIVE'].includes(params.get('status'))||params.get('orderBy')!=='UPDATED')
         return response({error:{message:'Request contains an invalid argument.',status:'INVALID_ARGUMENT'}},400);
       assert.equal(params.get('view'),'ADMIN');
+      if(params.get('fetchBodies')==='true'){
+        assert.equal(params.get('maxResults'),'100');
+        return response({items:[{...post,status:params.get('status')}],nextPageToken:undefined});
+      }
       assert.equal(params.get('fetchBodies'),'false');
       assert.equal(params.get('maxResults'),'30');
       if(params.get('pageToken')==='PRIVATE_PAGE_TOKEN')
@@ -105,9 +109,22 @@ test('OAuth state + Blogger lists, pagination, diagnostics and draft create/patc
     assert.deepEqual(diagnostic.parameters,{status:'DRAFT',view:'ADMIN',fetchBodies:'false',orderBy:'UPDATED',maxResults:'30'});
     assert.doesNotMatch(JSON.stringify(logger.mock.calls),/TEST_ACCESS|TEST_REFRESH|PRIVATE_PAGE_TOKEN/);
     logger.mock.restore();
-    const input={blogId:'1346670730934460908',title:'Bài kiểm tra',content:'<p>text</p><script>alert(1)</script>',labels:['Test']};
+    const seriesValue={name:'Series CI/CD',part:2,total_parts:8,target_date:'2026-12-01',status:'in_progress'};
+    const seriesMarker='<aside hidden="hidden" class="dn-series-metadata" data-kind="series-metadata" data-series="'+encodeURIComponent(JSON.stringify(seriesValue))+'"></aside>';
+    const input={blogId:'1346670730934460908',title:'Bài kiểm tra',content:seriesMarker+'<p>text</p><script>alert(1)</script>',labels:['Test']};
     const draft=await fetch(base+'/api/drafts',{method:'POST',headers:{cookie:newCookie,'Content-Type':'application/json',origin:PORT_ORIGIN,'X-CSRF-Token':info.csrf},body:JSON.stringify(input)});
     assert.equal(draft.status,201);const created=(await draft.json()).post;assert.ok(!created.content.includes('<script>'));
+    assert.match(created.content,/data-kind="series-metadata"/);
+    assert.match(created.content,/data-series="/);
+    assert.match(created.content,/hidden="hidden"/);
+    const listedSeries=await fetch(base+'/api/series?'+new URLSearchParams({blogId:'1346670730934460908',name:'Series CI/CD'}),{headers:{cookie:newCookie}});
+    assert.equal(listedSeries.status,200);
+    const indexed=await listedSeries.json();
+    assert.equal(indexed.posts.length,2);
+    assert.deepEqual(indexed.posts.map(entry=>entry.series.part),[2,2]);
+    assert.ok(indexed.posts.every(entry=>!Object.hasOwn(entry,'content')));
+    const invalidSeries=await fetch(base+'/api/series?blogId=1346670730934460908&name=',{headers:{cookie:newCookie}});
+    assert.equal(invalidSeries.status,400);
     const forbidden=await fetch(base+'/api/drafts/123',{method:'PATCH',headers:{cookie:newCookie,'Content-Type':'application/json',origin:PORT_ORIGIN,'X-CSRF-Token':info.csrf},body:JSON.stringify({...input,expectedUpdated:'wrong'})});assert.equal(forbidden.status,409);
     const updated=await fetch(base+'/api/drafts/123',{method:'PATCH',headers:{cookie:newCookie,'Content-Type':'application/json',origin:PORT_ORIGIN,'X-CSRF-Token':info.csrf},body:JSON.stringify({...input,expectedUpdated:created.updated})});assert.equal(updated.status,200);
     const noCsrf=await fetch(base+'/api/drafts',{method:'POST',headers:{cookie:newCookie,'Content-Type':'application/json',origin:PORT_ORIGIN},body:JSON.stringify(input)});assert.equal(noCsrf.status,403);
