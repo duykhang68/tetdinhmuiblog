@@ -1,10 +1,16 @@
-# Auditor: one-minute CI failure monitoring
+# Auditor: five-day CI failure audit
 
 The new root-level `auditor.py` scans **current** GitHub Actions failure states, cross-references verified guidance in `researcher.py` and past GitHub incidents, and researches related Stack Overflow discussions as **unverified references only**.
 
 ## Scheduling and cost
 
-GitHub Actions scheduled workflows support a shortest cron interval of **5 minutes**, not 1 minute. `.github/workflows/auditor.yml` runs on `*/5 * * * *` and makes **five checks per run**, with **at least 60 seconds between checks**. Thus it provides approximately one-minute checks while a runner is active. GitHub may delay scheduled workflow starts, so this is **not a guaranteed 24/7 exact one-minute cadence**. Each five-check run uses roughly four minutes of hosted-runner time plus API overhead. Running around the clock can consume substantial hosted-runner minutes, quota and billing; verify your Actions plan and usage. A separate externally hosted cron service is required if you need a truly continuous one-minute schedule with lower Actions runner usage.
+The GitHub workflow `.github/workflows/auditor.yml` performs **one scan every five UTC calendar days**, anchored to **2026-11-07**. The first scheduled scan after the change is eligible on **2026-11-12 at 03:17 UTC (10:17 Asia/Ho_Chi_Minh)**, assuming the workflow is merged and GitHub's scheduler fires normally.
+
+Why not `*/5` in the day-of-month field? That resets every month; it is *not* every five consecutive days. Instead a lightweight workflow checks eligibility once daily at 03:17 UTC and executes the auditor's code only on a due day. On other days, the job exits successfully with `AUDITOR_NOT_DUE` and does not perform checkout, setup Python, tests, GitHub API polling, or artifact upload.
+
+Each due run executes `python auditor.py --cycles 1` (**one scan; no internal one-minute polling/sleep loop**). A manual **Run workflow** launches a single scan immediately, regardless of the five-day schedule. GitHub scheduled runs are best effort and may be delayed or dropped under load; if monitoring must be timely, use event-driven Cloudflare webhook monitoring as described in [Cloudflare GitHub monitoring proposal](CLOUDFLARE_GITHUB_MONITORING.md).
+
+This reduces runner time drastically compared with the previous every-five-minutes workflow that kept a runner idle between five one-minute samples. `CI · Quality Gate` and `Auto Approve and Merge · CI Green` are deliberately unchanged.
 
 ## Automatic response
 
@@ -13,7 +19,7 @@ GitHub Actions scheduled workflows support a shortest cron interval of **5 minut
 3. Research Stack Overflow using its public Stack Exchange search API. Only links, question titles and scores are collected. External suggestions are never executed or treated as validated instructions.
 4. Open **one GitHub Issue per failed run** containing exact code, affected run, failing stage, prior knowledge and advisory research. Further scans reuse the same Issue.
 5. Retry only a confirmed runner startup failure, **at most four times** after the initial attempt. If a known dependency-install failure affects a failed push CI on `main`, dispatch the existing restricted `Self-Healing` recovery workflow once. Other failures stop with a clear incident code and require a separately tested **one fix = one PR**.
-6. Record the five-cycle results in `auditor.md`, uploaded as a workflow artifact and posted in the Actions job summary. Permanent incident history lives in GitHub Issues.
+6. Record the single-scan result in `auditor.md`, uploaded as a workflow artifact and posted in the Actions job summary. Permanent incident history lives in GitHub Issues.
 
 ## Error and safety rules
 
@@ -27,7 +33,7 @@ The auditor never force-pushes, bypasses Rulesets, tampers with historical check
 
 ## Usage
 
-Workflow: **Auditor · One-Minute CI Failure Watch** (automatically scheduled after the feature merges to `main`). You may also choose *Run workflow* to launch a five-cycle check.
+Workflow: **Auditor · Five-Day CI Failure Audit** (the five-day cadence takes effect after this PR merges into `main`). Use *Run workflow* for an immediate single scan.
 
 For a local single scan, with appropriate GitHub credentials and network access:
 
