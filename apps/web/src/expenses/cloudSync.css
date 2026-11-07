@@ -44,3 +44,34 @@
 
 .ex-drive-connect{background:#fff0e8;border-color:#ffc4ac;color:#ba3705;font-weight:850}
 .ex-drive-connect:hover{background:#ffe7d9;color:#a72e04}
+
+
+/* Public OAuth Client ID is auto-resolved; this is a recovery control only. */
+.ex-config-toggle{
+  background:transparent;border:0;cursor:pointer;color:#cf3905;
+  padding:2px 0;font:inherit;font-size:11px;font-weight:800;
+  text-decoration:underline;text-underline-offset:3px;
+}
+.ex-config-toggle:hover{color:#a32a00}
+.ex-drive-config-panel{
+  max-width:620px;background:#fffaf7;border:1px solid #f5d9cb;
+  border-radius:13px;padding:16px 19px;margin:-8px 0 18px;
+  box-shadow:0 6px 20px rgba(255,69,0,.04);
+}
+.ex-drive-config-panel label{
+  font-size:12px;color:#3c3d42;font-weight:850;display:block;margin-bottom:8px
+}
+.ex-drive-config-panel input{
+  width:100%;min-height:43px;background:#fff;border:1px solid #e2e3e6;
+  border-radius:10px;padding:10px 12px;color:#19191c;font:inherit;
+  font-size:12px;letter-spacing:.01em
+}
+.ex-drive-config-panel input:focus{
+  outline:2px solid #ff9b73;outline-offset:1px;border-color:#ff6c35
+}
+.ex-drive-config-panel p{
+  margin:9px 0 0;font-size:11px;line-height:1.65;color:#68737d
+}
+@media(max-width:700px){
+  .ex-drive-config-panel{max-width:100%;padding:14px 13px}
+}
