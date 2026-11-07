@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {SHEET_ID,DRIVE_NAME,parseWikiUrl,parseAIJson,normalizeVocabulary,uniqueVocabulary,toSheetRow,validateBackup} from './model.js';
 import {discoverExpenseDriveClientId,validClientId,EDITOR_DRIVE_CLIENT_KEY} from '../expenses/driveClientResolver.js';
+import {readRememberedAiKeys,persistAiKeys} from './aiKeyStorage.js';
 const SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.appdata';
 const SHEETS='https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+'/values/';
 const DRIVE='https://www.googleapis.com/drive/v3/files';
@@ -34,7 +35,25 @@ async function groq(key,prompt){
 }
 const snapshot=(source,title,article,vocabulary)=>({schema:'wikipedia-writer-v1',source,title,article,vocabulary,savedAt:new Date().toISOString()});
 export default function Writer(){
- const [url,setUrl]=useState(''),[provider,setProvider]=useState('auto'),[gKey,setGKey]=useState(''),[qKey,setQKey]=useState('');
+ const [savedAiKeys]=useState(()=>readRememberedAiKeys(typeof window!=='undefined'?window.localStorage:null));
+ const [rememberAiKeys,setRememberAiKeys]=useState(savedAiKeys.remember);
+ const [url,setUrl]=useState(''),[provider,setProvider]=useState('auto'),[gKey,setGKey]=useState(savedAiKeys.gemini),[qKey,setQKey]=useState(savedAiKeys.groq);
+ const [keyStorageError,setKeyStorageError]=useState('');
+ function updateRememberAiKeys(checked){
+  setRememberAiKeys(checked);
+  if(!persistAiKeys(window.localStorage,checked,gKey,qKey)){
+   setKeyStorageError('Trình duyệt không cho phép lưu trên thiết bị này.');
+   setRememberAiKeys(false);
+  }else setKeyStorageError('');
+ }
+ function clearSavedAiKeys(){
+  persistAiKeys(window.localStorage,false,'','');
+  setRememberAiKeys(false);setGKey('');setQKey('');setKeyStorageError('');
+ }
+ useEffect(()=>{
+  if(!rememberAiKeys)return;
+  if(!persistAiKeys(window.localStorage,true,gKey,qKey))setKeyStorageError('Không thể cập nhật khóa đã lưu trên thiết bị.');
+ },[rememberAiKeys,gKey,qKey]);
  const [title,setTitle]=useState(''),[article,setArticle]=useState(''),[rows,setRows]=useState([]);
  const [busy,setBusy]=useState(''),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const [access,setAccess]=useState(''),[driveFile,setDriveFile]=useState(null),[lastSync,setLastSync]=useState(''),[dirty,setDirty]=useState(false);
@@ -146,8 +165,10 @@ export default function Writer(){
     <section className="ww-card"><div className="ww-card-head"><span className="ww-step">01</span><div><h2>Nguồn bài viết</h2><p>Wikipedia · vi / en / ko và các phiên bản khác</p></div></div>
      <label>Đường dẫn Wikipedia<input type="url" placeholder="https://vi.wikipedia.org/wiki/..." value={url} onChange={e=>change(setUrl)(e.target.value)}/></label>
      <div className="ww-grid"><label>Chọn AI<select value={provider} onChange={e=>setProvider(e.target.value)}><option value="auto">Gemini → Groq dự phòng</option><option value="gemini">Chỉ Gemini</option><option value="groq">Chỉ Groq</option></select></label></div>
-     <div className="ww-grid"><label>Gemini API key (chỉ phiên này)<input type="password" autoComplete="off" value={gKey} onChange={e=>setGKey(e.target.value)} placeholder="AIza..."/></label><label>Groq API key (chỉ phiên này)<input type="password" autoComplete="off" value={qKey} onChange={e=>setQKey(e.target.value)} placeholder="gsk_..."/></label></div>
-     <p className="ww-note">API keys gửi trực tiếp từ trình duyệt đến nhà cung cấp AI; không lưu vào Drive, Sheet hay localStorage. Trên máy dùng chung, nên dùng proxy server thay vì nhập khóa cá nhân.</p>
+     <div className="ww-grid"><label>Gemini API key<input type="password" autoComplete="off" value={gKey} onChange={e=>setGKey(e.target.value)} placeholder="AIza..."/></label><label>Groq API key<input type="password" autoComplete="off" value={qKey} onChange={e=>setQKey(e.target.value)} placeholder="gsk_..."/></label></div>
+     <div className="ww-key-preference"><label><input type="checkbox" checked={rememberAiKeys} onChange={e=>updateRememberAiKeys(e.target.checked)}/> Lưu API keys trên thiết bị này</label><button type="button" onClick={clearSavedAiKeys}>Xóa khóa đã lưu</button></div>
+     <p className="ww-note">Mặc định chỉ lưu khóa trong phiên trang hiện tại. Nếu tích chọn, Gemini và Groq API keys sẽ được giữ trong localStorage của trình duyệt này (không mã hóa), tự điền khi mở lại trên cùng thiết bị và không đồng bộ lên Drive, Sheet hoặc máy chủ. Chỉ bật trên thiết bị cá nhân đáng tin cậy; người có quyền truy cập trình duyệt hoặc tiện ích mở rộng có thể đọc khóa đã lưu.</p>
+     {keyStorageError&&<p className="ww-note" role="alert">{keyStorageError}</p>
      <button disabled={running||!url.trim()} className="ww-primary" onClick={generate}>{busy==='ai'?'Đang đọc và viết…':'✦ Tạo bài báo & trích xuất từ vựng'}</button>
     </section>
     <section className="ww-card"><div className="ww-card-head"><span className="ww-step">02</span><div><h2>Bản thảo bài báo</h2><p>Nội dung có thể chỉnh sửa trước khi sử dụng</p></div></div>
