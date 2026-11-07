@@ -22,6 +22,7 @@ import {emptySeries, editableSeries, extractSeriesFromHTML, withSeriesHTML, norm
 import './components/series.css';
 
 const EDITOR_QUICK_LINKS = [
+  {title: 'Vietnamese · Korean · English Vocabulary Insights', description: 'Từ điển ba ngôn ngữ, Smart Insights và flashcard đồng bộ Google Sheets.', href: '/vocabulary-insights/', symbol: '文', accent: 'expenses'},
   {title: 'Starbucks Rewards & Insights', description: 'Theo dõi chi tiêu và tiến độ tích Stars.', href: '/starbucks-insights/', symbol: '☕', accent: 'starbucks'},
   {title: 'Highlands Rewards & Insights', description: 'Chi tiêu Highlands, đọc hóa đơn POS và DRIPS HighlandsĐI.', href: '/highlands-insights/', symbol: '◉', accent: 'highlands'},
   {title: 'Payroll & C&B Insights', description: 'Import bảng lương PDF, phân tích công thức Excel và tra cứu C&B.', href: '/payroll-insights/', symbol: '₫', accent: 'payroll'},
