@@ -20,7 +20,7 @@ export default function ScheduledQueue({blogId,connected,refreshKey=0,onOpen,onV
    const qs=new URLSearchParams({blogId,status:'scheduled'});
    const result=await api('/posts?'+qs);
    if(id!==requestId.current)return;
-   setItems((result.posts||[]).filter(x=>String(x.status).toLowerCase()==='scheduled'));
+   setItems((result.posts||[]).filter(x=>String(x.status).toLowerCase()==='scheduled').sort((a,b)=>(Date.parse(a.published)||Infinity)-(Date.parse(b.published)||Infinity)));
    setNextPage(result.nextPageToken||null);
    setUpdated(new Date().toLocaleTimeString('vi-VN'));
   }catch(e){if(id===requestId.current)setError(e.message||'Không đọc được lịch đăng từ Blogger.');}
