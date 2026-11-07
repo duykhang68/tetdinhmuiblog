@@ -154,3 +154,11 @@ Tài liệu này ghi lại quy trình và phạm vi thay đổi mã nguồn; **k
 - Phần tiền suy ra có **cảnh báo rõ ràng**; nếu dữ liệu tổng xung đột hoặc có phí giao hàng, không tự suy ra phụ thu. Không tự động sửa tổng thực trả để che lỗi OCR.
 - Giá gốc và phụ thu đã đọc được luôn giữ trên form để đối chiếu thủ công; khi các khoản chưa cân bằng, validation vẫn ngăn lưu giao dịch cho đến khi người dùng sửa.
 - Có test hồi quy cho hóa đơn Sora Mall, OCR bỏ sót dòng tùy chỉnh, OCR thiếu tạm tính, tổng sai và kiểm tra không tính phụ thu hai lần. Không thay đổi giao diện, cách lưu dữ liệu hay chính sách Stars.
+
+### OCR description autofill & receipt equation UI — 07/11/2026
+
+- OCR điền **Chi tiết phụ thu / tùy chỉnh** từ những dòng mô tả thực có trên ảnh (vd. `Sữa: Sữa Half & Half`, `Độ ngọt: Không ngọt`) ngay cả khi OCR không đọc ra số 5.000đ. Giữ đối soát phụ thu từ PR #71, không gán chênh lệch cho từng tùy chỉnh khi hóa đơn không xác định được mức phí riêng.
+- OCR điền **Lý do giảm giá** khi hóa đơn có diễn giải thật như `Giảm giá: Voucher thành viên` hoặc `Giảm giá → Voucher sinh nhật → -₫10.000`. Nếu ảnh chỉ ghi `Giảm giá -₫10.000` thì để trống lý do, báo rõ là chưa thấy trong ảnh; không tự suy diễn từ dòng `Personal Cup`.
+- Tách `Tạm tính trước giảm`, `Giảm giá`, `Thực trả` thành 3 thẻ trực quan với phép tính dấu trừ/bằng, dùng light mode cam Reddit, chữ số lớn, tăng tương phản và bố cục responsive khi trên mobile.
+- Giữ nguyên khả năng người dùng chỉnh sửa trường phụ thu/lý do giảm và việc tự tính tổng. Không thay đổi cách lưu dữ liệu, nghiệp vụ Stars hoặc layout khác ngoài phần tổng hợp hóa đơn.
+- Có test cho diễn giải tùy chỉnh không có giá, lý do giảm đơn dòng/đa dòng, trường thiếu lý do và giao diện đối soát.
