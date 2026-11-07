@@ -30,6 +30,10 @@ export async function discoverExpenseDriveClientId({
       error:''
     };
   }
+  // A typo in the build variable must not mask a valid Editor-saved ID.
+  if(validClientId(storedValue)){
+    return {clientId:String(storedValue).trim(),source:'editor',error:''};
+  }
   try {
     const response=await fetcher(DRIVE_CONFIG_URL,{
       method:'GET',credentials:'same-origin',
