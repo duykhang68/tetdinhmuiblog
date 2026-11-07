@@ -327,3 +327,20 @@ body summary:focus-visible {
   color: var(--tdm-text) !important;
   border-color: var(--tdm-border) !important;
 }
+
+/* 9. Article reading alignment: justify prose, not headings, UI or special blocks.
+ * Scope to Blogger post content, including future articles. Never change layout.
+ * Respect intentional center/right alignment authored in a paragraph.
+ */
+#main-wrapper .post-body p:not(
+  [align='center'], [align='right'],
+  [style*='text-align:center'], [style*='text-align: center'],
+  [style*='text-align:right'], [style*='text-align: right'],
+  blockquote p, .hd-quote p, .hd-callout p, .hd-note p,
+  figcaption p, table p, .hd-table-wrap p, .hd-codewrap p,
+  .hd-btn p, .hd-vote-widget p, .hd-card p
+) {
+  text-align: justify !important;
+  text-align-last: start;
+  text-justify: inter-word;
+}
