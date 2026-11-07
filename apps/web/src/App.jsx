@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState,useCallback} from 'react';
 import {useEditor,EditorContent} from '@tiptap/react';
 import SchedulePost from './components/SchedulePost.jsx';
+import ScheduledQueue from './components/ScheduledQueue.jsx';
 import {localTimeZone,scheduleLabel,loadScheduleCache,storeScheduleCache} from './services/schedule.js';
 import StarterKit from '@tiptap/starter-kit';
 import {TableKit} from '@tiptap/extension-table';
@@ -81,6 +82,7 @@ export default function App(){
   const [post,setPost]=useState(null),[mode,setMode]=useState('compose');
   const [scheduleOpen,setScheduleOpen]=useState(false),[scheduleBusy,setScheduleBusy]=useState(false);
   const [scheduleHistory,setScheduleHistory]=useState([]),[driveSchedule,setDriveSchedule]=useState(null);
+  const [scheduledQueueRevision,setScheduledQueueRevision]=useState(0);
   const [dirty,setDirty]=useState(false),[saving,setSaving]=useState(false),[autoSync,setAutoSync]=useState(true);
   const [message,setMessage]=useState(''),[fault,setFault]=useState(''),[busy,setBusy]=useState(false);
   const [restorable,setRestorable]=useState(null);
@@ -213,6 +215,7 @@ export default function App(){
         const next=[{id:String(result.post.id),title:result.post.title,publishDate:result.post.published||publishDate,status:'scheduled'},...previous.filter(x=>String(x.id)!==String(result.post.id))];
         storeScheduleCache(blogId,next);return next;
       });
+      setScheduledQueueRevision(n=>n+1);
       if(filter==='scheduled')fetchPosts('scheduled');else setFilter('scheduled');
       return true;
     }catch(e){showError(e);throw e;}finally{setSaving(false);setScheduleBusy(false);}
@@ -226,6 +229,7 @@ export default function App(){
         body:{blogId,expectedUpdated:post.updated},csrf:status.csrf});
       setPost(result.post);setDriveSchedule(null);setDirty(false);setMessage('Đã hủy lịch. Bài trở về bản nháp trên Blogger.');
       setScheduleHistory(previous=>{const next=previous.filter(x=>String(x.id)!==String(post.id));storeScheduleCache(blogId,next);return next;});
+      setScheduledQueueRevision(n=>n+1);
       setFilter('draft');return true;
     }catch(e){showError(e);throw e;}finally{setSaving(false);setScheduleBusy(false);}
   };
@@ -318,6 +322,7 @@ export default function App(){
           <div className="kit-block-list">{BLOCKS.map(([key,mark,label,description],i)=><React.Fragment key={key}>{i===5&&<div className="kit-block-category">NỘI DUNG PHONG PHÚ</div>}<button type="button" className={'kit-block-button kit-block-'+key} onClick={()=>insertBlock(key)} disabled={readOnly||mode==='preview'||!editor} title={description}><span className="kit-block-mark" aria-hidden="true">{mark}</span><span>{label}</span><span className="kit-block-plus" aria-hidden="true">＋</span></button></React.Fragment>)}</div>
           <div className="kit-block-foot">{readOnly?'Bài đã đăng đang ở chế độ chỉ xem.':mode==='preview'?'Quay lại Soạn thảo hoặc HTML để chèn khối.':'Đặt con trỏ trong bài, rồi chọn khối bạn muốn thêm.'}</div>
         </aside>
+        <div className="kit-editor-stack">
         <section className="kit-paper" aria-label="Nội dung bài viết">
           <div className="kit-paper-meta"><span className="kit-paper-blog">r/{(currentBlog?.name||'Blogger').replace(/\s+/g,'')}</span><span className={'kit-state'+(scheduled?' is-scheduled':readOnly?' is-live':'')}>{scheduled?'⏱ Đã đặt lịch':readOnly?'Đã xuất bản':post?'Bản nháp Blogger':'Bản nháp mới'}</span><span className="kit-meta-dot">·</span><span>{scheduled&&post.published?scheduleLabel(post.published):'Không gian cho ý tưởng của bạn'}</span></div>
           <div className="kit-title-area"><label className="kit-title-label" htmlFor="post-title">TIÊU ĐỀ BÀI VIẾT <span>{title.length}/200</span></label><textarea id="post-title" className="reddit-title" rows={2} value={title} maxLength={200} disabled={readOnly} onChange={e=>{revision.current++;setTitle(e.target.value);setDirty(true);}} placeholder="Bắt đầu bằng một tiêu đề hay…"/>
@@ -342,6 +347,9 @@ export default function App(){
             </div>
           </div>
         </section>
+        <ScheduledQueue blogId={blogId} connected={connected} refreshKey={scheduledQueueRevision}
+          onOpen={openPost} onViewAll={()=>{setFilter('scheduled');setDraftsOpen(true);}}/>
+        </div>
         <aside className="kit-right" aria-label="Lưu và xuất bản">
           <SeriesEditorPanel value={series} onChange={updateSeries} disabled={readOnly||saving||driveBusy}/>
           {series.enabled&&<BlueprintSelector onInsert={insertBlueprint} disabled={readOnly||saving||driveBusy||mode==='preview'}/>}
