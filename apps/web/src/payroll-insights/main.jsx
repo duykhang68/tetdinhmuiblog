@@ -66,7 +66,7 @@ function App(){
  function updateLine(id,key,value){
   setRows(current=>current.map(r=>{
    if(r.id!==id)return r;
-   if(key==='amount')return {...r,amount:value.trim()===''?null:readVnd(value)};
+   if(key==='amount')return {...r,amount:value.trim()===''?null:/^[-−]?\d{1,13}$/.test(value.trim())?Number(value.trim().replace('−','-')):readVnd(value)};
    if(key==='category')return {...r,category:value};
    if(key==='label')return {...r,label:value.slice(0,500)};
    return r;
