@@ -4,3 +4,25 @@
 .ww-card .ww-key-preference label{display:inline-flex;align-items:center;gap:9px;margin:0;color:#293643;font-weight:700;cursor:pointer}
 .ww-card .ww-key-preference input[type="checkbox"]{display:inline-block;appearance:auto;width:17px;height:17px;margin:0;accent-color:#137c52}
 .ww-card .ww-key-preference button{padding:8px 12px;font-size:12px}
+
+/* Wikipedia Writer step progress: real milestone completion, no fake API percentage. */
+.ww-progress-overview{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:11px;font-size:13px}
+.ww-progress-overview strong{font-size:15px;color:#253344}
+.ww-progress-overview span{font-variant-numeric:tabular-nums;color:#657484}
+.ww-progress-track{position:relative;height:12px;overflow:hidden;border-radius:999px;background:#edf0f3;border:1px solid #e1e6eb}
+.ww-progress-fill{display:block;height:100%;background:#ff4500;border-radius:999px;transition:width .35s ease}
+.ww-progress-active:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,#ffffff8a 50%,transparent 100%);transform:translateX(-100%);animation:ww-progress-shimmer 2.2s ease-in-out infinite}
+@keyframes ww-progress-shimmer{to{transform:translateX(100%)}}
+.ww-progress-steps{margin:20px 0 14px;padding:0;display:grid;gap:14px;list-style:none}
+.ww-progress-step{display:flex;align-items:center;gap:12px}
+.ww-progress-marker{height:34px;width:34px;flex:0 0 34px;display:grid;place-items:center;border:1px solid #dce2e8;border-radius:50%;background:#f7f8fa;color:#788390;font-size:13px;font-weight:800}
+.ww-progress-step strong{display:block;font-size:13px;color:#435061}
+.ww-progress-step small{display:block;color:#85919d;font-size:12px;margin-top:2px}
+.ww-progress-step.is-done .ww-progress-marker{background:#eaf7f0;border-color:#9bd6b3;color:#187644}
+.ww-progress-step.is-done strong{color:#187644}
+.ww-progress-step.is-active .ww-progress-marker{background:#fff0e9;border-color:#ff9b74;color:#dd450a;box-shadow:0 0 0 3px #fff2eb}
+.ww-progress-step.is-active strong{color:#d84000}
+.ww-progress-step.is-error .ww-progress-marker{background:#fff0ed;border-color:#f0b3a8;color:#b72318}
+.ww-progress-detail{border:1px solid #ebd6c7;background:#fff8f3;padding:12px;border-radius:11px;font-size:13px;color:#6d3e23;overflow-wrap:anywhere}
+.ww-progress-model{font-weight:700;font-size:12px;color:#36556e;overflow-wrap:anywhere}
+@media(prefers-reduced-motion:reduce){.ww-progress-active:after{animation:none}.ww-progress-fill{transition:none}}
