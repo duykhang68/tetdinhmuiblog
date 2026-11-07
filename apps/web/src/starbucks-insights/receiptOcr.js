@@ -35,6 +35,19 @@ const readLabeledAmount = (lines, pattern) => {
 };
 const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 
+// Ký tự nhiễu từ icon, bullet, vùng chọn của ứng dụng thường nằm ở mép tên.
+// Chỉ làm sạch đầu/cuối, tuyệt đối giữ dấu gạch nối ở giữa tên (Cold Brew - Vanilla),
+// dấu ngoặc tên size và phần trăm thực (ví dụ "100%").
+export function cleanReceiptName(value) {
+  const edge = /[\s_\-‐‑‒–—−~·•|¦:;,.!?›>→]+$/u;
+  return clean(value)
+    .replace(/^[\s_\-‐‑‒–—−~·•|¦:;,.!?›>→]+/u, '')
+    .replace(edge, '')
+    .replace(/(?:\s+%+|([^\d\s])%+)$/u, (_full, letter) => letter || '')
+    .replace(edge, '')
+    .trim();
+}
+
 function parseOrderId(lines) {
   const index = findIndex(lines, labels.order);
   if (index < 0) return '';
@@ -58,9 +71,9 @@ function parseDate(lines) {
 function parseStore(lines) {
   const index = findIndex(lines, labels.shop);
   if (index < 0) return '';
-  const row = clean(lines[index + 1] || '');
+  const row = cleanReceiptName(lines[index + 1] || '');
   if (!row || /(?:vi tri|dia chi|address|ngay|ma don)/.test(ascii(row))) return '';
-  return row.replace(/[›>→]+$/, '').trim().slice(0, 120);
+  return row.slice(0, 120);
 }
 const isSummary = line => [
   labels.count, labels.subtotal, labels.discount, labels.total,
@@ -80,12 +93,12 @@ function parseItemsAndExtras(lines) {
     if (isSummary(line) || /(?:^vi tri|^dia chi|^location|^do ngot|^so luong|^qty|^x\s*\d+$)/.test(key)) continue;
     const amount = moneyAtEnd(line);
     if (amount === null) continue;
-    let description = removeMoneyAtEnd(line);
-    if (!description && index > start) description = clean(lines[index - 1]);
+    let description = cleanReceiptName(removeMoneyAtEnd(line));
+    if (!description && index > start) description = cleanReceiptName(lines[index - 1]);
     const name = ascii(description);
     if (!name || /(?:vi tri|dia chi|address|ma don|ngay|starbucks rewards|personal cup|ly ca nhan|^x\s*\d+$)/.test(name)) continue;
     if (labels.option.test(name)) {
-      if (amount > 0) extras.push({ name: description.replace(/^Lựa chọn\s*/i, ''), amount });
+      if (amount > 0) extras.push({ name: cleanReceiptName(description.replace(/^Lựa chọn\s*/i, '')), amount });
       continue;
     }
     if (amount > 0 && /[a-zA-ZÀ-ỹ]/u.test(description)) {
