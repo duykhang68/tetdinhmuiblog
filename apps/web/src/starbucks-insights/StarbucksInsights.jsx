@@ -3,6 +3,8 @@ import {
   STORAGE_KEY, PAYMENT_OPTIONS, POLICY_EFFECTIVE_DATE, analytics, money, monthlySeries,
   calculatePayable, normalizeTransaction, rewardsProgress, starNumber, starsFor, toCsv, todayVietnam, validDate
 } from './model.js';
+import { parseStarbucksReceipt } from './receiptOcr.js';
+import { recognizeReceiptImage } from './receiptOcrBrowser.js';
 
 const initialForm = () => ({
   date: todayVietnam(), store: '', orderId: '', item: '', amount: '', baseAmount: '',
@@ -123,7 +125,14 @@ export default function StarbucksInsights() {
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const fileRef = useRef(null);
+  const receiptFileRef = useRef(null);
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const [receiptStatus, setReceiptStatus] = useState(null);
+  const [receiptError, setReceiptError] = useState('');
+  const [receiptResult, setReceiptResult] = useState(null);
+  const [receiptPreview, setReceiptPreview] = useState('');
   const today = todayVietnam();
+  useEffect(() => () => { if (receiptPreview) URL.revokeObjectURL(receiptPreview); }, [receiptPreview]);
 
   useEffect(() => {
     try {
@@ -165,9 +174,13 @@ export default function StarbucksInsights() {
     setError('');
     try {
       const id = editing || (globalThis.crypto?.randomUUID?.() ?? String(Date.now()) + '-' + String(Math.random()).slice(2));
+      if (form.orderId && transactions.some(tx => tx.id !== editing && tx.orderId === form.orderId) &&
+        !window.confirm('Mã đơn hàng này đã có trong lịch sử. Bạn vẫn muốn lưu thêm?')) return;
       const next = normalizeTransaction({ ...form, amount: hasBaseAmount ? calculatedAmount : form.amount, id });
       setTransactions(current => editing ? current.map(tx => tx.id === editing ? next : tx) : [next, ...current]);
-      setEditing(null); setForm(initialForm()); setNotice(editing ? 'Đã cập nhật giao dịch.' : 'Đã thêm giao dịch và cập nhật thống kê.');
+      setEditing(null); setForm(initialForm());
+      setReceiptResult(null); setReceiptPreview(''); setReceiptStatus(null);
+      setNotice(editing ? 'Đã cập nhật giao dịch.' : 'Đã thêm giao dịch và cập nhật thống kê.');
     } catch (cause) { setError(cause.message); }
   };
   const edit = tx => {
@@ -178,6 +191,7 @@ export default function StarbucksInsights() {
       amount: String(tx.amount), fee: String(tx.fee), cups: String(tx.cups)
     });
     setEditing(tx.id);
+    setReceiptResult(null); setReceiptPreview(''); setReceiptError('');
     document.querySelector('#sb-consumption')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   const remove = tx => {
@@ -208,9 +222,45 @@ export default function StarbucksInsights() {
       if (!window.confirm('Nhập ' + valid.length + ' giao dịch? Dữ liệu hiện tại sẽ được thay thế.')) return;
       const nextConfig = data.config && typeof data.config === 'object' ? { ...initialConfig(), ...data.config } : initialConfig();
       setTransactions(valid); setConfig(nextConfig); setEditing(null); setForm(initialForm());
+      setReceiptResult(null); setReceiptPreview('');
       setNotice('Đã khôi phục ' + valid.length + ' giao dịch.');
     } catch (cause) { setError('Không nhập được backup: ' + cause.message); }
     finally { event.target.value = ''; }
+  };
+  const importReceiptImage = async event => {
+    const file = event.target.files?.[0];
+    if (!file || receiptBusy) return;
+    event.target.value = '';
+    if ((editing || form.store || form.item || form.orderId || form.amount) &&
+      !window.confirm('Dùng ảnh hóa đơn mới sẽ thay nội dung form đang nhập. Bạn muốn tiếp tục?')) return;
+    setReceiptError(''); setReceiptStatus({ label: 'Đang chuẩn bị ảnh...', percent: 0 });
+    setReceiptResult(null); setNotice(''); setReceiptBusy(true);
+    try {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024 || file.size === 0) {
+        throw new Error('Chọn ảnh JPG/PNG/WebP hợp lệ, tối đa 10 MB.');
+      }
+      const preview = URL.createObjectURL(file);
+      setReceiptPreview(preview);
+      const recognized = await recognizeReceiptImage(file, setReceiptStatus);
+      if (!recognized.text.trim()) throw new Error('Không đọc thấy chữ trên ảnh; thử chụp rõ nét, đủ sáng.');
+      const result = parseStarbucksReceipt(recognized.text);
+      if (!Object.keys(result.fields).length) throw new Error('Không tìm thấy dữ liệu hóa đơn Starbucks trong ảnh này.');
+      const mapped = { ...result.fields };
+      if (mapped.baseAmount && mapped.amount &&
+        calculatePayable(mapped.baseAmount, mapped.extraAmount || 0, mapped.discountAmount || 0) !== Number(mapped.amount)) {
+        // Không tự thay đổi số thực trả trên hóa đơn để khớp phép tính OCR sai.
+        delete mapped.baseAmount;
+        result.warnings.push('Đã giữ tổng thực trả, chưa điền giá món gốc vì OCR không khớp. Hãy đối chiếu bằng ảnh.');
+      }
+      setForm({ ...initialForm(), ...mapped });
+      setEditing(null);
+      setReceiptResult({ ...result, confidence: recognized.confidence, mappedCount: Object.keys(mapped).length });
+      setNotice('Đã điền thông tin từ ảnh. Hãy đối chiếu trước khi bấm Thêm giao dịch.');
+    } catch (cause) {
+      setReceiptError(cause?.message || 'Không đọc được ảnh hóa đơn.');
+    } finally {
+      setReceiptBusy(false); setReceiptStatus(null);
+    }
   };
   const percent = Math.min(100, Math.max(0, stars.membershipPercent));
   const empty = transactions.length === 0;
@@ -232,6 +282,36 @@ export default function StarbucksInsights() {
       <section className="sb-panel sb-entry" id="sb-consumption" aria-labelledby="sb-entry-title">
         <div className="sb-section-heading"><div><span className="sb-kicker">01 / CONSUMPTION</span><h2 id="sb-entry-title">Ghi nhận giao dịch</h2><p>Thêm hóa đơn mới. Biểu đồ và sao sẽ tự cập nhật mà không phải tải lại trang.</p></div><span className="sb-section-icon"><Icon name="receipt"/></span></div>
         <form className="sb-form" onSubmit={onSubmit}>
+          <div className="sb-receipt-import">
+            <div className="sb-receipt-intro">
+              <span className="sb-receipt-icon"><Icon name="upload" size={20}/></span>
+              <div><strong>Import giao dịch từ ảnh hóa đơn</strong>
+                <small>Tải ảnh Starbucks Rewards lên để tự điền form. Ảnh xử lý tại trình duyệt, không gửi lên máy chủ.</small></div>
+              <button className="sb-btn sb-btn-soft" type="button" disabled={receiptBusy} onClick={() => receiptFileRef.current?.click()}>
+                <Icon name="upload" size={16}/>{receiptBusy ? 'Đang đọc ảnh...' : 'Chọn ảnh hóa đơn'}
+              </button>
+              <input ref={receiptFileRef} className="sb-hidden" type="file" accept="image/png,image/jpeg,image/webp,.jpg,.jpeg,.png,.webp"
+                onChange={importReceiptImage} aria-label="Tải ảnh hóa đơn Starbucks lên để tự điền giao dịch"/>
+            </div>
+            {receiptStatus && <div className="sb-ocr-loading" role="status" aria-live="polite">
+              <span>{receiptStatus.label} {receiptStatus.percent > 0 ? receiptStatus.percent + '%' : ''}</span>
+              <div role="progressbar" aria-label="Tiến độ OCR" aria-valuemin={0} aria-valuemax={100} aria-valuenow={receiptStatus.percent}>
+                <span style={{ width: receiptStatus.percent + '%' }}/></div>
+            </div>}
+            {receiptError && <p className="sb-ocr-alert" role="alert">{receiptError} Bạn vẫn có thể nhập thủ công bên dưới.</p>}
+            {receiptResult && <div className="sb-ocr-result">
+              {receiptPreview && <img src={receiptPreview} alt="Ảnh hóa đơn vừa chọn để đối chiếu" className="sb-ocr-thumb"/>}
+              <div className="sb-ocr-details">
+                <strong>Đã tự điền {receiptResult.mappedCount} trường — vui lòng kiểm tra</strong>
+                <p>{receiptResult.time && 'Giờ trên hóa đơn: ' + receiptResult.time + ' · '}
+                  {receiptResult.confidence != null && 'Độ tin cậy OCR tham khảo: ' + Math.round(receiptResult.confidence) + '% · '}
+                  Chỉ lưu khi bạn bấm Thêm giao dịch.</p>
+                {receiptResult.warnings.length > 0 && <ul>{receiptResult.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
+                <details><summary>Xem văn bản OCR để đối chiếu</summary><pre>{receiptResult.lines.join('\n')}</pre></details>
+              </div>
+            </div>}
+            <small className="sb-ocr-hint">JPG, PNG, WebP · tối đa 10 MB. Lần đầu cần Internet để tải OCR tiếng Việt/Anh. Không tự tạo giao dịch và không lưu ảnh.</small>
+          </div>
           <label>Ngày giao dịch<input required type="date" value={form.date} max={today} onChange={e => updateForm('date', e.target.value)}/></label>
           <label>Cửa hàng<input type="text" maxLength="120" placeholder="VD: Landmark 81" value={form.store} onChange={e => updateForm('store', e.target.value)}/></label>
           <label>Mã đơn hàng (không bắt buộc)<input type="text" maxLength={120} placeholder="VD: 123456 hoặc SBX-0987" autoComplete="off" value={form.orderId} onChange={e => updateForm('orderId', e.target.value)}/></label>

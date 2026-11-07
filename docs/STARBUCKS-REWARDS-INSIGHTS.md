@@ -27,6 +27,9 @@ Triển khai một trang độc lập dành cho việc ghi nhận chi tiêu tạ
 | `apps/web/src/starbucks-insights/main.jsx` | Mount React độc lập |
 | `apps/web/src/starbucks-insights/StarbucksInsights.jsx` | Form giao dịch, KPI, biểu đồ tương tác, Rewards, bảng lịch sử, sao lưu |
 | `apps/web/src/starbucks-insights/model.js` | Validation, tính điểm sao, nhóm theo tháng, chu kỳ hạng |
+| `apps/web/src/starbucks-insights/receiptOcr.js` | Parse OCR hóa đơn Starbucks, đối chiếu tiền và cảnh báo sai lệch |
+| `apps/web/src/starbucks-insights/receiptOcrBrowser.js` | OCR tiếng Việt/Anh chạy trong browser, tải engine theo nhu cầu |
+| `apps/web/test/starbucksReceiptOcr.test.mjs` | Kiểm thử hóa đơn Sora Mall và tình huống OCR thiếu/sai |
 | `apps/web/src/starbucks-insights/starbucks.css` | Design tokens và CSS scoped light mode |
 | `apps/web/vite.config.js` | Vite multi-page build cho route mới |
 | `apps/web/src/App.jsx` | Shortcut Starbucks tại khu vực Truy cập nhanh |
@@ -106,6 +109,16 @@ npm run build
 
 Tài liệu này ghi lại quy trình và phạm vi thay đổi mã nguồn; **không khẳng định CI hoặc production đã thành công trước khi GitHub Actions xác nhận**.
 
+## Import giao dịch từ ảnh hóa đơn (OCR trên trình duyệt)
+
+- Trong **Ghi nhận giao dịch**, chọn **Import giao dịch từ ảnh hóa đơn → Chọn ảnh hóa đơn**.
+- Hỗ trợ JPG, PNG, WebP tối đa 10 MB. Ảnh được nhận dạng ngay trong browser; không gửi ảnh lên máy chủ. Lần đầu trình duyệt tải Tesseract.js phiên bản cố định từ CDN và mô hình OCR `vie` + `eng` (cần Internet); engine chạy bằng WebAssembly.
+- Parser nhận mã đơn, ngày, cửa hàng, món, số ly, giá món gốc, phụ thu, giảm giá, thực trả và phương thức thanh toán khi đọc được. Không suy đoán lý do giảm giá từ món Personal Cup.
+- Xem trước ảnh, văn bản OCR, độ tin cậy tham khảo và cảnh báo. Nếu các khoản tiền không khớp, giữ số thực trả đọc từ tổng đơn và yêu cầu người dùng đối chiếu lại; không tự gán giá gốc sai.
+- **Không tự lưu**: OCR chỉ điền form, người dùng phải kiểm tra, chỉnh sửa và bấm **Thêm giao dịch**. Vẫn có thể nhập thủ công khi OCR/CDN bị lỗi.
+- Ảnh chỉ được tạo Object URL để xem trước, không lưu vào localStorage hoặc JSON. Dữ liệu giao dịch vẫn lưu trên trình duyệt hiện hành, chưa đồng bộ Google Sheets.
+- Chất lượng OCR phụ thuộc độ nét, ngôn ngữ và layout ảnh; kiểm tra lại dữ liệu, đặc biệt số tiền và mã đơn hàng.
+
 ## 7. Hướng dẫn sử dụng nhanh
 
 1. Mở Editor, vào **Truy cập nhanh → Starbucks Rewards & Insights**.
@@ -123,3 +136,5 @@ Tài liệu này ghi lại quy trình và phạm vi thay đổi mã nguồn; **k
 - 07/11/2026 — bổ sung tài liệu nhật ký này để theo dõi quá trình phát triển và giới hạn của phiên bản đầu tiên.
 - 07/11/2026 — thêm trường tùy chọn Mã đơn hàng (Order ID / Check No.) vào form, model, bảng lịch sử, tìm kiếm và xuất CSV; thêm kiểm thử tương thích dữ liệu cũ. Không thay đổi cơ chế lưu `localStorage` và không giả định đồng bộ Google Sheets.
 - 07/11/2026 — đối chiếu hóa đơn Sora Mall (80.000đ giá món + 5.000đ tùy chỉnh − 10.000đ giảm giá = 75.000đ thực trả); bổ sung breakdown và lý do phụ thu/giảm, form tự tính, bảng lịch sử, JSON/CSV và validation; kiểm thử logic/legacy.
+
+- 07/11/2026 — thêm OCR hóa đơn chạy tại trình duyệt với import ảnh, autofill, đối soát giá, cảnh báo và test; ảnh không được gửi lên server.
