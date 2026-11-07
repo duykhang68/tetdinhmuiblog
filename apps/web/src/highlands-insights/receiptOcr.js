@@ -5,6 +5,10 @@ import {calculatePayable,validDate} from './model.js';
 const clean=value=>String(value??'').replace(/\s+/g,' ').trim();
 const ascii=value=>clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
   .replace(/đ/gi,'d').toLowerCase();
+// Hóa đơn nhiệt thường bị OCR tách/thay ký tự trong logo; chỉ dùng logo như
+// một tín hiệu, không phải điều kiện bắt buộc để giữ các trường đã nhận diện.
+const brandPattern=/(?:h\s*i\s*g\s*h\s*l\s*a\s*n\s*d\s*s|h[i1l][gqc]h?lands)\s*(?:co[fep]{2,3}e?)?/i;
+const isBrand=line=>brandPattern.test(ascii(line));
 const moneyAtEnd=line=>{
   const match=clean(line).match(/(?:^|[\s:])[-−]?\s*(?:₫|đ|d)?\s*(\d{1,3}(?:[.,]\d{3})+|\d{4,8})(?:\s*(?:₫|đ|vnd))?\s*$/iu);
   if(!match)return null;
@@ -34,8 +38,12 @@ const parseDate=lines=>{
   return {date:'',time:''};
 };
 const parseStore=lines=>{
-  const brand=lines.findIndex(line=>/highlands\s*(?:coffee)?/i.test(line));
-  if(brand<0)return '';
+  const brand=lines.findIndex(isBrand);
+  if(brand<0){
+    // Khi Tesseract bỏ mất logo, biển tên cửa hàng vẫn thường còn trên đầu hóa đơn.
+    const candidate=lines.find(line=>/^(?:kcn|cn\b|chi nhanh|cua hang)\s+[a-z]/.test(ascii(line)));
+    return candidate?clean(candidate.split(/,\s*/)[0]).slice(0,120):'';
+  }
   for(let i=brand+1;i<Math.min(brand+5,lines.length);i++){
     const line=lines[i];
     const key=ascii(line);
@@ -72,10 +80,18 @@ function parseItems(lines){
       continue;
     }
     let item=qtyItem(line);
-    // Bố cục 3 dòng: "1" -> "Bánh Tiramisu" -> "39.000".
+    // Các cách OCR tách cột: "1 Tiramisu" rồi "39.000", hoặc
+    // "1" / "Bánh Tiramisu" / "39.000"; không thu thập dòng tổng tiền.
+    if(!item&&/^\d{1,2}\s+[^\d].+/.test(line)&&i+1<end&&moneyAtEnd(lines[i+1])!==null){
+      item=qtyItem(line+' '+lines[i+1]);
+      if(item)i+=1;
+    }
     if(!item&&/^\d{1,2}$/.test(line)&&i+2<end&&moneyAtEnd(lines[i+2])!==null){
       item=qtyItem(line+' '+lines[i+1]+' '+lines[i+2]);
       if(item)i+=2;
+    }
+    if(!item&&i>start&&/^\d{1,2}$/.test(lines[i-1])&&moneyAtEnd(line)!==null){
+      item=qtyItem(lines[i-1]+' '+line);
     }
     if(!item)continue;
     // Những tên dài có dòng phụ "510ml" ngay dưới giá.
@@ -98,10 +114,23 @@ const parsePayment=lines=>{
 export function parseHighlandsReceipt(text){
   const lines=String(text??'').split(/\r?\n/).map(clean).filter(Boolean);
   const warnings=[],fields={};
-  if(!lines.some(line=>/highlands\s*(?:coffee)?/i.test(line))){
-    warnings.push('Không nhận thấy tiêu đề Highlands Coffee. Hãy kiểm tra đúng ảnh hóa đơn.');
-    return {fields,warnings,lines,items:[],time:''};
+  const branded=lines.some(isBrand);
+  const combined=ascii(lines.join(' '));
+  // Các tín hiệu POS kết hợp cho phép nhận hóa đơn khi logo bị nhận sai.
+  const signals=[
+    /\b(?:shop\s*id|shopid)\s*[:#]?\s*\d{3,}/.test(combined),
+    /\bcheck\s*[:#]?\s*\d{4,}/.test(combined),
+    /(?:hoa don thanh toan|hoa don tinh tien)/.test(combined),
+    /(?:payoo|pager\s*:|\bpos0\d\b)/.test(combined),
+    /(?:thanh tien|tong tien)/.test(combined)
+  ].filter(Boolean).length;
+  // Không nhận hóa đơn của thương hiệu khác dù có Check và Tổng tiền.
+  if((/(?:starbucks|phuc long|the coffee house)/i.test(combined)&&!branded)||
+    (!branded&&signals<2)){
+    warnings.push('Chưa xác nhận đúng mẫu hóa đơn Highlands: cần logo hoặc ít nhất hai dấu hiệu POS (Check/ShopID/Thành tiền/Payoo).');
+    return {fields,warnings,lines,items:[],time:'',recognizedBrand:false};
   }
+  if(!branded)warnings.push('Logo Highlands đọc chưa rõ; đã nhận diện từ dấu hiệu hóa đơn POS. Hãy đối chiếu cửa hàng trước khi lưu.');
   const {date,time}=parseDate(lines);
   if(date)fields.date=date;
   const store=parseStore(lines);if(store)fields.store=store;
@@ -117,6 +146,12 @@ export function parseHighlandsReceipt(text){
   const subtotal=labelAmount(lines,labels.subtotal);
   const total=labelAmount(lines,labels.total);
   const fee=labelAmount(lines,labels.fee);
+  // Giữ giá món đã đọc; khi mất tên món, có thể khôi phục giá gốc từ
+  // Thành tiền nếu không có phụ thu chưa nhận diện. Luôn gắn cảnh báo.
+  if(!fields.baseAmount&&subtotal!==null&&extra===null){
+    fields.baseAmount=String(subtotal);
+    warnings.push('Chưa đọc đủ dòng món; giá gốc tạm lấy từ Thành tiền. Hãy kiểm tra phụ thu, số món và giá gốc trên ảnh.');
+  }
   if(extra!==null)fields.extraAmount=String(extra);
   if(options.length)fields.extraReason=options.map(x=>x.name).join(' · ').slice(0,200);
   if(discount!==null)fields.discountAmount=String(discount);
@@ -144,5 +179,5 @@ export function parseHighlandsReceipt(text){
   if(!items.length)warnings.push('Chưa đọc được danh sách món; cần xem lại vùng sản phẩm trên ảnh.');
   if(!fields.amount)warnings.push('Chưa đọc được tổng thanh toán.');
   warnings.push('Hóa đơn POS không xác nhận đã tích DRIPS; chỉ chọn "Đã quét tài khoản HighlandsĐI" khi bạn thực sự đã quét.');
-  return {fields,warnings,lines,items,subtotal,time};
+  return {fields,warnings,lines,items,subtotal,time,recognizedBrand:branded,signals};
 }
