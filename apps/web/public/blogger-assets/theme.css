@@ -315,3 +315,14 @@ body summary:focus-visible {
     transition: none !important;
   }
 }
+
+
+/* 8. Light reading surface for code examples (no size or box-model edits). */
+#main-wrapper .post-body .hd-codewrap,
+#main-wrapper .post-body .hd-codewrap .hd-code-label,
+#main-wrapper .post-body .hd-codewrap pre,
+#main-wrapper .post-body .hd-codewrap code {
+  background-color: #f8fafb !important;
+  color: var(--tdm-text) !important;
+  border-color: var(--tdm-border) !important;
+}
