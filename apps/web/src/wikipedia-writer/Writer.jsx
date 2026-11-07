@@ -75,7 +75,8 @@ export default function Writer(){
    const client=google.accounts.oauth2.initTokenClient({client_id:oauthConfig.clientId,scope:SCOPE,
     callback:result=>result.error?reject(Error(result.error)):resolve(result.access_token),
     error_callback:e=>reject(Error(e.type||'Không thể đăng nhập Google'))});
-   client.requestAccessToken({prompt:'consent'});
+   // Reuse previously granted Google scopes when possible; do not force consent every visit.
+   client.requestAccessToken({prompt:''});
   });
   setAccess(token);return token;
  }
