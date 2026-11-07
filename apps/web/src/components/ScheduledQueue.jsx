@@ -3,6 +3,19 @@ import {api} from '../api.js';
 import {scheduleLabel} from '../services/schedule.js';
 import './ScheduledQueue.css';
 
+function countdownTo(published,now){
+ const target=Date.parse(published||'');
+ if(!Number.isFinite(target))return {label:'Chưa có lịch hợp lệ',state:'unknown'};
+ const remaining=Math.max(0,Math.ceil((target-now)/1000));
+ if(remaining===0)return {label:'Đã đến giờ đăng',state:'due'};
+ const days=Math.floor(remaining/86400);
+ const hours=Math.floor(remaining%86400/3600);
+ const minutes=Math.floor(remaining%3600/60);
+ const seconds=remaining%60;
+ const pad=n=>String(n).padStart(2,'0');
+ return {label:(days?days+' ngày ':'')+pad(hours)+':'+pad(minutes)+':'+pad(seconds),state:'running'};
+}
+
 /**
  * Blogger is the source of truth, not the locally cached scheduling history.
  * Read the real SCHEDULED posts independently from the draft drawer filter.
@@ -11,6 +24,7 @@ export default function ScheduledQueue({blogId,connected,refreshKey=0,onOpen,onV
  const [items,setItems]=useState([]),[nextPage,setNextPage]=useState(null);
  const [loading,setLoading]=useState(false),[error,setError]=useState(''),[updated,setUpdated]=useState('');
  const requestId=useRef(0);
+ const [now,setNow]=useState(()=>Date.now());
  const reload=useCallback(async({silent=false}={})=>{
   const id=++requestId.current;
   if(!connected||!blogId){setItems([]);setNextPage(null);setError('');setUpdated('');setLoading(false);return;}
@@ -32,6 +46,13 @@ export default function ScheduledQueue({blogId,connected,refreshKey=0,onOpen,onV
   const timer=setInterval(()=>{if(!document.hidden)reload({silent:true});},90000);
   return()=>clearInterval(timer);
  },[connected,blogId,reload]);
+ useEffect(()=>{
+  if(!connected||!items.length)return;
+  const clock=setInterval(()=>{if(!document.hidden)setNow(Date.now());},1000);
+  const refresh=()=>setNow(Date.now());
+  document.addEventListener('visibilitychange',refresh);
+  return()=>{clearInterval(clock);document.removeEventListener('visibilitychange',refresh);};
+ },[connected,items.length]);
  const count=items.length;
  return <section className="kit-panel scheduled-queue" aria-labelledby="scheduled-queue-title">
   <div className="kit-panel-heading scheduled-queue-head">
@@ -49,6 +70,10 @@ export default function ScheduledQueue({blogId,connected,refreshKey=0,onOpen,onV
   {count>0&&<ol className="scheduled-queue-list">{items.slice(0,5).map(item=><li key={item.id}>
    <button type="button" className="scheduled-queue-item" onClick={()=>onOpen(item)} title="Mở bài chờ đăng trong Editor">
     <span className="scheduled-queue-item-title">{item.title||'Bài viết chưa có tiêu đề'}</span>
+    <span className="scheduled-queue-countdown" data-state={countdownTo(item.published,now).state} aria-label={'Đếm ngược đến giờ đăng: '+countdownTo(item.published,now).label}>
+     <span className="scheduled-queue-countdown-caption">◷ Còn lại đến giờ đăng</span>
+     <strong className="scheduled-queue-countdown-value">{countdownTo(item.published,now).label}</strong>
+    </span>
     <span className="scheduled-queue-item-meta"><span className="scheduled-queue-status">● Đã lên lịch</span><time dateTime={item.published||undefined}>{item.published?scheduleLabel(item.published):'Chưa có ngày giờ hợp lệ'}</time></span>
    </button>
   </li>)}</ol>}
