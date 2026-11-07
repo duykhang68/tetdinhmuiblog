@@ -93,10 +93,10 @@ export function dripsFor(transaction) {
   if(tx.date<POLICY_EFFECTIVE_DATE||!tx.eligible||!tx.identified||tx.excluded)return 0;
   return Math.floor(Math.max(0,tx.amount-tx.fee)/10000);
 }
+const qualifiesForHighlandsDI=tx=>tx.date>=POLICY_EFFECTIVE_DATE&&tx.eligible&&tx.identified&&!tx.excluded;
 export function stampsFor(transaction) {
   const tx=normalizeTransaction(transaction);
-  return dripsFor(tx)>=0 && tx.date>=POLICY_EFFECTIVE_DATE && tx.eligible &&
-    tx.identified && !tx.excluded && tx.amount-tx.fee>=50000 ? 1 : 0;
+  return qualifiesForHighlandsDI(tx)&&tx.amount-tx.fee>=50000?1:0;
 }
 export function potentialDripsFor(transaction) {
   const tx=normalizeTransaction(transaction);
@@ -168,7 +168,8 @@ export function rewardsProgress(transactions,config={},now=todayVietnam()){
   const period=membershipPeriod(config.cycleStart,now);
   const eligible=transactions.filter(tx=>tx.date<=now);
   const within=eligible.filter(tx=>period&&tx.date>=period.start&&tx.date<period.end);
-  const membership=Math.max(0,within.reduce((sum,tx)=>sum+(dripsFor(tx)?Math.max(0,tx.amount-tx.fee):0),0)
+  // Chi tiêu xét hạng vẫn gồm giao dịch dưới 10.000đ: chỉ DRIPS mới làm tròn xuống.
+  const membership=Math.max(0,within.reduce((sum,tx)=>sum+(qualifiesForHighlandsDI(tx)?Math.max(0,tx.amount-tx.fee):0),0)
     +Number(config.membershipAdjustment||0));
   const tier=membership>=10000000?'black':membership>=3000000?'platinum':'gold';
   const goal=tier==='gold'?3000000:10000000;

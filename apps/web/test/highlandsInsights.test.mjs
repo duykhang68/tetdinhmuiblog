@@ -80,6 +80,15 @@ test('Membership thresholds use monetary spend, not number of DRIPS',()=>{
  progress=rewardsProgress([make({identified:true,amount:10000000,baseAmount:10000000})],config,'2026-11-07');
  assert.equal(progress.tier,'black');
 });
+test('Eligible sub-10k purchase adds tier spending without fractional DRIPS',()=>{
+ const tx=make({identified:true,amount:9000,baseAmount:9000});
+ assert.equal(dripsFor(tx),0);
+ assert.equal(stampsFor(tx),0);
+ const result=rewardsProgress([tx],{cycleStart:'2026-01-01',tier:'gold'},'2026-11-07');
+ assert.equal(result.membership,9000);
+ assert.equal(result.rewards,0);
+});
+
 test('Multi-month analytics, payment filtering and CSV preserve independent Highlands details',()=>{
  const tx=[make({id:'a'}),make({id:'b',date:'2026-10-03',amount:39000,baseAmount:39000,itemsCount:1})];
  const series=monthlySeries(tx,{period:'3',now:'2026-11-07'});
