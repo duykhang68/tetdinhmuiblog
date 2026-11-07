@@ -62,6 +62,14 @@ export async function onRequest({request,env}) {
   try {
     if(!allowedMethods.includes(request.method))throw failure(405,'Phương thức không được hỗ trợ');
     if(pathname==='/api/health'&&request.method==='GET')return response({ok:true,service:'DuyNguyen Blogger Editor Cloudflare',revision:'cf-pages-auth-v1'});
+    // OAuth Client IDs are public identifiers. Reuse the Editor's existing Google
+    // OAuth configuration for standalone Drive pages without exposing secrets.
+    // Serve a public same-origin read-only value: no token, secret, or session data.
+    if(pathname==='/api/drive-client-config'&&request.method==='GET'){
+      const candidate=String(env.GOOGLE_DRIVE_CLIENT_ID||env.GOOGLE_CLIENT_ID||'').trim();
+      const clientId=/^[\w-]+\.apps\.googleusercontent\.com$/.test(candidate)?candidate:'';
+      return response({clientId,configured:!!clientId,source:env.GOOGLE_DRIVE_CLIENT_ID?'drive':'editor'});
+    }
     const cfg=configuration(env),key=await sessionKey(cfg.secret),url=new URL(request.url);
     // Request-local cap; Cloudflare Free is the account-level hard ceiling.
     const charge=makeOutboundBudget(pathname==='/api/ga4-traffic'?8:undefined);
