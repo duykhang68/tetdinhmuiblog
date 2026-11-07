@@ -3,7 +3,7 @@
 const GEMINI_ROOT='https://generativelanguage.googleapis.com/v1beta';
 const GROQ_ROOT='https://api.groq.com/openai/v1';
 const DISCOVERY_TIMEOUT_MS=12000;
-const GENERATION_TIMEOUT_MS=45000;
+const GENERATION_TIMEOUT_MS=30000;
 // Bound requests to prevent an unresponsive AI model from blocking the editor indefinitely.
 async function timedFetch(fetcher,url,options={},timeoutMs=GENERATION_TIMEOUT_MS){
  const controller=new AbortController();
@@ -58,7 +58,7 @@ export async function generateGemini(key,prompt,fetcher=fetch,onProgress=()=>{})
  const models=await listGeminiModels(key,fetcher);
  if(!models.length)throw Error('API key Gemini không có model tạo văn bản Gemini 3 được cấp quyền.');
  const errors=[];
- for(const model of models.slice(0,5)){
+ for(const model of models.slice(0,2)){
   onProgress({type:'generation',provider:'Gemini',model});
   try{
    const data=await jsonResponse(await timedFetch(fetcher,GEMINI_ROOT+'/models/'+encodeURIComponent(model)+':generateContent',{
@@ -77,7 +77,7 @@ export async function generateGroq(key,prompt,fetcher=fetch,onProgress=()=>{}){
  const models=await listGroqModels(key,fetcher);
  if(!models.length)throw Error('API key Groq không có model tạo bài tương thích được cấp quyền.');
  const errors=[];
- for(const model of models.slice(0,4)){
+ for(const model of models.slice(0,2)){
   onProgress({type:'generation',provider:'Groq',model});
   try{
    const data=await jsonResponse(await timedFetch(fetcher,GROQ_ROOT+'/chat/completions',{
