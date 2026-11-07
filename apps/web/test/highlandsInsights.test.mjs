@@ -113,6 +113,32 @@ test('Browser re-runs OCR when text omits amount, item or date even at high conf
   assert.doesNotMatch(component,/throw new Error\('Không tìm thấy dữ liệu hóa đơn Highlands trong ảnh này/);
 });
 
+test('Real sample photo OCR artifacts still recover Check, date and 54,000 VND Payoo amount',()=>{
+ const noisy=[
+   '= HAAS COFFE —',
+   'KCN B -p13+ van >',
+   'ShopID: 30799 :',
+   'SS Hoa Don Thanh Toan Se',
+   'In Store Pager 1 * —',
+   'Check: 139154 > —',
+   'Noay : 03-11-2026 17:45 posot — :',
+   'SSS anh Tiramisu 39. Se SS',
+   '1 Nuoc Tinh Khiet Dasani 15.000 SSS S<—S',
+   'Tong tien: 400) SS',
+   'Payoo Bank Card 54,000 —= .',
+   'Xuat hoa don: Quet OR va nhap thong tin'
+ ].join('\n');
+ const receipt=parseHighlandsReceipt(noisy);
+ assert.equal(receipt.recognizedBrand,false);
+ assert.equal(receipt.fields.date,'2026-11-03');
+ assert.equal(receipt.fields.orderId,'139154');
+ assert.equal(receipt.fields.payment,'pos');
+ assert.equal(receipt.fields.amount,'54000');
+ assert.equal(receipt.fields.baseAmount,'54000');
+ assert.ok(receipt.warnings.some(w=>/Payoo/.test(w)));
+ assert.ok(receipt.warnings.some(w=>/Chưa đọc đủ giá từng món/.test(w)));
+});
+
 test('DRIPS floor to 10,000 and TemDI only with verified member and >=50k',()=>{
  assert.equal(STORAGE_KEY,'dn-highlands-insights-v1');
  assert.equal(DRIVE_SYNC_KEY,'dn-highlands-drive-sync-v1');
