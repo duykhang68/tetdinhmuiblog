@@ -2,6 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {SHEET_ID,DRIVE_NAME,parseWikiUrl,parseAIJson,normalizeVocabulary,uniqueVocabulary,toSheetRow,validateBackup} from './model.js';
 import {discoverExpenseDriveClientId,validClientId,EDITOR_DRIVE_CLIENT_KEY} from '../expenses/driveClientResolver.js';
 import {readRememberedAiKeys,persistAiKeys} from './aiKeyStorage.js';
+import {generateGemini,generateGroq} from './aiModelDiscovery.js';
 const SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.appdata';
 const SHEETS='https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+'/values/';
 const DRIVE='https://www.googleapis.com/drive/v3/files';
@@ -19,19 +20,6 @@ async function wikiExtract(url){
  const item=Object.values(data.query?.pages||{})[0];
  if(!item||item.missing!==undefined||!String(item.extract||'').trim())throw Error('Wikipedia không trả về nội dung bài viết. Thử bài khác.');
  return {text:item.extract,canonical,title:item.title};
-}
-async function gemini(key,prompt){
- const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',{
- method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},
- body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',temperature:.45,maxOutputTokens:8192}})
- });
- const data=await responseJSON(r);return data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
-}
-async function groq(key,prompt){
- const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',
- headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},
- body:JSON.stringify({model:'llama-3.3-70b-versatile',temperature:.4,max_tokens:7000,response_format:{type:'json_object'},messages:[{role:'system',content:'Return valid JSON only.'},{role:'user',content:prompt}]})});
- const data=await responseJSON(r);return data.choices?.[0]?.message?.content||'';
 }
 const snapshot=(source,title,article,vocabulary)=>({schema:'wikipedia-writer-v1',source,title,article,vocabulary,savedAt:new Date().toISOString()});
 export default function Writer(){
@@ -124,11 +112,11 @@ export default function Writer(){
   try{
    const wiki=await wikiExtract(url);
    const prompt=PROMPT(wiki.canonical,wiki.text);
-   const attempts=provider==='gemini'?[['Gemini',gKey,gemini]]:provider==='groq'?[['Groq',qKey,groq]]:[['Gemini',gKey,gemini],['Groq',qKey,groq]];
+   const attempts=provider==='gemini'?[['Gemini',gKey,generateGemini]]:provider==='groq'?[['Groq',qKey,generateGroq]]:[['Gemini',gKey,generateGemini],['Groq',qKey,generateGroq]];
    let generated,failures=[];
    for(const [name,key,run] of attempts){
     if(!key.trim()){failures.push(name+': chưa nhập API key');continue;}
-    try{generated=parseAIJson(await run(key.trim(),prompt));setNotice('Đã tạo bài bằng '+name+'. Hãy đọc lại và xác minh thông tin trước khi đồng bộ.');break;}
+    try{const result=await run(key.trim(),prompt);generated=parseAIJson(result.text);setNotice('Đã tạo bài bằng '+name+' / '+result.model+'. Hãy đọc lại và xác minh thông tin trước khi đồng bộ.');break;}
     catch(e){failures.push(name+': '+e.message);}
    }
    if(!generated)throw Error(failures.join(' | '));
