@@ -5,15 +5,15 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 02:51 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 02:54 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 60 |
-| AUTO-MERGED có bằng chứng | 36 |
-| Auto-merge PR thường | 30 |
+| PR đã merge (tối đa 300 PR gần đây) | 61 |
+| AUTO-MERGED có bằng chứng | 37 |
+| Auto-merge PR thường | 31 |
 | Auto-merge PR thay đổi workflow | 6 |
 | Nguồn merge chưa xác minh | 24 |
 
@@ -21,16 +21,17 @@ Cập nhật: **2026-11-07 02:51 UTC** · Repository: `duykhang68/tetdinhmuiblog
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 36
+    "Auto-merge verified" : 37
     "Chưa xác minh" : 24
 ```
 
-`Auto-merge ` ███████████░░░░░░░ **36/60**
+`Auto-merge ` ███████████░░░░░░░ **37/61**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#62](https://github.com/duykhang68/tetdinhmuiblog/pull/62) style(expenses): Reddit OrangeRed light-mode visual reb | 2026-11-07T02:54:23Z | Code/docs | ✅ | CI green trên HEAD `81ae1868`; GitHub chấp nhận merge; [Run #42331471525](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42331471525) |
 | [#61](https://github.com/duykhang68/tetdinhmuiblog/pull/61) feat(starbucks): capture receipt subtotal, discounts an | 2026-11-07T02:50:57Z | Code/docs | ✅ | CI green trên HEAD `74068fe7`; GitHub chấp nhận merge; [Run #42331213598](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42331213598) |
 | [#60](https://github.com/duykhang68/tetdinhmuiblog/pull/60) feat(expenses): Daily Expenses & Insights with custom c | 2026-11-07T02:46:18Z | Code/docs | ✅ | CI green trên HEAD `0eb1a43c`; GitHub chấp nhận merge; [Run #42330847846](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42330847846) |
 | [#59](https://github.com/duykhang68/tetdinhmuiblog/pull/59) feat(starbucks): add optional Order ID to transactions  | 2026-11-07T02:43:59Z | Code/docs | ✅ | CI green trên HEAD `c7e3d49c`; GitHub chấp nhận merge; [Run #42330664653](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42330664653) |
@@ -70,8 +71,8 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 16.7% (6/36).
-- **Quality gate:** 36 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 16.2% (6/37).
+- **Quality gate:** 37 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
