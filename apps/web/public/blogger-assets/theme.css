@@ -23,6 +23,7 @@
 
   /* Map existing HealthDaily / Blogger tokens without moving the layout. */
   --dn-blogger-accent: var(--tdm-brand);
+  --dn-blogger-content-max-width: 1200px; /* Preserve original compatibility token; no layout rule */
   --hd-brand: var(--tdm-brand);
   --hd-accent: var(--tdm-action);
   --hd-accent-hover: var(--tdm-action-hover);
