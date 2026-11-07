@@ -10,6 +10,7 @@ export default defineConfig({
         researchInsights: resolve(ROOT, 'research-insights.html'),
         starbucksInsights: resolve(ROOT, 'starbucks-insights/index.html'),
         highlandsInsights: resolve(ROOT, 'highlands-insights/index.html'),
+        payrollInsights: resolve(ROOT, 'payroll-insights/index.html'),
         expenses: resolve(ROOT, 'expenses/index.html')
       }
     }
