@@ -2,18 +2,18 @@
 
 **Ngày:** 07/11/2026 (Asia/Ho_Chi_Minh)  
 **Repository:** [duykhang68/tetdinhmuiblog](https://github.com/duykhang68/tetdinhmuiblog)  
-**Nhánh:** \`feat/starbucks-rewards-light-insights-20261107\`  
-**Trang:** \`/starbucks-insights/\`  
-**Local:** \`http://localhost:5173/starbucks-insights/\`  
-**Cloudflare Pages sau deploy:** \`https://duynguyen-reddit-editor.pages.dev/starbucks-insights/\`
+**Nhánh:** `feat/starbucks-rewards-light-insights-20261107`  
+**Trang:** `/starbucks-insights/`  
+**Local:** `http://localhost:5173/starbucks-insights/`  
+**Cloudflare Pages sau deploy:** `https://duynguyen-reddit-editor.pages.dev/starbucks-insights/`
 
 ## 1. Mục tiêu và quyết định thiết kế
 
 Triển khai một trang độc lập dành cho việc ghi nhận chi tiêu tại Starbucks Việt Nam, thống kê theo tháng và tính Stars ước tính. Giao diện sử dụng hoàn toàn **light mode** theo ngôn ngữ thị giác Reddit, không kế thừa giao diện nền tối từ bản phác thảo ban đầu.
 
-- Nền trang \`#f7f8fa\`, surface \`#ffffff\`, nội dung \`#171717\`.
-- Accent cho thống kê và hành động: Reddit OrangeRed \`#ff4500\`.
-- Accent cho hội viên/Rewards: Starbucks Green \`#00754a\`.
+- Nền trang `#f7f8fa`, surface `#ffffff`, nội dung `#171717`.
+- Accent cho thống kê và hành động: Reddit OrangeRed `#ff4500`.
+- Accent cho hội viên/Rewards: Starbucks Green `#00754a`.
 - Font Reddit Sans, responsive, card có viền sáng và nhiều khoảng trắng.
 - Không dùng biểu đồ xanh mặc định, Dark Mode, overlay loading toàn màn hình hoặc giả lập số liệu trong production.
 
@@ -23,27 +23,27 @@ Triển khai một trang độc lập dành cho việc ghi nhận chi tiêu tạ
 
 | File | Chức năng |
 | --- | --- |
-| \`apps/web/starbucks-insights/index.html\` | HTML entry riêng cho /starbucks-insights/ |
-| \`apps/web/src/starbucks-insights/main.jsx\` | Mount React độc lập |
-| \`apps/web/src/starbucks-insights/StarbucksInsights.jsx\` | Form giao dịch, KPI, biểu đồ tương tác, Rewards, bảng lịch sử, sao lưu |
-| \`apps/web/src/starbucks-insights/model.js\` | Validation, tính điểm sao, nhóm theo tháng, chu kỳ hạng |
-| \`apps/web/src/starbucks-insights/starbucks.css\` | Design tokens và CSS scoped light mode |
-| \`apps/web/vite.config.js\` | Vite multi-page build cho route mới |
-| \`apps/web/src/App.jsx\` | Shortcut Starbucks tại khu vực Truy cập nhanh |
-| \`apps/web/src/editor-kit.css\` | Style shortcut xanh Starbucks trên Editor |
-| \`apps/web/test/starbucksInsights.test.mjs\` | Node unit tests và kiểm thử kết nối route |
-| \`docs/STARBUCKS-REWARDS-INSIGHTS.md\` | Tài liệu và nhật ký triển khai |
+| `apps/web/starbucks-insights/index.html` | HTML entry riêng cho /starbucks-insights/ |
+| `apps/web/src/starbucks-insights/main.jsx` | Mount React độc lập |
+| `apps/web/src/starbucks-insights/StarbucksInsights.jsx` | Form giao dịch, KPI, biểu đồ tương tác, Rewards, bảng lịch sử, sao lưu |
+| `apps/web/src/starbucks-insights/model.js` | Validation, tính điểm sao, nhóm theo tháng, chu kỳ hạng |
+| `apps/web/src/starbucks-insights/starbucks.css` | Design tokens và CSS scoped light mode |
+| `apps/web/vite.config.js` | Vite multi-page build cho route mới |
+| `apps/web/src/App.jsx` | Shortcut Starbucks tại khu vực Truy cập nhanh |
+| `apps/web/src/editor-kit.css` | Style shortcut xanh Starbucks trên Editor |
+| `apps/web/test/starbucksInsights.test.mjs` | Node unit tests và kiểm thử kết nối route |
+| `docs/STARBUCKS-REWARDS-INSIGHTS.md` | Tài liệu và nhật ký triển khai |
 
 ## 3. Dòng chảy dữ liệu
 
 1. Người dùng nhập ngày, cửa hàng/món, số tiền VNĐ, số ly, phương thức thanh toán, phí không tính sao và điều kiện tích sao.
-2. \`normalizeTransaction()\` kiểm tra ngày, số tiền, phí, số ly, phương thức, rồi cập nhật state.
-3. \`localStorage\` ghi dữ liệu theo key \`dn-starbucks-insights-v1\`; lần mở tiếp theo đọc lại dữ liệu. Không có backend hay đồng bộ đa thiết bị trong phiên bản này.
-4. \`monthlySeries()\` nhóm theo tháng \`YYYY-MM\` và bổ sung các tháng có giá trị 0 trong thời gian chọn.
-5. \`analytics()\` tính tổng chi, số ly, số lượt, trung bình, tháng cao/thấp, MoM.
+2. `normalizeTransaction()` kiểm tra ngày, số tiền, phí, số ly, phương thức, rồi cập nhật state.
+3. `localStorage` ghi dữ liệu theo key `dn-starbucks-insights-v1`; lần mở tiếp theo đọc lại dữ liệu. Không có backend hay đồng bộ đa thiết bị trong phiên bản này.
+4. `monthlySeries()` nhóm theo tháng `YYYY-MM` và bổ sung các tháng có giá trị 0 trong thời gian chọn.
+5. `analytics()` tính tổng chi, số ly, số lượt, trung bình, tháng cao/thấp, MoM.
 6. SVG Bar/Line Chart dùng chung state, cho phép chuyển chế độ, xem chi tiết tháng; có bộ lọc kỳ 6/12/24 tháng, toàn bộ, năm và phương thức thanh toán.
-7. \`starsFor()\` tính Sao Xét Hạng và Sao Đổi Thưởng theo loại giao dịch đủ điều kiện.
-8. \`rewardsProgress()\` tính tiến độ chu kỳ 12 tháng và số dư Rewards ước tính có điều chỉnh thủ công.
+7. `starsFor()` tính Sao Xét Hạng và Sao Đổi Thưởng theo loại giao dịch đủ điều kiện.
+8. `rewardsProgress()` tính tiến độ chu kỳ 12 tháng và số dư Rewards ước tính có điều chỉnh thủ công.
 9. Bảng lịch sử có tìm kiếm, lọc cùng chart, sửa, xóa, phân trang và xuất/nhập JSON, xuất CSV.
 
 ## 4. Chính sách Starbucks Rewards tại Việt Nam
@@ -76,16 +76,16 @@ Quy tắc được thực thi:
 ## 5. Quyết định kỹ thuật / rủi ro
 
 - **Không thêm dependency** cho chart: sử dụng React + SVG native để tránh làm nặng bundle và tránh thêm lockfile chỉ vì biểu đồ.
-- Trang dùng entry Vite riêng ở thư mục \`starbucks-insights/\`; Cloudflare Pages có thể phục vụ route tĩnh theo cấu trúc folder/index.html.
+- Trang dùng entry Vite riêng ở thư mục `starbucks-insights/`; Cloudflare Pages có thể phục vụ route tĩnh theo cấu trúc folder/index.html.
 - Tất cả số liệu giao dịch là do người dùng nhập; dashboard không gọi API Starbucks hoặc tự phát sinh giao dịch mẫu.
 - Dữ liệu không tự đồng bộ sang thiết bị khác. Cần xuất JSON để sao lưu và nhập lại khi đổi trình duyệt.
 - Phiên bản này chưa có auto-import hóa đơn, đồng bộ tài khoản Starbucks, server-side storage, tính promotional Stars hay engine xử lý voucher hết hạn.
-- Date grouping dùng ngày \`YYYY-MM-DD\` được nhập theo lịch Việt Nam; ngày hôm nay lấy theo timezone \`Asia/Ho_Chi_Minh\`.
+- Date grouping dùng ngày `YYYY-MM-DD` được nhập theo lịch Việt Nam; ngày hôm nay lấy theo timezone `Asia/Ho_Chi_Minh`.
 - Reset/đổi hạng/hết hạn chính thức vẫn cần người dùng đối soát, đặc biệt khi nâng hạng giữa chu kỳ.
 
 ## 6. Kiểm thử và phát hành
 
-Các kiểm thử mới trong \`apps/web/test/starbucksInsights.test.mjs\`:
+Các kiểm thử mới trong `apps/web/test/starbucksInsights.test.mjs`:
 
 - Tỷ lệ 40k/60k/80k và số sao phân số.
 - Giao dịch bị loại trừ, trước chính sách, chưa quét QR và đối tác trả tiền mặt.
@@ -96,11 +96,11 @@ Các kiểm thử mới trong \`apps/web/test/starbucksInsights.test.mjs\`:
 
 **Lệnh dự kiến được CI sử dụng:**
 
-\`\`\`bash
+```bash
 npm run check
 npm test
 npm run build
-\`\`\`
+```
 
 Tài liệu này ghi lại quy trình và phạm vi thay đổi mã nguồn; **không khẳng định CI hoặc production đã thành công trước khi GitHub Actions xác nhận**.
 
