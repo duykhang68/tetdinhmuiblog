@@ -115,7 +115,7 @@ export function spendingMetrics(data,month,now=todayVN()) {
   const values=dailyRows.map(row=>row.amount).sort((a,b)=>a-b);
   const median=values.length%2 ? values[Math.floor(values.length/2)] : (values[values.length/2-1]+values[values.length/2])/2;
   const anomalies=dailyRows.length>=4 ? dailyRows.filter(row=>row.amount>=100000 && row.amount>median*1.85 && row.amount>average*1.5) : [];
-  const warnings=categorySpending.filter(item=>b.categories[item.id]!=null && item.amount>=b.categories[item.id]*0.8)
+  const warnings=categorySpending.filter(item=>b.categories[item.id]!=null && (b.categories[item.id]===0 ? item.amount>0 : item.amount>=b.categories[item.id]*0.8))
     .map(item=>({...item,limit:b.categories[item.id],percent:b.categories[item.id]===0?Infinity:item.amount/b.categories[item.id]*100}));
   const prevAmounts={};
   for(const item of previous)prevAmounts[item.categoryId]=(prevAmounts[item.categoryId]||0)+item.amount;
