@@ -194,6 +194,8 @@
 .kit-layout .kit-quick-link-starbucks{--quick-accent:#00754a}
 .kit-layout .kit-quick-link-starbucks .kit-quick-link-icon{background:#eaf6ef;color:#00754a}
 .kit-layout .kit-quick-link-collector{--quick-accent:#3977bd}
+.kit-layout .kit-quick-link-expenses{--quick-accent:#13845a}
+.kit-layout .kit-quick-link-expenses .kit-quick-link-icon{background:#e6f6e9;color:#147d51}
 .kit-layout .kit-quick-link-icon{display:grid;place-items:center;flex:0 0 41px;width:41px;height:41px;border-radius:12px;font-size:21px;font-weight:750;background:#ffebdf;color:#d94d16}
 .kit-layout .kit-quick-link-quality .kit-quick-link-icon{background:#def8ec;color:#13895f}
 .kit-layout .kit-quick-link-collector .kit-quick-link-icon{background:#e3efff;color:#2765b1}
