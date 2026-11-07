@@ -5,15 +5,15 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 08:57 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 09:03 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 91 |
-| AUTO-MERGED có bằng chứng | 64 |
-| Auto-merge PR thường | 56 |
+| PR đã merge (tối đa 300 PR gần đây) | 92 |
+| AUTO-MERGED có bằng chứng | 65 |
+| Auto-merge PR thường | 57 |
 | Auto-merge PR thay đổi workflow | 8 |
 | Nguồn merge chưa xác minh | 27 |
 
@@ -21,16 +21,17 @@ Cập nhật: **2026-11-07 08:57 UTC** · Repository: `duykhang68/tetdinhmuiblog
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 64
+    "Auto-merge verified" : 65
     "Chưa xác minh" : 27
 ```
 
-`Auto-merge ` █████████████░░░░░ **64/91**
+`Auto-merge ` █████████████░░░░░ **65/92**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#93](https://github.com/duykhang68/tetdinhmuiblog/pull/93) feat: Wikipedia AI Writer with Gemini/Groq and VI–KR–EN | 2026-11-07T09:02:53Z | Code/docs | ✅ | CI green trên HEAD `a39c9b02`; GitHub chấp nhận merge; [Run #42358023707](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42358023707) |
 | [#92](https://github.com/duykhang68/tetdinhmuiblog/pull/92) fix(vocabulary): prioritize newly edited rows over init | 2026-11-07T08:56:50Z | Code/docs | ✅ | CI green trên HEAD `c50fd44c`; GitHub chấp nhận merge; [Run #42357592453](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42357592453) |
 | [#91](https://github.com/duykhang68/tetdinhmuiblog/pull/91) feat(editor): add Rollback ID Dashboard quick access sh | 2026-11-07T08:46:40Z | Code/docs | ✅ | CI green trên HEAD `6326db36`; GitHub chấp nhận merge; [Run #42356896951](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42356896951) |
 | [#90](https://github.com/duykhang68/tetdinhmuiblog/pull/90) feat(vocabulary): Gemini-first Groq-fallback Apps Scrip | 2026-11-07T08:45:27Z | Code/docs | ✅ | CI green trên HEAD `f9d1f1b2`; GitHub chấp nhận merge; [Run #42356810392](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42356810392) |
@@ -98,8 +99,8 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 12.5% (8/64).
-- **Quality gate:** 64 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 12.3% (8/65).
+- **Quality gate:** 65 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
