@@ -119,6 +119,9 @@ export default function Writer(){
    if(remote.modifiedTime!==f.modifiedTime)throw Error('Drive có bản sửa mới ở thiết bị khác. Hãy khôi phục/xử lý xung đột trước khi ghi đè.');
    await googleRequest('https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(f.id)+'?uploadType=media',token,{method:'PATCH',headers:{'Content-Type':'application/json'},body:value});
   }else{
+   // Connection no longer restores automatically: avoid silently creating duplicate backups.
+   const existing=await googleRequest(DRIVE+'?spaces=appDataFolder&q='+encodeURIComponent("name = '"+DRIVE_NAME+"' and trashed = false")+'&fields=files(id,name,modifiedTime)&pageSize=1',token);
+   if(existing.files?.length)throw Error('Drive đã có bản thảo. Hãy chọn “Tải bản thảo từ Drive” để kiểm tra phiên bản hiện có trước khi cập nhật; không tự tạo bản sao trùng.');
    const metadata={name:DRIVE_NAME,mimeType:'application/json',parents:['appDataFolder']};
    const boundary='wikiwriter'+Date.now();
    const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+value+'\r\n--'+boundary+'--';
