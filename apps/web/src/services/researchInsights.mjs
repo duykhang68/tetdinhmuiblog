@@ -24,6 +24,13 @@ function issueRecord(issue) {
     url: /^https:\/\/github\.com\/duykhang68\/tetdinhmuiblog\/issues\/\d+$/.test(issue.html_url || '') ? issue.html_url : null
   };
 }
+// Codes are safe for the browser: never expose tokens or raw GitHub error bodies.
+function sourceError(code, message) {
+  return Object.assign(new Error(message), {code});
+}
+function diagnostic(error) {
+  return {ok:false,code:error?.code||'GH_UPSTREAM',message:error?.message||'Không thể đọc dữ liệu GitHub.'};
+}
 async function githubJSON(fetcher, path, token, charge) {
   charge();
   const headers = {'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
@@ -32,15 +39,22 @@ async function githubJSON(fetcher, path, token, charge) {
   try {
     response = await fetcher(API_BASE + path, {headers,signal:AbortSignal.timeout(12000)});
   } catch {
-    throw new Error('Không kết nối được GitHub API. Hãy kiểm tra mạng hoặc thử lại.');
+    throw sourceError('GH_NETWORK','Không kết nối được GitHub API. Hãy kiểm tra mạng hoặc thử lại.');
   }
   if (!response.ok) {
-    if (response.status === 403 || response.status === 429)
-      throw new Error('GitHub API đang giới hạn truy cập. Cấu hình RESEARCH_GITHUB_TOKEN cho backend hoặc thử lại sau.');
-    throw new Error('GitHub API trả HTTP ' + response.status + '.');
+    if(response.status===401)
+      throw sourceError('GH_TOKEN_INVALID','GitHub từ chối token. Kiểm tra GITHUB_TOKEN hoặc RESEARCH_GITHUB_TOKEN tại backend.');
+    if(response.status===429||response.headers?.get('x-ratelimit-remaining')==='0')
+      throw sourceError('GH_RATE_LIMIT','GitHub API đã hết quota. Cấu hình GITHUB_TOKEN cho Cloudflare rồi thử lại.');
+    if(response.status===403)
+      throw sourceError('GH_FORBIDDEN','GitHub từ chối quyền truy cập Issues/Actions. Kiểm tra token và quyền đọc repository.');
+    if(response.status===404)
+      throw sourceError('GH_NOT_FOUND','Không tìm thấy repository hoặc tài nguyên GitHub có quyền truy cập.');
+    throw sourceError('GH_HTTP_'+response.status,'GitHub API trả HTTP '+response.status+'.');
   }
-  const payload = await response.json();
-  return payload;
+  try{return await response.json();}catch{
+    throw sourceError('GH_BAD_JSON','GitHub trả về phản hồi không hợp lệ.');
+  }
 }
 export function summarizeResearch(issues, workflowRuns, options = {}) {
   const now = options.now ?? Date.now();
@@ -78,11 +92,36 @@ export function summarizeResearch(issues, workflowRuns, options = {}) {
 }
 export async function loadResearchInsights({fetcher=fetch,token='',charge=()=>{},now=Date.now}={}) {
   const start=now();
-  const [issues,runs] = await Promise.all([
+  // Fetch each source independently; one failed GitHub call must not erase the other.
+  const [issueResult,runResult] = await Promise.allSettled([
     githubJSON(fetcher,'/issues?state=all&per_page=100&sort=updated&direction=desc',token,charge),
     githubJSON(fetcher,'/actions/runs?per_page=100',token,charge)
   ]);
-  if (!Array.isArray(issues) || !runs || !Array.isArray(runs.workflow_runs))
-    throw new Error('GitHub trả dữ liệu không hợp lệ.');
-  return summarizeResearch(issues,runs,{now:now(),apiLatencyMs:Math.max(0,now()-start)});
+  const issuesOk=issueResult.status==='fulfilled' && Array.isArray(issueResult.value);
+  const runsOk=runResult.status==='fulfilled' && Array.isArray(runResult.value?.workflow_runs);
+  const issueError=issueResult.status==='rejected'
+    ?issueResult.reason:sourceError('GH_INVALID_ISSUES','GitHub trả về danh sách Issues không hợp lệ.');
+  const runError=runResult.status==='rejected'
+    ?runResult.reason:sourceError('GH_INVALID_ACTIONS','GitHub trả về danh sách Actions không hợp lệ.');
+  const issues=issuesOk?issueResult.value:[];
+  const runs=runsOk?runResult.value:{workflow_runs:[],total_count:0};
+  const result=summarizeResearch(issues,runs,{now:now(),apiLatencyMs:Math.max(0,now()-start)});
+  const sources={
+    issues:issuesOk?{ok:true,sampleSize:issues.length}:diagnostic(issueError),
+    actions:runsOk?{ok:true,sampleSize:runs.workflow_runs.length}:diagnostic(runError)
+  };
+  // Null is unavailable, 0 is a verified empty result. This prevents false KPIs.
+  if(!issuesOk){
+    result.kpis.totalResearch=null;
+    result.kpis.researchGrowthPct=null;
+    result.activity=null;result.categories=null;result.types=null;result.events=null;
+    result.limited.issues=null;
+  }
+  if(!runsOk){
+    result.kpis.activePipelines=null;
+    result.kpis.successRate=null;
+    result.kpis.sampleRuns=null;
+    result.limited.runs=null;
+  }
+  return {...result,sources,partial:!issuesOk||!runsOk};
 }
