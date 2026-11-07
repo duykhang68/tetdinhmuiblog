@@ -84,6 +84,7 @@ export default function ResearchInsights(){
   const [check,setCheck]=useState(0),[refresh,setRefresh]=useState(0);
   const [snapshot,setSnapshot]=useState(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
   const [updatedAt,setUpdatedAt]=useState(null),[filter,setFilter]=useState('all'),[search,setSearch]=useState('');
+  const [traffic,setTraffic]=useState({status:'loading'});
   const busy=useRef(false);
   useEffect(()=>{
     const c=new AbortController();
@@ -114,6 +115,29 @@ export default function ResearchInsights(){
     const visible=()=>{if(!document.hidden)load();};
     document.addEventListener('visibilitychange',visible);
     return ()=>{alive=false;c.abort();clearInterval(interval);document.removeEventListener('visibilitychange',visible);busy.current=false;};
+  },[auth,refresh]);
+  useEffect(()=>{
+    if(auth!=='connected')return;
+    const controller=new AbortController();
+    let alive=true,loading=false;
+    const load=async()=>{
+      if(document.hidden||loading)return;
+      loading=true;
+      try{
+        const r=await fetch('/api/ga4-traffic',{credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
+        const data=await r.json().catch(()=>({}));
+        if(r.status===401){if(alive)setAuth('signedOut');return;}
+        if(!r.ok)throw Error(data.error||'Không đọc được Google Analytics (HTTP '+r.status+').');
+        if(alive)setTraffic(data);
+      }catch(e){
+        if(alive&&e.name!=='AbortError')setTraffic({status:'unavailable',message:e.message||'Không kết nối được Google Analytics.'});
+      }finally{loading=false;}
+    };
+    load();
+    const interval=setInterval(load,POLL_MS);
+    const visible=()=>{if(!document.hidden)load();};
+    document.addEventListener('visibilitychange',visible);
+    return ()=>{alive=false;controller.abort();clearInterval(interval);document.removeEventListener('visibilitychange',visible);};
   },[auth,refresh]);
   const events=useMemo(()=>snapshot?.events?.filter(i=>{
     const match=filter==='all'||i.state===filter;
@@ -151,7 +175,21 @@ export default function ResearchInsights(){
           <article className="ri-panel ri-trends"><div className="ri-panel-head"><div><div className="ri-section-subtitle">RESEARCH ACTIVITY</div><h2>Research trends <span>↗</span></h2><p>Số incident mới được ghi nhận trong 14 ngày gần nhất</p></div><div className="ri-heading-value"><strong>{n(total7)}</strong><span>7 ngày qua</span></div></div>{snapshot?<ActivityChart data={snapshot.activity}/>:<div className="ri-skeleton"/>}</article>
           <article className="ri-panel"><div className="ri-panel-head"><div><div className="ri-section-subtitle">DISTRIBUTION</div><h2>Incident types</h2><p>Tỉ trọng theo nguồn nghiên cứu</p></div></div>{snapshot?<TypesDonut data={snapshot.types}/>:<div className="ri-skeleton"/>}</article>
           <article className="ri-panel ri-categories"><div className="ri-panel-head"><div><div className="ri-section-subtitle">ROOT CAUSE TAXONOMY</div><h2>Top error classes</h2><p>Phân loại mã lỗi do researcher.py tạo</p></div></div><div className="ri-bars">{snapshot?.categories?.length?snapshot.categories.slice(0,6).map((d,i)=><div key={d.name} className="ri-bar-row"><div className="ri-bar-label"><span>{String(i+1).padStart(2,'0')} · {d.name}</span><strong>{d.count}</strong></div><div className="ri-bar-track"><div style={{width:100*d.count/snapshot.categories[0].count+'%'}}/></div></div>):<p className="ri-empty">Chưa có phân loại lỗi.</p>}</div></article>
-          <article className="ri-panel ri-data-source"><div className="ri-panel-head"><div><div className="ri-section-subtitle">DATA OBSERVABILITY</div><h2>Signal health</h2><p>Chỉ số được xác minh theo nguồn</p></div></div><div className="ri-observability"><div><span className="ri-obs-status good"><i/> Connected</span><strong>GitHub Issues / Actions</strong><small>Nguồn dữ liệu trực tiếp, đọc bằng backend sau OAuth</small></div><div><span className="ri-obs-status pending"><i/> Not configured</span><strong>Website traffic</strong><small>Chưa có nguồn GA4 hoặc server analytics; không suy luận từ GitHub runs.</small></div><div><span className="ri-obs-status good"><i/> Every 3 min</span><strong>Automatic polling</strong><small>Tạm dừng khi tab ẩn và hỗ trợ tải lại thủ công</small></div></div></article>
+          <article className="ri-panel ri-data-source"><div className="ri-panel-head"><div><div className="ri-section-subtitle">DATA OBSERVABILITY</div><h2>Signal health</h2><p>Chỉ số được xác minh theo nguồn</p></div></div><div className="ri-observability"><div><span className="ri-obs-status good"><i/> Connected</span><strong>GitHub Issues / Actions</strong><small>Nguồn dữ liệu trực tiếp, đọc bằng backend sau OAuth</small></div><div className="ri-ga4-source">
+                <span className={'ri-obs-status '+(traffic.status==='connected'?'good':'pending')}><i/>{traffic.status==='connected'?'GA4 Connected':traffic.status==='needs_consent'?'Grant access':traffic.status==='loading'?'Checking':traffic.status==='needs_property'?'Setup required':'Unavailable'}</span>
+                <strong>Website traffic · GA4</strong>
+                <small>duynguyen99.blogspot.com · G-Z83BHS8KMY</small>
+                {traffic.status==='connected'?<div className="ri-ga4-stats">
+                  <div><span>Active · 30 phút</span><b>{n(traffic.metrics.activeUsers30m)}</b></div>
+                  <div><span>Active users · 7 ngày</span><b>{n(traffic.metrics.activeUsers7d)}</b></div>
+                  <div><span>Sessions · 7 ngày</span><b>{n(traffic.metrics.sessions7d)}</b></div>
+                  <div><span>Page views · 7 ngày</span><b>{n(traffic.metrics.pageViews7d)}</b></div>
+                  <small className="ri-ga4-footnote">Stream {traffic.streamId} · Xác minh từ Google Analytics Data API · {dateLabel(traffic.updatedAt)}</small>
+                </div>:<div className="ri-ga4-note">
+                  <span>{traffic.status==='needs_consent'?'Cấp quyền Analytics chỉ đọc để xem số liệu thực.':traffic.status==='loading'?'Đang kiểm tra nguồn GA4…':traffic.message||'Chưa đọc được báo cáo GA4.'}</span>
+                  {traffic.status==='needs_consent'&&<a href="/auth/google/start?return_to=research-insights&analytics=1">Kết nối Google Analytics <Icon name="arrow" size={13}/></a>}
+                </div>}
+              </div><div><span className="ri-obs-status good"><i/> Every 3 min</span><strong>Automatic polling</strong><small>Tạm dừng khi tab ẩn và hỗ trợ tải lại thủ công</small></div></div></article>
         </section>
         <section id="incidents" className="ri-panel ri-table-panel"><div className="ri-panel-head"><div><div className="ri-section-subtitle">INCIDENT EXPLORER</div><h2>Research knowledge base</h2><p>Issue records do researcher.py ghi nhận, sắp theo lần cập nhật mới nhất</p></div><a className="ri-github-link" href={'https://github.com/'+REPO+'/issues?q='+encodeURIComponent('is:issue [RESEARCHER]')} target="_blank" rel="noopener noreferrer">Open GitHub <Icon name="arrow" size={15}/></a></div>
           <div className="ri-table-controls"><label className="ri-search"><Icon name="search" size={18}/><input type="search" aria-label="Tìm theo mã lỗi hoặc tiêu đề" placeholder="Search incident, fingerprint, issue ID…" value={search} onChange={e=>setSearch(e.target.value)}/></label><div className="ri-filters" role="group" aria-label="Lọc trạng thái">{[['all','All'],['open','Open'],['closed','Closed']].map(([value,label])=><button key={value} className={filter===value?'selected':''} type="button" onClick={()=>setFilter(value)}>{label}</button>)}</div></div>
