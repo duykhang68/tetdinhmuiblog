@@ -106,8 +106,8 @@ class TokenRoutingTests(unittest.TestCase):
 
         issue_gh = IssueGitHub()
         pr_gh = object()
-        with mock.patch.object(researcher, "find_incident_issue", return_value=None), \\
-             mock.patch.object(researcher, "create_knowledge_pr") as create_pr:
+        with (mock.patch.object(researcher, "find_incident_issue", return_value=None),
+              mock.patch.object(researcher, "create_knowledge_pr") as create_pr):
             is_new = researcher.record_incident(issue_gh, record, pr_gh)
         self.assertTrue(is_new)
         self.assertEqual(issue_gh.last_request, ("POST", "/issues"))
@@ -131,8 +131,8 @@ class TokenRoutingTests(unittest.TestCase):
                 return {"html_url": "https://github.com/test/repo/issues/35"}
 
         issue_gh = IssueGitHub()
-        with mock.patch.object(researcher, "find_incident_issue", return_value=None), \\
-             mock.patch.object(researcher, "create_knowledge_pr") as create_pr:
+        with (mock.patch.object(researcher, "find_incident_issue", return_value=None),
+              mock.patch.object(researcher, "create_knowledge_pr") as create_pr):
             is_new = researcher.record_incident(issue_gh, record)
         self.assertTrue(is_new)
         self.assertEqual(issue_gh.paths, ["/issues"])
