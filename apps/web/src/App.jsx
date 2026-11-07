@@ -237,7 +237,7 @@ export default function App(){
   return <div className={'app reddit-layout'+' kit-layout'}>
     <header className="topbar reddit-topbar">
       <div className="brand"><span className="brandmark">d.</span><div><strong>Duy Nguyen <em>Editor</em></strong><small>Reddit-inspired · Blogger CMS</small></div></div>
-      <div className="top-actions"><span className={'conn '+(connected?'online':'')}>{connected?'● Blogger đã kết nối':'○ Chưa kết nối'}</span>{connected?<button className="quiet" onClick={logout}>Ngắt kết nối</button>:<a className="primary" href="/auth/google/start">Kết nối Blogger ↗</a>}</div>
+      <div className="top-actions"><a className="quiet" href="/quality-gate" title="Open CI / Quality Gate Insights">◈ CI Insights</a><span className={'conn '+(connected?'online':'')}>{connected?'● Blogger đã kết nối':'○ Chưa kết nối'}</span>{connected?<button className="quiet" onClick={logout}>Ngắt kết nối</button>:<a className="primary" href="/auth/google/start">Kết nối Blogger ↗</a>}</div>
     </header>
     {diagramOpen&&<DiagramStudio autoStart={diagramAuto} sourceHTML={html} sourceTitle={title} onClose={()=>setDiagramOpen(false)}/>}
     <main className="kit-main">
