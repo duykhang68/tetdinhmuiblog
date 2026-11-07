@@ -209,9 +209,9 @@ export function createDriveService({fetcher = (...args) => fetch(...args), oauth
     const res=await request(API+'/'+encodeURIComponent(file.id)+'?alt=media');
     let envelope;
     try{envelope=JSON.parse(await res.text());}
-    catch{throw new Error('File sao lưu chi tiêu trên Drive không phải JSON hợp lệ. Không tự ghi đè.');}
+    catch{throw new Error('File sao lưu Starbucks trên Drive không phải JSON hợp lệ. Không tự ghi đè.');}
     if(envelope?.kind!=='duynguyen-starbucks-snapshot-v1'||!envelope.data)
-      throw new Error('File Drive không đúng định dạng sao lưu chi tiêu. Không tự ghi đè.');
+      throw new Error('File Drive không đúng định dạng sao lưu Starbucks. Không tự ghi đè.');
     let data;
     try {data=(await import('../starbucks-insights/driveSync.js')).normalizeData(envelope.data);}
     catch(error) {throw new Error('Dữ liệu JSON Drive không hợp lệ: '+error.message);}
@@ -243,7 +243,7 @@ export function createDriveService({fetcher = (...args) => fetch(...args), oauth
     const json=JSON.stringify({kind:'duynguyen-starbucks-snapshot-v1',savedAt:new Date(now()).toISOString(),
       baseId:expectedFileId||'',data:normalized});
     if(new Blob([json]).size>4*1024*1024)
-      throw new Error('Bản JSON chi tiêu lớn hơn 4 MB; hãy xuất file JSON trước khi đồng bộ.');
+      throw new Error('Bản JSON Starbucks lớn hơn 4 MB; hãy xuất file JSON trước khi đồng bộ.');
     // Check the previous head before adding a new immutable snapshot.
     const snapshots=await listStarbucksSnapshots();
     if(String(snapshots[0]?.id||'')!==String(expectedFileId||'')){
@@ -253,9 +253,9 @@ export function createDriveService({fetcher = (...args) => fetch(...args), oauth
     const stamp=new Date(now()).toISOString().replace(/[:.]/g,'-');
     const uuid=crypto.randomUUID();
     const metadata={
-      name:'DuyNguyen-Starbuckss-'+stamp+'-'+uuid.slice(0,8)+'.json',
+      name:'DuyNguyen-Starbucks-'+stamp+'-'+uuid.slice(0,8)+'.json',
       mimeType:'application/json',
-      description:'Duy Nguyen · Daily Starbuckss & Insights · Private backup',
+      description:'Duy Nguyen · Starbucks Rewards & Insights · Private backup',
       appProperties:{[STARBUCKS_TAG]:STARBUCKS_VALUE,base_id:String(expectedFileId||'root')}
     };
     const boundary='dn_starbucks_'+uuid.replace(/-/g,'');
