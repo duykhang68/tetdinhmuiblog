@@ -5,15 +5,15 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 04:58 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 06:13 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 84 |
-| AUTO-MERGED có bằng chứng | 57 |
-| Auto-merge PR thường | 49 |
+| PR đã merge (tối đa 300 PR gần đây) | 85 |
+| AUTO-MERGED có bằng chứng | 58 |
+| Auto-merge PR thường | 50 |
 | Auto-merge PR thay đổi workflow | 8 |
 | Nguồn merge chưa xác minh | 27 |
 
@@ -21,16 +21,17 @@ Cập nhật: **2026-11-07 04:58 UTC** · Repository: `duykhang68/tetdinhmuiblog
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 57
+    "Auto-merge verified" : 58
     "Chưa xác minh" : 27
 ```
 
-`Auto-merge ` ████████████░░░░░░ **57/84**
+`Auto-merge ` ████████████░░░░░░ **58/85**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#86](https://github.com/duykhang68/tetdinhmuiblog/pull/86) chore(editor): remove Research, Quality Gate and Collec | 2026-11-07T06:13:07Z | Code/docs | ✅ | CI green trên HEAD `3628f06d`; GitHub chấp nhận merge; [Run #42345999303](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42345999303) |
 | [#85](https://github.com/duykhang68/tetdinhmuiblog/pull/85) fix(researcher): resolve GH-API-403 on incident issue c | 2026-11-07T04:57:52Z | Workflow/config | ✅ | CI green trên HEAD `d92f676a`; GitHub chấp nhận merge; [Run #42340664455](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42340664455) |
 | [#84](https://github.com/duykhang68/tetdinhmuiblog/pull/84) feat(payroll): opt-in AES-encrypted Google Drive sync + | 2026-11-07T04:55:38Z | Code/docs | ✅ | CI green trên HEAD `891d743c`; GitHub chấp nhận merge; [Run #42340517189](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42340517189) |
 | [#83](https://github.com/duykhang68/tetdinhmuiblog/pull/83) chore(ci): run Auditor every five days; document Cloudf | 2026-11-07T04:49:00Z | Workflow/config | ✅ | CI green trên HEAD `a37c8ffc`; GitHub chấp nhận merge; [Run #42340054629](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42340054629) |
@@ -91,8 +92,8 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 14.0% (8/57).
-- **Quality gate:** 57 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 13.8% (8/58).
+- **Quality gate:** 58 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
