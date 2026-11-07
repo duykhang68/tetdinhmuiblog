@@ -105,7 +105,7 @@ a{color:var(--sb-orange)}
 .sb-hidden{display:none}
 .sb-search{height:42px;margin:18px 0 13px;max-width:360px;font-size:12px}
 .sb-table-scroll{width:100%;overflow-x:auto;scrollbar-color:#dfe5e9 transparent}
-.sb-history table{width:100%;min-width:810px;border-collapse:collapse;text-align:left}
+.sb-history table{width:100%;min-width:960px;border-collapse:collapse;text-align:left}
 .sb-history th{background:#fafbfc;color:#687680;font-size:10px;font-weight:850;letter-spacing:.035em;padding:13px 12px;white-space:nowrap}
 .sb-history td{font-size:11.5px;line-height:1.45;padding:13px 12px;border-bottom:1px solid #eff1f3;color:#45525c;vertical-align:middle}
 .sb-history td strong{display:block;color:#242f36;font-size:11.5px;font-weight:800}
@@ -113,6 +113,7 @@ a{color:var(--sb-orange)}
 .sb-history tr:last-child td{border-bottom:0}
 .sb-history .sb-num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .sb-history td.sb-money{font-weight:800;color:#222d35}
+.sb-history td.sb-order-id{max-width:180px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;color:#40515c}
 .sb-history td.sb-green-text{color:#00754a;font-weight:850}
 .sb-actions{white-space:nowrap}
 .sb-actions button{background:#fff;border:1px solid #e8ecef;color:#5f6c74;padding:7px;border-radius:8px;margin-right:5px;display:inline-grid;place-items:center}
