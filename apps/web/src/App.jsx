@@ -1,5 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState,useCallback} from 'react';
 import {useEditor,EditorContent} from '@tiptap/react';
+import SchedulePost from './components/SchedulePost.jsx';
+import {localTimeZone,scheduleLabel,loadScheduleCache,storeScheduleCache} from './services/schedule.js';
 import StarterKit from '@tiptap/starter-kit';
 import {TableKit} from '@tiptap/extension-table';
 import Image from '@tiptap/extension-image';
@@ -74,6 +76,8 @@ export default function App(){
   const [seriesPosts,setSeriesPosts]=useState([]),[seriesLoading,setSeriesLoading]=useState(false),[seriesPartial,setSeriesPartial]=useState(false),[seriesFault,setSeriesFault]=useState('');
   const [seriesCursors,setSeriesCursors]=useState({draftToken:'',liveToken:''});
   const [post,setPost]=useState(null),[mode,setMode]=useState('compose');
+  const [scheduleOpen,setScheduleOpen]=useState(false),[scheduleBusy,setScheduleBusy]=useState(false);
+  const [scheduleHistory,setScheduleHistory]=useState([]),[driveSchedule,setDriveSchedule]=useState(null);
   const [dirty,setDirty]=useState(false),[saving,setSaving]=useState(false),[autoSync,setAutoSync]=useState(true);
   const [message,setMessage]=useState(''),[fault,setFault]=useState(''),[busy,setBusy]=useState(false);
   const [restorable,setRestorable]=useState(null);
@@ -90,7 +94,10 @@ export default function App(){
   });
   editorCurrent.current=editor;
   const connected=!!status?.connected;
+  const scheduled=String(post?.status||'').toLowerCase()==='scheduled';
   const readOnly=!!post&&String(post.status||'').toLowerCase()!=='draft';
+  const currentSchedule=scheduled&&post?.published?{publishDate:post.published,timeZone:localTimeZone()}:driveSchedule;
+  useEffect(()=>{setScheduleHistory(loadScheduleCache(blogId));},[blogId]);
   useEffect(()=>{editor?.setEditable(!readOnly,false);},[editor,readOnly]);
   const wordCount=useMemo(()=>html.replace(/<[^>]*>/g,' ').replace(/&(?:nbsp|#160);/g,' ').trim().split(/\s+/).filter(Boolean).length,[html]);
   const labelsArray=useMemo(()=>[...new Set(labels.split(',').map(x=>x.trim()).filter(Boolean))],[labels]);
@@ -131,23 +138,31 @@ export default function App(){
     setBusy(true);resetFault();
     try{const p=new URLSearchParams({blogId,status:statusFilter});if(token)p.set('pageToken',token);const result=await api('/posts?'+p);
       setItems(prev=>append?[...prev,...result.posts]:result.posts);setNextPage(result.nextPageToken);
+      if(statusFilter==='scheduled'){
+        setScheduleHistory(previous=>{
+          const merged=append?[...previous,...result.posts]:result.posts;
+          const unique=[...new Map(merged.map(p=>[String(p.id),{id:String(p.id),title:p.title,publishDate:p.published,status:p.status}])).values()];
+          storeScheduleCache(blogId,unique);
+          return unique;
+        });
+      }
     }catch(e){showError(e);}finally{setBusy(false);}
   },[blogId,filter,connected]);
   useEffect(()=>{if(blogId&&connected){setItems([]);setNextPage(null);fetchPosts(filter);}},[blogId,filter,connected,fetchPosts]);
   useEffect(()=>{
     if(restorable)return;
     const t=setTimeout(()=>{
-      try{localStorage.setItem(localKey(blogId),JSON.stringify({post,title,labels,html,series,dirty,savedAt:new Date().toISOString()}));}catch{setMessage('Bộ nhớ thiết bị đầy; hãy lưu lên Blogger');}
+      try{localStorage.setItem(localKey(blogId),JSON.stringify({post,title,labels,html,series,driveSchedule,dirty,savedAt:new Date().toISOString()}));}catch{setMessage('Bộ nhớ thiết bị đầy; hãy lưu lên Blogger');}
     },800);return()=>clearTimeout(t);
-  },[blogId,post,title,labels,html,series,dirty,restorable]);
+  },[blogId,post,title,labels,html,series,driveSchedule,dirty,restorable]);
   const setEditorHTML=value=>{if(editorCurrent.current){suppress.current=true;editorCurrent.current.commands.setContent(value);suppress.current=false;}};
-  const loadLocal=()=>{if(driveBusy||saving||!restorable)return;setDocumentKey(k=>k+1);revision.current++;setPost(restorable.post||null);setTitle(restorable.title||'');setLabels(restorable.labels||'');setSeries(restorable.series?.enabled?editableSeries(restorable.series):emptySeries());setHTML(restorable.html||DEFAULT_HTML);setEditorHTML(restorable.html||DEFAULT_HTML);setMode('html');setDirty(true);setRestorable(null);setMessage('Đã khôi phục bản lưu cục bộ; cần kiểm tra trước khi lưu lên Blogger');};
-  const newPost=()=>{if(driveBusy||saving)return;if(dirty&&!confirm('Nội dung chưa lưu lên Blogger. Vẫn tạo bài mới?'))return;setDocumentKey(k=>k+1);revision.current++;setPost(null);setTitle('');setLabels('');setSeries(emptySeries());setHTML(DEFAULT_HTML);setEditorHTML(DEFAULT_HTML);setMode('compose');setDirty(false);setMessage('Bài mới: chưa lưu lên Blogger');setFault('');};
+  const loadLocal=()=>{if(driveBusy||saving||!restorable)return;setDocumentKey(k=>k+1);revision.current++;setPost(restorable.post||null);setDriveSchedule(restorable.driveSchedule||null);setTitle(restorable.title||'');setLabels(restorable.labels||'');setSeries(restorable.series?.enabled?editableSeries(restorable.series):emptySeries());setHTML(restorable.html||DEFAULT_HTML);setEditorHTML(restorable.html||DEFAULT_HTML);setMode('html');setDirty(true);setRestorable(null);setMessage('Đã khôi phục bản lưu cục bộ; cần kiểm tra trước khi lưu lên Blogger');};
+  const newPost=()=>{if(driveBusy||saving)return;if(dirty&&!confirm('Nội dung chưa lưu lên Blogger. Vẫn tạo bài mới?'))return;setDocumentKey(k=>k+1);revision.current++;setPost(null);setDriveSchedule(null);setTitle('');setLabels('');setSeries(emptySeries());setHTML(DEFAULT_HTML);setEditorHTML(DEFAULT_HTML);setMode('compose');setDirty(false);setMessage('Bài mới: chưa lưu lên Blogger');setFault('');};
   const openPost=async p=>{
     if(driveBusy||saving)return;
     if(dirty&&!confirm('Bài hiện tại chưa lưu trên Blogger. Vẫn mở bài khác?'))return;
     setBusy(true);resetFault();
-    try{const x=await api(`/posts/${p.id}?blogId=${encodeURIComponent(blogId)}`);setDocumentKey(k=>k+1);revision.current++;setPost(x.post);setTitle(x.post.title);setLabels((x.post.labels||[]).join(', '));const opened=extractSeriesFromHTML(x.post.content);setSeries(opened.series);setHTML(opened.html);setEditorHTML(opened.html);setDirty(false);setMode('html');setMessage('Đã tải bài từ Blogger. Mở HTML để giữ nguyên các khối cũ; chỉ chuyển sang Compose nếu chấp nhận chuẩn hóa HTML.');setRestorable(null);}
+    try{const x=await api(`/posts/${p.id}?blogId=${encodeURIComponent(blogId)}`);setDocumentKey(k=>k+1);revision.current++;setPost(x.post);setDriveSchedule(String(x.post.status||'').toLowerCase()==='scheduled'?{publishDate:x.post.published,timeZone:localTimeZone()}:null);setTitle(x.post.title);setLabels((x.post.labels||[]).join(', '));const opened=extractSeriesFromHTML(x.post.content);setSeries(opened.series);setHTML(opened.html);setEditorHTML(opened.html);setDirty(false);setMode('html');setMessage('Đã tải bài từ Blogger. Mở HTML để giữ nguyên các khối cũ; chỉ chuyển sang Compose nếu chấp nhận chuẩn hóa HTML.');setRestorable(null);}
     catch(e){showError(e);}finally{setBusy(false);setDraftsOpen(false);}
   };
   const save=async({silent=false}={})=>{
@@ -176,8 +191,40 @@ export default function App(){
     let target=post;
     if(dirty){target=await save();if(!target)return;}
     setSaving(true);resetFault();
-    try{const result=await api(`/publish/${target.id}`,{method:'POST',body:{blogId,expectedUpdated:target.updated},csrf:status.csrf});setPost(result.post);setDirty(false);setMessage('Đã xuất bản thành công. '+(result.post.url||''));setFilter('live');}
+    try{const result=await api(`/publish/${target.id}`,{method:'POST',body:{blogId,expectedUpdated:target.updated},csrf:status.csrf});setPost(result.post);setDriveSchedule(null);setDirty(false);setMessage('Đã xuất bản thành công. '+(result.post.url||''));setFilter('live');}
     catch(e){showError(e);}finally{setSaving(false);}
+  };
+  const scheduleArticle=async({publishDate,timeZone})=>{
+    if(!connected||!blogId)throw new Error('Kết nối Blogger và chọn blog trước khi đặt lịch.');
+    if(!title.trim())throw new Error('Nhập tiêu đề trước khi đặt lịch.');
+    if(seriesIssue)throw new Error('Series: '+seriesIssue);
+    let target=post;
+    if(!target||dirty){target=await save();if(!target)throw new Error('Không lưu được bản nháp; chưa tạo lịch đăng.');}
+    setScheduleBusy(true);setSaving(true);resetFault();
+    try{
+      const result=await api('/schedule/'+target.id,{method:'POST',
+        body:{blogId,expectedUpdated:target.updated,publishDate},csrf:status.csrf});
+      setPost(result.post);setDriveSchedule({publishDate:result.post.published||publishDate,timeZone});setDirty(false);
+      setMessage('Đã đặt lịch xuất bản: '+scheduleLabel(result.post.published||publishDate,timeZone));
+      setScheduleHistory(previous=>{
+        const next=[{id:String(result.post.id),title:result.post.title,publishDate:result.post.published||publishDate,status:'scheduled'},...previous.filter(x=>String(x.id)!==String(result.post.id))];
+        storeScheduleCache(blogId,next);return next;
+      });
+      if(filter==='scheduled')fetchPosts('scheduled');else setFilter('scheduled');
+      return true;
+    }catch(e){showError(e);throw e;}finally{setSaving(false);setScheduleBusy(false);}
+  };
+  const cancelSchedule=async()=>{
+    if(!post||!scheduled)throw new Error('Bài viết hiện không có lịch đăng.');
+    if(!confirm('Hủy lịch đăng? Bài viết sẽ trở về bản nháp và không tự xuất bản.'))return false;
+    setScheduleBusy(true);setSaving(true);resetFault();
+    try{
+      const result=await api('/schedule/'+post.id,{method:'DELETE',
+        body:{blogId,expectedUpdated:post.updated},csrf:status.csrf});
+      setPost(result.post);setDriveSchedule(null);setDirty(false);setMessage('Đã hủy lịch. Bài trở về bản nháp trên Blogger.');
+      setScheduleHistory(previous=>{const next=previous.filter(x=>String(x.id)!==String(post.id));storeScheduleCache(blogId,next);return next;});
+      setFilter('draft');return true;
+    }catch(e){showError(e);throw e;}finally{setSaving(false);setScheduleBusy(false);}
   };
   const convertToCompose=()=>{
     if(!confirm('Compose có thể bỏ các thẻ HTML không được TipTap hỗ trợ. Hãy giữ HTML view khi chỉnh bài cũ có widget/iframe/code tùy biến. Tiếp tục?'))return;
@@ -235,7 +282,7 @@ export default function App(){
     if(driveBusy||saving)return;
     if(id===blogId){setCommunityOpen(false);return;}
     if(dirty&&!confirm('Nội dung chưa lưu lên Blogger. Đổi blog và bỏ thay đổi này?'))return;
-    setDocumentKey(k=>k+1);revision.current++;setBlogId(id);setPost(null);setTitle('');setLabels('');setSeries(emptySeries());setHTML(DEFAULT_HTML);
+    setDocumentKey(k=>k+1);revision.current++;setBlogId(id);setPost(null);setDriveSchedule(null);setTitle('');setLabels('');setSeries(emptySeries());setHTML(DEFAULT_HTML);
     setEditorHTML(DEFAULT_HTML);setDirty(false);setMode('compose');setCommunityOpen(false);
   };
   const allSeriesPosts=activeSeries ? [
@@ -247,6 +294,8 @@ export default function App(){
       <div className="brand"><span className="brandmark">d.</span><div><strong>Duy Nguyen <em>Editor</em></strong><small>Reddit-inspired · Blogger CMS</small></div></div>
       <div className="top-actions"><a className="quiet" href="/quality-gate" title="Open CI / Quality Gate Insights">◈ CI Insights</a><span className={'conn '+(connected?'online':'')}>{connected?'● Blogger đã kết nối':'○ Chưa kết nối'}</span>{connected?<button className="quiet" onClick={logout}>Ngắt kết nối</button>:<a className="primary" href="/auth/google/start">Kết nối Blogger ↗</a>}</div>
     </header>
+    <SchedulePost open={scheduleOpen} post={post} title={title} busy={scheduleBusy||saving||driveBusy}
+      onClose={()=>setScheduleOpen(false)} onSchedule={scheduleArticle} onCancel={cancelSchedule}/>
     {diagramOpen&&<DiagramStudio autoStart={diagramAuto} sourceHTML={html} sourceTitle={title} onClose={()=>setDiagramOpen(false)}/>}
     <main className="kit-main">
       <div className="kit-page-head">
@@ -258,7 +307,7 @@ export default function App(){
         <div className="kit-navigation-actions"><button disabled={!connected||driveBusy} className="drafts-link" onClick={()=>setDraftsOpen(true)}>▤ &nbsp; Drafts &amp; Posts <span className="drafts-count">{items.length}{nextPage?'+':''}</span></button><button disabled={driveBusy} className="kit-button" onClick={newPost}>＋ Bài viết mới</button></div>
       </nav>
       {restorable&&<div className="alert restore"><strong>Bản lưu cục bộ: {fmt(restorable.savedAt)}</strong><span>Kiểm tra nội dung trước khi đưa lên Blogger.</span><button className="quiet" onClick={loadLocal}>Khôi phục</button><button className="quiet" onClick={()=>{localStorage.removeItem(localKey(blogId));setRestorable(null);}}>Bỏ qua</button></div>}
-      {readOnly&&<div className="alert warning">Bài đã xuất bản đang ở chế độ chỉ xem. Bạn có thể sao chép HTML hoặc tạo một bản nháp mới.</div>}
+      {readOnly&&<div className="alert warning">{scheduled?'Bài đang được Blogger lên lịch và ở chế độ chỉ xem. Chọn Đổi lịch / Hủy lịch để điều chỉnh; hủy lịch sẽ đưa bài về bản nháp.':'Bài đã xuất bản đang ở chế độ chỉ xem. Bạn có thể sao chép HTML hoặc tạo một bản nháp mới.'}</div>}
       {fault&&<div className="alert error" role="alert">{fault}</div>}
       <div className="kit-workspace">
         <aside className="kit-panel kit-blocks" aria-labelledby="blocks-heading">
@@ -267,7 +316,7 @@ export default function App(){
           <div className="kit-block-foot">{readOnly?'Bài đã đăng đang ở chế độ chỉ xem.':mode==='preview'?'Quay lại Soạn thảo hoặc HTML để chèn khối.':'Đặt con trỏ trong bài, rồi chọn khối bạn muốn thêm.'}</div>
         </aside>
         <section className="kit-paper" aria-label="Nội dung bài viết">
-          <div className="kit-paper-meta"><span className="kit-paper-blog">r/{(currentBlog?.name||'Blogger').replace(/\s+/g,'')}</span><span className={'kit-state'+(readOnly?' is-live':'')}>{readOnly?'Đã xuất bản':post?'Bản nháp Blogger':'Bản nháp mới'}</span><span className="kit-meta-dot">·</span><span>Không gian cho ý tưởng của bạn</span></div>
+          <div className="kit-paper-meta"><span className="kit-paper-blog">r/{(currentBlog?.name||'Blogger').replace(/\s+/g,'')}</span><span className={'kit-state'+(scheduled?' is-scheduled':readOnly?' is-live':'')}>{scheduled?'⏱ Đã đặt lịch':readOnly?'Đã xuất bản':post?'Bản nháp Blogger':'Bản nháp mới'}</span><span className="kit-meta-dot">·</span><span>{scheduled&&post.published?scheduleLabel(post.published):'Không gian cho ý tưởng của bạn'}</span></div>
           <div className="kit-title-area"><label className="kit-title-label" htmlFor="post-title">TIÊU ĐỀ BÀI VIẾT <span>{title.length}/200</span></label><textarea id="post-title" className="reddit-title" rows={2} value={title} maxLength={200} disabled={readOnly} onChange={e=>{revision.current++;setTitle(e.target.value);setDirty(true);}} placeholder="Bắt đầu bằng một tiêu đề hay…"/>
             <div className="tags-row"><button type="button" className="add-tags" disabled={readOnly} onClick={()=>setTagsOpen(v=>!v)} aria-expanded={tagsOpen}>♢ &nbsp; Thêm nhãn</button>{labelsArray.slice(0,20).map((x,i)=><span className={'tag tag'+(i%6)} key={x}>{x}</span>)}{!labelsArray.length&&<span className="kit-tags-hint">Giúp người đọc tìm thấy bài của bạn</span>}</div>
             {tagsOpen&&<div className="tag-panel"><label htmlFor="post-tags">Nhãn, ngăn cách bằng dấu phẩy</label><input id="post-tags" type="text" value={labels} disabled={readOnly} onChange={e=>{revision.current++;setLabels(e.target.value);setDirty(true);}} placeholder="Công nghệ, Hướng dẫn, SEO"/><button type="button" className="quiet" onClick={()=>setTagsOpen(false)}>Xong</button></div>}
@@ -289,11 +338,13 @@ export default function App(){
               {!connected&&<p className="series-note">Kết nối Blogger để xem các tập trên tài khoản của bạn.</p>}
             </div>
           </>}
-          <DrivePanel key={documentKey} title={title} labels={labels} html={html} series={series} dirty={dirty} onBusy={setDriveBusy} externalBusy={saving||busy} onOpen={article=>{revision.current++;setPost(null);setTitle(article.title);setLabels(article.labels);setSeries(article.series?.enabled?editableSeries(article.series):emptySeries());setHTML(article.html);setEditorHTML(article.html);setMode('html');setDirty(true);setRestorable(null);setFault('');setMessage('Đã mở bài từ Drive. Lưu Drive và lưu Blogger là hai thao tác riêng.');}}/>
+          <DrivePanel key={documentKey} title={title} labels={labels} html={html} series={series} schedule={currentSchedule} dirty={dirty} onBusy={setDriveBusy} externalBusy={saving||busy} onOpen={article=>{revision.current++;setPost(null);setDriveSchedule(article.schedule||null);setTitle(article.title);setLabels(article.labels);setSeries(article.series?.enabled?editableSeries(article.series):emptySeries());setHTML(article.html);setEditorHTML(article.html);setMode('html');setDirty(true);setRestorable(null);setFault('');setMessage('Đã mở bài từ Drive. Lưu Drive và lưu Blogger là hai thao tác riêng.');}}/>
           <section className="kit-panel kit-publish-panel"><div className="kit-panel-heading"><span className="kit-heading-mark" aria-hidden="true">↗</span><div><h2>Đưa bài viết lên blog</h2><p>Từng bước, sẵn sàng chia sẻ.</p></div></div><div className="kit-panel-body">
             <div className="kit-destination"><span className="kit-destination-avatar" aria-hidden="true">{(currentBlog?.name||'B')[0].toUpperCase()}</span><div><span>BLOG CỦA BẠN</span><strong>{currentBlog?.name||'Chưa chọn blog'}</strong>{currentBlog?.url&&<a href={currentBlog.url} target="_blank" rel="noopener noreferrer">Mở blog ↗</a>}</div></div>
             <ol className="kit-publish-steps"><li className={title.trim()&&wordCount?'is-done':''}><span>{title.trim()&&wordCount?'✓':'1'}</span><div><strong>Viết điều bạn muốn kể</strong><p>Thêm tiêu đề, nội dung và nhãn.</p></div></li><li className={post&&!dirty?'is-done':''}><span>{post&&!dirty?'✓':'2'}</span><div><strong>Lưu bản nháp</strong><p>Giữ lại bài viết trên Blogger.</p></div></li><li className={readOnly?'is-done':''}><span>{readOnly?'✓':'3'}</span><div><strong>Chia sẻ với mọi người</strong><p>Xem trước rồi xác nhận xuất bản.</p></div></li></ol>
-            <div className="kit-publish-actions"><button type="button" className="save" disabled={saving||driveBusy||readOnly||!blogId} onClick={()=>save()}>{saving?'Đang lưu…':'✓ Lưu bản nháp'}</button><button type="button" className="publish" disabled={saving||driveBusy||!post||readOnly} onClick={publish}>Xuất bản bài viết <span aria-hidden="true">↗</span></button></div>
+            <div className="kit-publish-actions"><button type="button" className="save" disabled={saving||driveBusy||readOnly||!blogId} onClick={()=>save()}>{saving?'Đang lưu…':'✓ Lưu bản nháp'}</button><button type="button" className="publish" disabled={saving||driveBusy||!post||readOnly} onClick={publish}>Xuất bản bài viết <span aria-hidden="true">↗</span></button><button type="button" className="schedule-button" disabled={saving||driveBusy||!blogId||(!scheduled&&readOnly)} onClick={()=>setScheduleOpen(true)}>◷ {scheduled?'Thay đổi / Hủy lịch':'Schedule Post · Đặt lịch đăng'}</button></div>
+            {scheduled&&post.published&&<div className="schedule-badge" role="status">◷ Scheduled for {scheduleLabel(post.published)}</div>}
+            {!!scheduleHistory.length&&<div className="schedule-history"><h3>Scheduled Posts</h3><p>Lịch sử lưu trên thiết bị. Mở tab “Đã lên lịch” để xác minh từ Blogger.</p>{scheduleHistory.slice(0,3).map(item=><button type="button" key={item.id} onClick={()=>{setFilter('scheduled');setDraftsOpen(true);}}><strong>{item.title||'Không tiêu đề'}</strong><small>{scheduleLabel(item.publishDate)}</small></button>)}<button type="button" onClick={()=>{setFilter('scheduled');setDraftsOpen(true);}}>Xem toàn bộ lịch ↗</button></div>}
             <label className="kit-autosync"><span><input type="checkbox" checked={autoSync} onChange={e=>setAutoSync(e.target.checked)} disabled={readOnly}/> Tự động lưu nháp</span><small>Sau lần lưu đầu, tự đồng bộ khi soạn thảo.</small></label>
             {post&&<div className="kit-post-reference"><span>POST ID</span><code>{post.id}</code>{post.updated&&<small>Cập nhật: {fmt(post.updated)}</small>}</div>}
           </div></section>
@@ -323,7 +374,7 @@ export default function App(){
         </a>)}
       </div>
     </nav>
-    {connected&&draftsOpen&&<div className="overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setDraftsOpen(false);}}><aside className="drafts-drawer" role="dialog" aria-modal="true" aria-label="Danh sách bài viết"><div className="dialog-head"><h2>Drafts &amp; Posts</h2><button className="dialog-close" onClick={()=>setDraftsOpen(false)} aria-label="Đóng">✕</button></div><div className="side-tabs"><button className={filter==='draft'?'active':''} onClick={()=>setFilter('draft')}>Bản nháp</button><button className={filter==='live'?'active':''} onClick={()=>setFilter('live')}>Đã đăng</button></div><div className="postlist">{busy&&<p className="micro">Đang tải...</p>}{!busy&&!items.length&&<div className="empty">Chưa có bài phù hợp.</div>}{items.map(p=><button key={p.id} className={'postitem '+(post?.id===p.id?'current':'')} onClick={()=>openPost(p)}><span>{p.title||'Không tiêu đề'}</span><small>{fmt(p.updated)}</small></button>)}{nextPage&&<button className="quiet full" onClick={()=>fetchPosts(filter,true,nextPage)}>Tải thêm →</button>}</div><div className="drawer-foot"><button className="quiet" onClick={()=>fetchPosts(filter)}>↻ Làm mới</button><button className="primary" onClick={()=>{newPost();setDraftsOpen(false);}}>＋ Bài mới</button></div></aside></div>}
+    {connected&&draftsOpen&&<div className="overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setDraftsOpen(false);}}><aside className="drafts-drawer" role="dialog" aria-modal="true" aria-label="Danh sách bài viết"><div className="dialog-head"><h2>Drafts &amp; Posts</h2><button className="dialog-close" onClick={()=>setDraftsOpen(false)} aria-label="Đóng">✕</button></div><div className="side-tabs"><button className={filter==='draft'?'active':''} onClick={()=>setFilter('draft')}>Bản nháp</button><button className={filter==='live'?'active':''} onClick={()=>setFilter('live')}>Đã đăng</button><button className={filter==='scheduled'?'active':''} onClick={()=>setFilter('scheduled')}>Đã lên lịch</button></div><div className="postlist">{busy&&<p className="micro">Đang tải...</p>}{!busy&&!items.length&&<div className="empty">Chưa có bài phù hợp.</div>}{items.map(p=><button key={p.id} className={'postitem '+(post?.id===p.id?'current':'')} onClick={()=>openPost(p)}><span>{p.title||'Không tiêu đề'}</span><small>{filter==='scheduled'?'Đăng: '+scheduleLabel(p.published):fmt(p.updated)}</small></button>)}{nextPage&&<button className="quiet full" onClick={()=>fetchPosts(filter,true,nextPage)}>Tải thêm →</button>}</div><div className="drawer-foot"><button className="quiet" onClick={()=>fetchPosts(filter)}>↻ Làm mới</button><button className="primary" onClick={()=>{newPost();setDraftsOpen(false);}}>＋ Bài mới</button></div></aside></div>}
     {connected&&communityOpen&&<div className="overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setCommunityOpen(false);}}><section className="community-dialog" role="dialog" aria-modal="true" aria-label="Choose blog"><div className="dialog-head"><h2>Choose blog</h2><button className="dialog-close" onClick={()=>setCommunityOpen(false)} aria-label="Đóng">✕</button></div><label className="search-wrap"><span aria-hidden="true">⌕</span><input autoFocus aria-label="Tìm blog" value={communitySearch} onChange={e=>setCommunitySearch(e.target.value)} placeholder="Search"/></label><p className="dialog-hint">Chọn blog Blogger của tài khoản Google đã kết nối</p><div className="community-list">{blogs.filter(b=>(b.name+' '+b.url).toLowerCase().includes(communitySearch.toLowerCase())).map(b=><button className="community-item" key={b.id} onClick={()=>selectBlog(b.id)}><span className="community-avatar">{(b.name||'B')[0].toUpperCase()}</span><span><strong>{b.name}</strong><small>{b.url||b.id}</small></span>{b.id===blogId&&<span className="current-check">✓</span>}</button>)}{!blogs.filter(b=>(b.name+' '+b.url).toLowerCase().includes(communitySearch.toLowerCase())).length&&<p className="empty">Không tìm thấy blog.</p>}</div></section></div>}
     <footer className="app-footer"><span>Duy Nguyen Editor · Lấy cảm hứng từ UI của Reddit, không liên kết với Reddit</span><span>Google OAuth → Blogger / Drive</span></footer>
   </div>;
