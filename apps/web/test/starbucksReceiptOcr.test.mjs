@@ -28,7 +28,7 @@ const sora = [
 
 test('Starbucks Rewards screenshot fills transaction without double-counting extras', () => {
   const result = parseStarbucksReceipt(sora);
-  assert.equal(result.fields.orderId, 'o200147006');
+  assert.equal(result.fields.orderId, 'O200147006');
   assert.equal(result.fields.date, '2026-11-01');
   assert.equal(result.time, '11:34');
   assert.equal(result.fields.store, 'Sora Mall');
