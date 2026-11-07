@@ -64,6 +64,7 @@ export default function App(){
   const [title,setTitle]=useState(''),[labels,setLabels]=useState(''),[html,setHTML]=useState(DEFAULT_HTML);
   const [series,setSeries]=useState(emptySeries);
   const [seriesPosts,setSeriesPosts]=useState([]),[seriesLoading,setSeriesLoading]=useState(false),[seriesPartial,setSeriesPartial]=useState(false),[seriesFault,setSeriesFault]=useState('');
+  const [seriesCursors,setSeriesCursors]=useState({draftToken:'',liveToken:''});
   const [post,setPost]=useState(null),[mode,setMode]=useState('compose');
   const [dirty,setDirty]=useState(false),[saving,setSaving]=useState(false),[autoSync,setAutoSync]=useState(true);
   const [message,setMessage]=useState(''),[fault,setFault]=useState(''),[busy,setBusy]=useState(false);
@@ -88,18 +89,28 @@ export default function App(){
   const activeSeries=useMemo(()=>normalizeSeries(series),[series]);
   const seriesIssue=seriesValidation(series);
   const updateSeries=next=>{revision.current++;setSeries(next);setDirty(true);setMessage('Đã thay đổi Series; cần lưu lại bài viết.');};
-  useEffect(()=>{seriesRequest.current++;setSeriesPosts([]);setSeriesPartial(false);setSeriesFault('');setSeriesLoading(false);},[blogId,series.enabled,series.name]);
-  const refreshSeries=async()=>{
+  useEffect(()=>{seriesRequest.current++;setSeriesPosts([]);setSeriesPartial(false);setSeriesCursors({draftToken:'',liveToken:''});setSeriesFault('');setSeriesLoading(false);},[blogId,series.enabled,series.name]);
+  const fetchSeriesPage=async(append=false)=>{
     if(!activeSeries||!connected||!blogId)return;
     const requestId=++seriesRequest.current;
     setSeriesLoading(true);setSeriesFault('');
     try{
-      const data=await api('/series?'+new URLSearchParams({blogId,name:activeSeries.name}));
+      const params=new URLSearchParams({blogId,name:activeSeries.name});
+      if(append){params.set('draftToken',seriesCursors.draftToken||'done');params.set('liveToken',seriesCursors.liveToken||'done');}
+      const data=await api('/series?'+params);
       if(requestId!==seriesRequest.current)return;
-      setSeriesPosts(data.posts||[]);setSeriesPartial(!!data.partial);
+      setSeriesPosts(previous=>{
+        if(!append)return data.posts||[];
+        const entries=new Map(previous.map(item=>[String(item.id),item]));
+        for(const item of data.posts||[])entries.set(String(item.id),item);
+        return [...entries.values()];
+      });
+      setSeriesCursors({draftToken:data.nextDraftToken||'done',liveToken:data.nextLiveToken||'done'});
+      setSeriesPartial(!!data.partial);
     }catch(e){if(requestId===seriesRequest.current)setSeriesFault(e.message||String(e));}
     finally{if(requestId===seriesRequest.current)setSeriesLoading(false);}
   };
+  const refreshSeries=()=>fetchSeriesPage(false);
   const resetFault=()=>setFault('');
   const showError=e=>{setFault(e.message||String(e));setMessage('Lỗi');};
   const init=useCallback(async()=>{try{const s=await api('/status');setStatus(s);if(s.connected){const b=await api('/blogs');setBlogs(b.blogs);const configured=b.blogs.some(x=>x.id===s.defaultBlogId)?s.defaultBlogId:b.blogs[0]?.id||'';setBlogId(configured);}}catch{setStatus({connected:false});}},[]);
@@ -265,7 +276,7 @@ export default function App(){
           {activeSeries&&<>
             <SeriesIndexTable seriesName={activeSeries.name} currentPart={activeSeries.part} allSeriesPosts={allSeriesPosts}/>
             <div className="kit-series-refresh"><button type="button" className="kit-button full" onClick={refreshSeries} disabled={!connected||seriesLoading||driveBusy||saving}>{seriesLoading?'Đang tải mục lục…':'↻ Tải mục lục từ Blogger'}</button>
-              {seriesPartial&&<p className="series-note">Danh sách rất dài: chỉ hiển thị các tập trong 500 bài gần nhất mỗi trạng thái.</p>}
+              {seriesPartial&&<button type="button" className="kit-button full" onClick={()=>fetchSeriesPage(true)} disabled={!connected||seriesLoading||driveBusy||saving}>{seriesLoading?'Đang tải…':'＋ Tải thêm tập'}</button>}
               {seriesFault&&<p className="series-error" role="alert">{seriesFault}</p>}
               {!connected&&<p className="series-note">Kết nối Blogger để xem các tập trên tài khoản của bạn.</p>}
             </div>
