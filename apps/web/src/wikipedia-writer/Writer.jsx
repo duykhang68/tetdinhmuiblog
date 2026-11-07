@@ -52,6 +52,7 @@ export default function Writer(){
  },[rememberAiKeys,gKey,qKey]);
  const [title,setTitle]=useState(''),[article,setArticle]=useState(''),[rows,setRows]=useState([]);
  const [busy,setBusy]=useState(''),[notice,setNotice]=useState(''),[error,setError]=useState('');
+ const [sheetWriteSucceeded,setSheetWriteSucceeded]=useState(false);
  const [writingProgress,setWritingProgress]=useState({state:'idle',completed:0,stage:'',detail:'Chưa bắt đầu tạo bài',model:''});
  const [access,setAccess]=useState(''),[driveFile,setDriveFile]=useState(null),[lastSync,setLastSync]=useState(''),[dirty,setDirty]=useState(false);
  const [oauthConfig,setOauthConfig]=useState({clientId:'',loading:true,error:'',source:''});
@@ -110,7 +111,7 @@ export default function Writer(){
   const file=files[0];
   const body=await googleRequest(DRIVE+'/'+encodeURIComponent(file.id)+'?alt=media',token);
   const s=validateBackup(body);
-  setUrl(s.source);setTitle(s.title);setArticle(s.article);setRows(s.vocabulary);setDriveFile(file);setDirty(false);
+  setUrl(s.source);setTitle(s.title);setArticle(s.article);setRows(s.vocabulary);setSheetWriteSucceeded(false);setDriveFile(file);setDirty(false);
   setNotice('Đã khôi phục bản thảo từ Google Drive.');
  }
  async function connect(){setBusy('google');setError('');try{const token=await auth();await restore(token);setNotice('Google Sheets và Drive đã kết nối.');}catch(e){setError(e.message);}finally{setBusy('');}}
@@ -142,7 +143,7 @@ export default function Writer(){
     }
    }
    if(!generated)throw Error(failures.join(' | '));
-   setTitle(generated.title);setArticle(generated.article);setRows(generated.vocabulary);setDirty(true);
+   setTitle(generated.title);setArticle(generated.article);setRows(generated.vocabulary);setSheetWriteSucceeded(false);setDirty(true);
    setWritingProgress({state:'done',completed:4,stage:'done',detail:'Đã tạo bài và '+generated.vocabulary.length+' mục từ vựng; sẵn sàng biên tập.',model:usedModel});
   }catch(e){
    setWritingProgress(old=>({...old,state:'error',detail:'Không hoàn thành: '+String(e.message||e).slice(0,180)}));
@@ -163,8 +164,18 @@ export default function Writer(){
      method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({majorDimension:'ROWS',values:fresh.map(toSheetRow)})
    });
-   setNotice('Đã thêm '+(result.updates?.updatedRows||fresh.length)+' dòng vào Google Sheet. '+(rows.length-fresh.length)+' dòng trùng được bỏ qua.');
+   setSheetWriteSucceeded(true);
+   setNotice('Đã thêm '+(result.updates?.updatedRows||fresh.length)+' dòng vào Google Sheet. '+(rows.length-fresh.length)+' dòng trùng được bỏ qua. Bạn có thể nhấn “Phiên từ vựng mới” để làm trống Section 4.');
   }catch(e){setError(e.message);}finally{setBusy('');}
+ }
+ function resetVocabularySession(){
+  if(!sheetWriteSucceeded||!rows.length||busy)return;
+  if(!confirm('Bắt đầu phiên từ vựng mới? Chỉ xóa danh sách tại Section 4. Các từ đã ghi vào Google Sheets và bài báo hiện tại vẫn được giữ nguyên.'))return;
+  setRows([]);
+  setSheetWriteSucceeded(false);
+  setDirty(true);
+  setError('');
+  setNotice('Đã bắt đầu phiên từ vựng mới. Google Sheet và bài báo hiện tại không thay đổi.');
  }
  async function save(){setBusy('drive');setError('');try{await backup();}catch(e){setError(e.message);}finally{setBusy('');}}
  useEffect(()=>{
@@ -223,9 +234,9 @@ export default function Writer(){
      <p className="ww-note">Thanh hiển thị các bước đã thực sự hoàn thành, không ước lượng thời gian hoặc phần trăm tiến độ nội bộ của nhà cung cấp AI.</p>
     </section>
     <section className="ww-card"><div className="ww-card-head"><span className="ww-step">04</span><div><h2>Từ vựng Việt · Hàn · Anh <span className="ww-count">{rows.length}</span></h2><p>Đã ánh xạ đúng các cột A:F của Sheet1</p></div></div>
-     <div className="ww-table-scroll"><table><thead><tr><th>Việt (A)</th><th>Hàn (B)</th><th>Anh (C)</th><th>Context (D)</th><th>Ngữ pháp (E)</th><th>Category (F)</th><th></th></tr></thead><tbody>{rows.map((v,i)=><tr key={i}>{['vi','ko','en','context','grammar','category'].map(k=><td key={k}><textarea rows={k==='grammar'?3:2} aria-label={k+' '+(i+1)} value={v[k]} onChange={e=>{setRows(old=>old.map((x,j)=>j===i?{...x,[k]:e.target.value}:x));setDirty(true);}}/></td>)}<td><button className="ww-remove" aria-label={'Xóa dòng '+(i+1)} onClick={()=>{setRows(old=>old.filter((_,j)=>j!==i));setDirty(true);}}>×</button></td></tr>)}</tbody></table></div>
+     <div className="ww-table-scroll"><table><thead><tr><th>Việt (A)</th><th>Hàn (B)</th><th>Anh (C)</th><th>Context (D)</th><th>Ngữ pháp (E)</th><th>Category (F)</th><th></th></tr></thead><tbody>{rows.map((v,i)=><tr key={i}>{['vi','ko','en','context','grammar','category'].map(k=><td key={k}><textarea rows={k==='grammar'?3:2} aria-label={k+' '+(i+1)} value={v[k]} onChange={e=>{setRows(old=>old.map((x,j)=>j===i?{...x,[k]:e.target.value}:x));setSheetWriteSucceeded(false);setDirty(true);}}/></td>)}<td><button className="ww-remove" aria-label={'Xóa dòng '+(i+1)} onClick={()=>{setRows(old=>old.filter((_,j)=>j!==i));setSheetWriteSucceeded(false);setDirty(true);}}>×</button></td></tr>)}</tbody></table></div>
      {!rows.length&&<p className="ww-empty">Chưa có từ vựng. Hãy tạo bài báo trước.</p>}
-     <div className="ww-actions"><button onClick={()=>{setRows(old=>[...old,{vi:'',ko:'',en:'',context:'',grammar:'',category:'General / Everyday Language'}]);setDirty(true);}}>+ Thêm từ</button><button className="ww-primary" disabled={running||!access||!rows.length} onClick={push}>{busy==='sheet'?'Đang ghi Sheet…':'↗ Ghi từ mới vào Google Sheet'}</button></div>
+     <div className="ww-actions"><button onClick={()=>{setRows(old=>[...old,{vi:'',ko:'',en:'',context:'',grammar:'',category:'General / Everyday Language'}]);setSheetWriteSucceeded(false);setDirty(true);}}>+ Thêm từ</button><button disabled={running||!sheetWriteSucceeded||!rows.length} onClick={resetVocabularySession} title="Chỉ làm trống từ vựng trong Section 4; không xóa Google Sheet">↻ Phiên từ vựng mới</button><button className="ww-primary" disabled={running||!access||!rows.length} onClick={push}>{busy==='sheet'?'Đang ghi Sheet…':'↗ Ghi từ mới vào Google Sheet'}</button></div>
     </section>
    </div></div>
    {error&&<div role="alert" className="ww-alert ww-error">{error}</div>}
