@@ -224,7 +224,7 @@ def create_knowledge_pr(gh: GitHub, record: dict) -> None:
     print("INFO RESEARCHER-KNOWLEDGE-PR " + pr["html_url"])
 
 
-def record_incident(gh: GitHub, record: dict) -> bool:
+def record_incident(gh: GitHub, record: dict, pr_gh: GitHub | None = None) -> bool:
     title = "[RESEARCHER] " + record["fingerprint"] + " · " + record["code"]
     issue = find_incident_issue(gh, title)
     if issue:
@@ -243,15 +243,21 @@ def record_incident(gh: GitHub, record: dict) -> bool:
         "body": markdown(record) + "\n## State\n\nTRIAGED — not automatically repaired.\n",
     })
     print("INFO RESEARCHER-NEW-ISSUE " + issue["html_url"])
-    try:
-        create_knowledge_pr(gh, record)
-    except RuntimeError as error:
-        # A missing workflow-create-PR permission must never erase the incident.
-        print("WARN RESEARCHER-KNOWLEDGE-PR-FAILED " + clean(error, 300), file=sys.stderr)
+    if pr_gh is None:
+        # GITHUB_TOKEN-created pull requests do not trigger the normal CI events.
+        # Never create an untested PR under the incident-write token.
+        print("WARN RESEARCHER-PR-TOKEN-MISSING knowledge PR not created; "
+              "incident remains in GitHub Issues", file=sys.stderr)
+    else:
+        try:
+            create_knowledge_pr(pr_gh, record)
+        except RuntimeError as error:
+            # A missing workflow-create-PR permission must never erase the incident.
+            print("WARN RESEARCHER-KNOWLEDGE-PR-FAILED " + clean(error, 300), file=sys.stderr)
     return True
 
 
-def check_ci(gh: GitHub, event: dict) -> None:
+def check_ci(gh: GitHub, event: dict, pr_gh: GitHub | None = None) -> None:
     run = event.get("workflow_run")
     if not run:
         print("INFO RESEARCHER-SKIP no CI workflow_run payload")
@@ -267,7 +273,7 @@ def check_ci(gh: GitHub, event: dict) -> None:
     if rec is None:
         print("INFO RESEARCHER-CI-PASSED run #" + str(run["id"]))
         return
-    record_incident(gh, rec)
+    record_incident(gh, rec, pr_gh)
     attempt = int(run.get("run_attempt") or 1)
     if rec["code"] == "CI-RUNNER-STARTUP" and attempt < MAX_RUN_ATTEMPTS:
         gh.call("POST", "/actions/runs/" + str(run["id"]) + "/rerun-failed-jobs", {})
@@ -277,7 +283,7 @@ def check_ci(gh: GitHub, event: dict) -> None:
               " - " + rec["guidance"])
 
 
-def check_conflicts(gh: GitHub) -> None:
+def check_conflicts(gh: GitHub, pr_gh: GitHub | None = None) -> None:
     prs = gh.paged("/pulls?state=open&base=main", max_pages=3)
     for pr in prs:
         if pr.get("draft") or pr.get("head", {}).get("repo", {}).get("full_name") != gh.repository:
@@ -287,7 +293,7 @@ def check_conflicts(gh: GitHub) -> None:
             continue
         files = gh.paged("/pulls/" + str(pr["number"]) + "/files", max_pages=3)
         rec = classify_conflict(fresh, files)
-        record_incident(gh, rec)
+        record_incident(gh, rec, pr_gh)
         print("NOTICE RESEARCHER-CONFLICT-STOP PR #" + str(pr["number"]) +
               " - needs reviewed semantic resolution")
 
@@ -303,11 +309,16 @@ def main() -> int:
         return 2
     try:
         gh = GitHub(token, repository)
+        # The built-in GITHUB_TOKEN is authoritative for issue comments/retries.
+        # A separate repository-write PAT is used ONLY for knowledge PRs so
+        # PR creation still triggers normal pull_request CI events.
+        pr_token = os.environ.get("RESEARCHER_PR_TOKEN", "")
+        pr_gh = GitHub(pr_token, repository) if pr_token and pr_token != token else None
         if args.mode == "ci":
             with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as file:
-                check_ci(gh, json.load(file))
+                check_ci(gh, json.load(file), pr_gh)
         else:
-            check_conflicts(gh)
+            check_conflicts(gh, pr_gh)
     except (RuntimeError, ValueError, OSError, KeyError) as exc:
         print("ERROR RESEARCHER-EXECUTION " + clean(exc, 400), file=sys.stderr)
         return 1
