@@ -1,10 +1,10 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {SHEET_ID,DRIVE_NAME,parseWikiUrl,parseAIJson,normalizeVocabulary,uniqueVocabulary,toSheetRow,validateBackup} from './model.js';
+import {discoverExpenseDriveClientId,validClientId,EDITOR_DRIVE_CLIENT_KEY} from '../expenses/driveClientResolver.js';
 const SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.appdata';
 const SHEETS='https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+'/values/';
 const DRIVE='https://www.googleapis.com/drive/v3/files';
 const escapeName=encodeURIComponent("'Sheet1'!A2:F");
-const CLIENT_ID=import.meta.env.VITE_GOOGLE_CLIENT_ID||'';
 const PROMPT=(source,text)=>`You are an experienced Vietnamese journalist and Vietnamese/Korean/English language educator. Using the Wikipedia material below as background, write an ORIGINAL, neutral, factually faithful Vietnamese explainer article with title, short lead, 3-5 topical subsections and a conclusion. NEVER invent events or quotes; separate uncertain information and attribute claims to Wikipedia. Do not copy passages verbatim. From YOUR GENERATED article select 12-25 useful meaningful words or expressions and provide precise translations. The grammar field should explain grammar and contain three short example sentences labelled VI:, KR:, EN:. Category should be a useful English category. Return ONLY one JSON object with keys "title", "article" (plain text, paragraphs separated by newlines), "vocabulary" (array of objects with keys "vi","ko","en","context","grammar","category"). All vocabulary must occur in article; no duplicates. Source: ${source}\nWikipedia background (may be truncated):\n${text.slice(0,16000)}`;
 async function responseJSON(response){
  const body=await response.json().catch(()=>({}));
@@ -38,13 +38,24 @@ export default function Writer(){
  const [title,setTitle]=useState(''),[article,setArticle]=useState(''),[rows,setRows]=useState([]);
  const [busy,setBusy]=useState(''),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const [access,setAccess]=useState(''),[driveFile,setDriveFile]=useState(null),[lastSync,setLastSync]=useState(''),[dirty,setDirty]=useState(false);
+ const [oauthConfig,setOauthConfig]=useState({clientId:'',loading:true,error:'',source:''});
+ useEffect(()=>{
+  let active=true;
+  let saved='';
+  try{saved=localStorage.getItem(EDITOR_DRIVE_CLIENT_KEY)||'';}catch{}
+  discoverExpenseDriveClientId({environmentValue:import.meta.env.VITE_GOOGLE_CLIENT_ID,storedValue:saved})
+   .then(result=>{if(active)setOauthConfig({...result,loading:false});})
+   .catch(()=>{if(active)setOauthConfig({clientId:'',loading:false,error:'Không đọc được cấu hình OAuth chung của Editor.',source:'missing'});});
+  return()=>{active=false;};
+ },[]);
  const stateRef=useRef({});stateRef.current={url,title,article,rows,driveFile,access,dirty};
  function change(fn){return value=>{fn(value);setDirty(true);};}
  async function auth(){
-  if(!CLIENT_ID)throw Error('Thiếu VITE_GOOGLE_CLIENT_ID trong Cloudflare Pages.');
+  if(oauthConfig.loading)throw Error('Đang đọc cấu hình Google OAuth từ Editor, hãy thử lại.');
+  if(!validClientId(oauthConfig.clientId))throw Error(oauthConfig.error||'Không tìm thấy Google OAuth Web Client ID đã cấu hình trong Editor.');
   if(!globalThis.google?.accounts?.oauth2)throw Error('Google Identity Services chưa tải.');
   const token=await new Promise((resolve,reject)=>{
-   const client=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPE,
+   const client=google.accounts.oauth2.initTokenClient({client_id:oauthConfig.clientId,scope:SCOPE,
     callback:result=>result.error?reject(Error(result.error)):resolve(result.access_token),
     error_callback:e=>reject(Error(e.type||'Không thể đăng nhập Google'))});
    client.requestAccessToken({prompt:'consent'});
@@ -146,7 +157,8 @@ export default function Writer(){
     </section>
    </div><div className="ww-stack">
     <section className="ww-card ww-connect"><div className="ww-card-head"><span className="ww-step">☁</span><div><h2>Google Sheets & Drive</h2><p>{access?'Đã kết nối tài khoản Google':'Kết nối OAuth để ghi dữ liệu trực tiếp'}</p></div></div>
-     <div className="ww-actions"><button disabled={running} onClick={connect}>{access?'↻ Kết nối lại / Khôi phục':'Kết nối Google'}</button><button disabled={running||!access||!article} onClick={save}>☁ Đồng bộ ngay</button></div>
+     <div className="ww-actions"><button disabled={running||oauthConfig.loading} onClick={connect}>{oauthConfig.loading?'Đang đọc cấu hình Google…':access?'↻ Kết nối lại / Khôi phục':'Kết nối Google'}</button><button disabled={running||!access||!article} onClick={save}>☁ Đồng bộ ngay</button></div>
+     {!oauthConfig.loading&&!validClientId(oauthConfig.clientId)&&<p className="ww-note" role="status">{oauthConfig.error||'Chưa tìm thấy OAuth Client ID dùng chung của Editor.'}</p>}
      <p className="ww-note">Sao lưu bản thảo vào Google Drive mỗi 3 phút khi trang mở và đã kết nối. Không ghi đè bản Drive có thay đổi từ thiết bị khác.</p>
      <p className="ww-status">{dirty?'● Có thay đổi chưa đồng bộ':'✓ Bản thảo chưa có thay đổi mới'}{lastSync?' · Lần lưu: '+lastSync:''}</p>
      <a href={'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit?gid=0'} target="_blank" rel="noopener noreferrer">Mở Google Sheet viethananh ↗</a>
