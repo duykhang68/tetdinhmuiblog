@@ -5,15 +5,15 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 09:43 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 09:48 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 99 |
-| AUTO-MERGED có bằng chứng | 72 |
-| Auto-merge PR thường | 64 |
+| PR đã merge (tối đa 300 PR gần đây) | 100 |
+| AUTO-MERGED có bằng chứng | 73 |
+| Auto-merge PR thường | 65 |
 | Auto-merge PR thay đổi workflow | 8 |
 | Nguồn merge chưa xác minh | 27 |
 
@@ -21,16 +21,17 @@ Cập nhật: **2026-11-07 09:43 UTC** · Repository: `duykhang68/tetdinhmuiblog
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 72
+    "Auto-merge verified" : 73
     "Chưa xác minh" : 27
 ```
 
-`Auto-merge ` █████████████░░░░░ **72/99**
+`Auto-merge ` █████████████░░░░░ **73/100**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#102](https://github.com/duykhang68/tetdinhmuiblog/pull/102) feat(editor): live countdown clocks for scheduled Blogg | 2026-11-07T09:48:38Z | Code/docs | ✅ | CI green trên HEAD `74a04714`; GitHub chấp nhận merge; [Run #42361274473](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42361274473) |
 | [#101](https://github.com/duykhang68/tetdinhmuiblog/pull/101) fix(wikipedia-writer): auto-clear article draft after s | 2026-11-07T09:43:05Z | Code/docs | ✅ | CI green trên HEAD `e1564c45`; GitHub chấp nhận merge; [Run #42360891345](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42360891345) |
 | [#100](https://github.com/duykhang68/tetdinhmuiblog/pull/100) fix: reset Section 4 vocabulary after successful Google | 2026-11-07T09:40:41Z | Code/docs | ✅ | CI green trên HEAD `11484f51`; GitHub chấp nhận merge; [Run #42360723514](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42360723514) |
 | [#99](https://github.com/duykhang68/tetdinhmuiblog/pull/99) feat(editor): show live scheduled-post queue directly b | 2026-11-07T09:34:16Z | Code/docs | ✅ | CI green trên HEAD `c82e3333`; GitHub chấp nhận merge; [Run #42360285386](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42360285386) |
@@ -106,8 +107,8 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 11.1% (8/72).
-- **Quality gate:** 72 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 11.0% (8/73).
+- **Quality gate:** 73 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
