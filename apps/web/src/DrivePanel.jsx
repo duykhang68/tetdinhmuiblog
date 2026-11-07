@@ -1,6 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {googleDrive} from './services/googleDriveService.js';
 import {serializeArticle, parseArticle} from './services/markdown.js';
+import {seriesValidation} from './services/series.js';
 const clientKey = 'dn-editor-drive-client-id';
 export default function DrivePanel({title, labels, html, series, dirty, onOpen, onBusy, externalBusy}) {
   const [clientId, setClientId] = useState(() => {try {return localStorage.getItem(clientKey) || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';} catch {return import.meta.env.VITE_GOOGLE_CLIENT_ID || '';}});
@@ -23,6 +24,8 @@ export default function DrivePanel({title, labels, html, series, dirty, onOpen, 
     setFiles(await googleDrive.listBlogPosts());
   });
   const save = () => run(async () => {
+    const issue=seriesValidation(series);
+    if(issue) throw new Error('Series: '+issue);
     const result = await googleDrive.saveMarkdownToDrive(title, serializeArticle({title, labels, html, series}), file);
     setFile(result); setSaved(fingerprint); setMessage('Đã lưu ' + result.name + ' lúc ' + new Date().toLocaleTimeString('vi-VN'));
     setFiles(await googleDrive.listBlogPosts());
