@@ -26,7 +26,7 @@ function sanitizeContent(html) {
     allowedAttributes: {
       a:['href','title','target','rel'], img:['src','alt','title','width','height','loading'],
       '*':['class'], td:['colspan','rowspan'],th:['colspan','rowspan','scope'],
-      aside:['data-kind'],details:['open']
+      aside:['data-kind','data-series','hidden'],details:['open']
     },
     allowedSchemes:['http','https','mailto'],
     allowedSchemesByTag:{img:['http','https']},
@@ -34,6 +34,19 @@ function sanitizeContent(html) {
     disallowedTagsMode:'discard',
     transformTags:{'a':sanitizeHtml.simpleTransform('a',{rel:'noopener noreferrer'},true)}
   });
+}
+// Read the Series marker that survives sanitize-html; never parse arbitrary HTML scripts.
+function seriesFromContent(html) {
+  const marker=String(html||'').match(/<aside\b(?=[^>]*\bdata-kind=["']series-metadata["'])[^>]*>/i);
+  const encoded=marker?.[0].match(/\bdata-series=["']([^"']+)["']/i)?.[1];
+  if (!encoded) return null;
+  try {
+    const value=JSON.parse(decodeURIComponent(encoded));
+    const name=String(value?.name||'').trim();
+    const part=Number(value?.part), total_parts=Number(value?.total_parts);
+    if (!name||!Number.isInteger(part)||part<1||!Number.isInteger(total_parts)||total_parts<part||total_parts>9999) return null;
+    return {name,part,total_parts,target_date:String(value.target_date||''),status:part===total_parts?'completed':'in_progress'};
+  } catch {return null;}
 }
 function json(res,status,payload,extra={}){
   res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...extra});
@@ -162,6 +175,27 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
         // Current discovery schema uses uppercase enums; the older reference shows lowercase.
         const result=await googleApi(s,'GET',`/blogs/${blogId}/posts`,{status:status.toUpperCase(),view:'ADMIN',fetchBodies:'false',orderBy:'UPDATED',maxResults:'30',pageToken});
         return json(res,200,{posts:(result.items||[]).map(p=>{const x=safePost(p);delete x.content;return x;}),nextPageToken:result.nextPageToken||null});
+      }
+      if(req.method==='GET'&&url.pathname==='/api/series'){
+        const blogId=await checkedBlog(s,url.searchParams.get('blogId'));
+        const name=String(url.searchParams.get('name')||'').trim();
+        if(!name||name.length>180)throw fail(400,'Tên Series phải có 1–180 ký tự');
+        const posts=[];let partial=false;
+        for(const status of ['DRAFT','LIVE']){
+          let pageToken='';
+          for(let page=0;page<5;page++){
+            const result=await googleApi(s,'GET',`/blogs/${blogId}/posts`,{status,view:'ADMIN',fetchBodies:'true',orderBy:'UPDATED',maxResults:'100',pageToken});
+            for(const post of result.items||[]){
+              const series=seriesFromContent(post.content);
+              if(series?.name.toLocaleLowerCase()===name.toLocaleLowerCase())
+                posts.push({id:String(post.id),title:String(post.title||''),url:String(post.url||''),status:post.status||status,series});
+            }
+            if(!result.nextPageToken)break;
+            if(page===4){partial=true;break;}
+            pageToken=result.nextPageToken;
+          }
+        }
+        return json(res,200,{posts,partial});
       }
       const one=url.pathname.match(/^\/api\/posts\/(\d+)$/);
       if(req.method==='GET'&&one){const blogId=await checkedBlog(s,url.searchParams.get('blogId'));return json(res,200,{post:safePost(await getPost(s,blogId,one[1]))});}
