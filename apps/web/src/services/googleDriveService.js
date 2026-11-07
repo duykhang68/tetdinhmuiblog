@@ -28,7 +28,9 @@ export function createDriveService({fetcher = (...args) => fetch(...args), oauth
           },
           error_callback: error => fail(error.type === 'popup_closed' ? 'Bạn đã đóng cửa sổ Google.' : 'Không mở được cửa sổ Google. Hãy cho phép popup và thử lại.')
         });
-        client.requestAccessToken({prompt: 'select_account'});
+        // Let Google reuse the existing account and previously granted scopes.
+        // GIS will show consent/account selection only when required by Google.
+        client.requestAccessToken({prompt: ''});
       } catch (error) { fail(error.message); }
     });
   }
