@@ -162,3 +162,12 @@ Tài liệu này ghi lại quy trình và phạm vi thay đổi mã nguồn; **k
 - Tách `Tạm tính trước giảm`, `Giảm giá`, `Thực trả` thành 3 thẻ trực quan với phép tính dấu trừ/bằng, dùng light mode cam Reddit, chữ số lớn, tăng tương phản và bố cục responsive khi trên mobile.
 - Giữ nguyên khả năng người dùng chỉnh sửa trường phụ thu/lý do giảm và việc tự tính tổng. Không thay đổi cách lưu dữ liệu, nghiệp vụ Stars hoặc layout khác ngoài phần tổng hợp hóa đơn.
 - Có test cho diễn giải tùy chỉnh không có giá, lý do giảm đơn dòng/đa dòng, trường thiếu lý do và giao diện đối soát.
+
+### Reddit Light colors — receipt reconciliation hotfix (07/11/2026)
+
+- Giữ nguyên bố cục và mọi phép tính trong `sb-finance-summary`. Chỉ chỉnh CSS cho khu vực **Đối soát hóa đơn**.
+- Thay đường viền ngoài cam `#ffd6c5` và nền gradient cam bằng surface trắng `#ffffff`, viền trung tính `#e3e6e8` và shadow mờ nhẹ; giữ OrangeRed cho nhãn tiêu đề.
+- Ba thẻ: **Tạm tính** nền trắng/viền trung tính; **Giảm giá** đỏ nhạt, số tiền đỏ; **Thực trả** xanh lá nhẹ `#eaf6ef`/viền `#c8e7d4`, số tiền xanh đậm `#006b43`.
+- Dấu trừ/bằng chuyển về màu xám trung tính để không chiếm sự chú ý từ số tiền thực trả. Không đổi layout, responsive, logic OCR, Stars, form, dữ liệu hoặc chức năng.
+- Thiết kế lấy cảm hứng từ tinh thần Reddit Light: neutral palette chủ đạo, OrangeRed có chủ đích; màu xanh lá là bổ sung mang ngữ nghĩa số tiền cuối, không phải một token màu chính thức của Reddit.
+- Bổ sung regression test xác nhận palette mới; CI Quality Gate là điều kiện chấp nhận.
