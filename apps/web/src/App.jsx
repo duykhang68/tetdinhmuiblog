@@ -22,9 +22,6 @@ import {emptySeries, editableSeries, extractSeriesFromHTML, withSeriesHTML, norm
 import './components/series.css';
 
 const EDITOR_QUICK_LINKS = [
-  {title: 'Research Insights', description: 'Theo dõi và phân tích dữ liệu nghiên cứu.', href: '/research-insights', symbol: '✦', accent: 'research'},
-  {title: 'CI / Quality Gate Insights', description: 'Giám sát CI, build và trạng thái kiểm định.', href: '/quality-gate', symbol: '◈', accent: 'quality'},
-  {title: 'Collector Insights', description: 'Xem lịch sử tổng hợp và bằng chứng GitHub.', href: '/collector/', symbol: '▤', accent: 'collector'},
   {title: 'Starbucks Rewards & Insights', description: 'Theo dõi chi tiêu và tiến độ tích Stars.', href: '/starbucks-insights/', symbol: '☕', accent: 'starbucks'},
   {title: 'Highlands Rewards & Insights', description: 'Chi tiêu Highlands, đọc hóa đơn POS và DRIPS HighlandsĐI.', href: '/highlands-insights/', symbol: '◉', accent: 'highlands'},
   {title: 'Payroll & C&B Insights', description: 'Import bảng lương PDF, phân tích công thức Excel và tra cứu C&B.', href: '/payroll-insights/', symbol: '₫', accent: 'payroll'},
@@ -295,7 +292,7 @@ export default function App(){
   return <div className={'app reddit-layout'+' kit-layout'}>
     <header className="topbar reddit-topbar">
       <div className="brand"><span className="brandmark">d.</span><div><strong>Duy Nguyen <em>Editor</em></strong><small>Reddit-inspired · Blogger CMS</small></div></div>
-      <div className="top-actions"><a className="quiet" href="/quality-gate" title="Open CI / Quality Gate Insights">◈ CI Insights</a><span className={'conn '+(connected?'online':'')}>{connected?'● Blogger đã kết nối':'○ Chưa kết nối'}</span>{connected?<button className="quiet" onClick={logout}>Ngắt kết nối</button>:<a className="primary" href="/auth/google/start">Kết nối Blogger ↗</a>}</div>
+      <div className="top-actions"><span className={'conn '+(connected?'online':'')}>{connected?'● Blogger đã kết nối':'○ Chưa kết nối'}</span>{connected?<button className="quiet" onClick={logout}>Ngắt kết nối</button>:<a className="primary" href="/auth/google/start">Kết nối Blogger ↗</a>}</div>
     </header>
     <SchedulePost open={scheduleOpen} post={post} title={title} busy={scheduleBusy||saving||driveBusy}
       onClose={()=>setScheduleOpen(false)} onSchedule={scheduleArticle} onCancel={cancelSchedule}/>
