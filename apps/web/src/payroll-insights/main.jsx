@@ -149,6 +149,44 @@ function App(){
    </div>
   </section>
 
+  <section className="pr-panel pr-drive" aria-label="Sao lưu Google Drive mã hóa">
+   <div className="pr-drive-heading">
+    <div>{sectionLabel('↗','PRIVATE ENCRYPTED BACKUP')}<h2>Google Drive · Sao lưu có mã hóa</h2>
+     <p>Chỉ mã hóa JSON phân tích, không upload PDF gốc. Tự đồng bộ mỗi 3 phút khi trang đang mở và bạn chủ động bật.</p></div>
+    <span className="pr-drive-state">{drive.enabled?'ĐÃ BẬT (MÃ HÓA)':'TẮT THEO MẶC ĐỊNH'}</span>
+   </div>
+   {!drive.enabled?<div className="pr-drive-controls">
+    <label>Mật khẩu mã hóa (ít nhất 12 ký tự)
+     <input type="password" autoComplete="new-password" value={passphrase}
+      placeholder="Mật khẩu riêng, không lưu vào trình duyệt" onChange={e=>setPassphrase(e.target.value)}/>
+    </label>
+    {drive.config.showInput&&<label>OAuth Web Client ID
+      <input type="text" autoComplete="off" spellCheck="false" value={drive.config.clientId}
+       placeholder="xxx.apps.googleusercontent.com" onChange={e=>drive.setClientId(e.target.value)}/></label>}
+    <button className="pr-btn pr-btn-primary" disabled={drive.config.loading||passphrase.length<12||drive.state.status==='connecting'}
+     onClick={async()=>{await drive.connect(passphrase);setPassphrase('');}}>
+     {drive.state.status==='connecting'?'Đang kết nối…':'Kết nối & bật sao lưu mã hóa'}</button>
+   </div>:<div className="pr-drive-actions">
+    <button className="pr-btn pr-btn-soft" disabled={!rows.length||drive.state.status==='syncing'||drive.state.status==='conflict'}
+     onClick={()=>void drive.save({force:true})}>Đồng bộ ngay</button>
+    {drive.state.status==='conflict'&&<>
+     <button className="pr-btn pr-btn-soft" onClick={()=>{
+      if(window.confirm('Khôi phục Drive sẽ thay các dòng hiện tại. PDF gốc không được lưu trên Drive. Tiếp tục?'))
+       void drive.restore();
+     }}>Giải mã & khôi phục từ Drive</button>
+     <button className="pr-btn pr-btn-soft" disabled={!rows.length} onClick={async()=>{
+      if(!window.confirm('Tạo snapshot mã hóa mới từ bản hiện tại? Bản Drive cũ vẫn được giữ.'))return;
+      await drive.acceptLocal();await drive.save({force:true});
+     }}>Giữ bản hiện tại, tạo snapshot mới</button>
+    </>}
+    <button className="pr-btn pr-btn-link" onClick={drive.disconnect}>Tắt tự đồng bộ</button>
+   </div>}
+   <p className={'pr-drive-message pr-drive-'+drive.state.status} role="status">{drive.state.message}
+    {drive.state.lastSyncedAt?' · Lần lưu: '+new Date(drive.state.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):''}</p>
+   <p className="pr-fine">Mật khẩu không được lưu trên Drive hoặc thiết bị. Nếu quên mật khẩu sẽ không giải mã được bản sao.
+    Không có upload tự động trước khi bạn bật sao lưu. Chỉ dữ liệu bảng phân tích được lưu; muốn xem đúng PDF 1:1 vẫn cần file gốc.</p>
+  </section>
+
   <section className="pr-panel" aria-labelledby="pr-two">
    <div className="pr-section-head"><div>{sectionLabel('02','ORIGINAL DOCUMENT')}
     <h2 id="pr-two">Bảng lương PDF gốc · Hiển thị nguyên bản</h2>
