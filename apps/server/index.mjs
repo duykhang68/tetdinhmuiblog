@@ -167,7 +167,7 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
       const s=mustAuth(req);
       if(req.method==='GET'&&url.pathname==='/api/quality-gate'){
         await accessToken(s);
-        const snapshot=await getQualityGateSnapshot({fetcher,githubToken:process.env.GITHUB_TOKEN||'',cloudflare:{accountId:process.env.CLOUDFLARE_ACCOUNT_ID,projectName:process.env.CLOUDFLARE_PAGES_PROJECT,token:process.env.CLOUDFLARE_API_TOKEN}});
+        const snapshot=await getQualityGateSnapshot({fetcher,githubToken:process.env.GITHUB_TOKEN||process.env.RESEARCH_GITHUB_TOKEN||'',cloudflare:{accountId:process.env.CLOUDFLARE_ACCOUNT_ID,projectName:process.env.CLOUDFLARE_PAGES_PROJECT,token:process.env.CLOUDFLARE_API_TOKEN}});
         return json(res,200,snapshot);
       }
       if(req.method==='GET'&&url.pathname==='/api/research-insights'){

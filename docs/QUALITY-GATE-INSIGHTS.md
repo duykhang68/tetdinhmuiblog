@@ -25,7 +25,7 @@ Set the following as Cloudflare Pages **Secrets / environment variables** for pr
 
 | Name | Purpose |
 | --- | --- |
-| \`GITHUB_TOKEN\` | Optional, recommended for higher GitHub API rate limit; needs repository Actions read access (read-only). |
+| \`GITHUB_TOKEN\` | Recommended Cloudflare secret for authenticated GitHub API requests: scope to \`duykhang68/tetdinhmuiblog\`, **Actions: Read** and **Metadata: Read**. |
 | \`CLOUDFLARE_ACCOUNT_ID\` | Cloudflare account ID for deployment analytics |
 | \`CLOUDFLARE_PAGES_PROJECT\` | Cloudflare Pages project name |
 | \`CLOUDFLARE_API_TOKEN\` | Scoped token with read access to the Pages project |
@@ -63,3 +63,23 @@ npm run build
 - Login with existing Google OAuth; return to \`/quality-gate\` and confirm real statuses, filtering, deep links to GitHub.
 - Confirm no frontend bundle includes a server API token, and never confuse missing measurement with zero.
 - After merge and Cloudflare Pages deploy, check Cloudflare Pages **SPA fallback routing** serves \`index.html\` at \`/quality-gate\`. \`/_routes.json\` intentionally maps only \`/api/*\` and \`/auth/*\` to Functions, leaving the standalone React route as an SPA asset path.
+
+## Cloudflare Pages troubleshooting: quality-gate GitHub API
+
+The GitHub app linked in ChatGPT and GitHub Actions' built-in `GITHUB_TOKEN` **do not populate** Cloudflare Pages runtime secrets.
+
+1. Open Cloudflare Dashboard → **Workers & Pages** → the project serving `duynguyen-reddit-editor.pages.dev` → **Settings** → **Variables and Secrets**.
+2. Set **Production** secret named `GITHUB_TOKEN` using a GitHub fine-grained, **read-only** personal access token: repository **duykhang68/tetdinhmuiblog**; **Actions: Read**, **Metadata: Read**. Encrypt the value. Preview uses separate settings if preview builds need the dashboard.
+3. Alternatively, if an existing server-only `RESEARCH_GITHUB_TOKEN` has adequate Actions read scope, the Quality Gate backend now reuses it when `GITHUB_TOKEN` is not set. Do **not** commit tokens to the repository, add them as `VITE_*` variables, or expose them in browser code.
+4. Redeploy the Cloudflare Pages project so new secret bindings are available, log into Google again if needed, and inspect the browser Network tab for `GET /api/quality-gate`. A successful API call returns HTTP 200 and real GitHub metrics.
+
+Backend diagnostic codes (returned as `code` alongside `error`, never with secrets):
+- `GITHUB_TOKEN_REQUIRED`: anonymous GitHub API access rejected (403) without server-side token.
+- `GITHUB_TOKEN_INVALID`: token rejected (401), rotate and update Cloudflare secret.
+- `GITHUB_PERMISSION_DENIED`: GitHub returned 403 without rate-limit evidence while a token was supplied; verify repository selection and Actions read rights.
+- `GITHUB_RATE_LIMIT`: GitHub reported a rate limit (429, exhausted `X-RateLimit-Remaining`, or rate-limit text). Respect `Retry-After` if supplied.
+- `GITHUB_API_ERROR`: another GitHub error (for example wrong workflow path or unavailable endpoint).
+
+The dashboard's Google OAuth login now returns to `/quality-gate` after authentication on **Cloudflare Pages**, matching the local Node backend. The backend still checks Google auth on each API request. No GitHub token is sent to the browser.
+
+The in-memory backend cache remains 90 seconds per isolate. It reduces calls but does **not** replace a token or guarantee a global cross-region rate limit.
