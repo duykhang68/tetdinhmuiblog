@@ -57,7 +57,7 @@ async function githubApiError(res, tokenConfigured) {
   error.code = code;
   error.status = [401, 403, 429].includes(res.status) ? 503 : 502;
   const retryAfter = res.headers.get('retry-after');
-  if (limited && retryAfter && /^\\d+$/.test(retryAfter)) error.retryAfter = retryAfter;
+  if (limited && retryAfter && /^[0-9]+$/.test(retryAfter)) error.retryAfter = retryAfter;
   return error;
 }
 function makeGithubFetcher(fetcher, token) {
