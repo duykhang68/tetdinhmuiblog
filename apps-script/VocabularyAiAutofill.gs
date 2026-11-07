@@ -107,11 +107,17 @@ function queueAllVocabularyAi() {
 
 function processVocabularyAiQueue() {
   const props = PropertiesService.getScriptProperties();
-  if (Number(props.getProperty(VOCAB_STATE.nextAttempt) || 0) > Date.now()) return;
+  if (Number(props.getProperty(VOCAB_STATE.nextAttempt) || 0) > Date.now()) {
+    Logger.log('Vocabulary AI đang tạm dừng sau lỗi; dùng menu Xem trạng thái để đọc LAST_ERROR.');
+    return;
+  }
   const lastSweep = Number(props.getProperty(VOCAB_STATE.lastSweep) || 0);
-  if (props.getProperty(VOCAB_STATE.dirty) !== '1' && Date.now() - lastSweep < 6 * 60 * 60 * 1000) return;
+  if (props.getProperty(VOCAB_STATE.dirty) !== '1' && Date.now() - lastSweep < 6 * 60 * 60 * 1000) {
+    Logger.log('Vocabulary AI: không có dòng mới trong hàng chờ.');
+    return;
+  }
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(2000)) return;
+  if (!lock.tryLock(2000)) {Logger.log('Vocabulary AI: lượt khác đang xử lý; bỏ qua lượt trùng.'); return;}
   try {
     processVocabularyAiLocked_(props);
   } catch (error) {
