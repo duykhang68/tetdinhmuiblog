@@ -97,5 +97,14 @@
     "run_id": 42319561359,
     "ci": "success",
     "workflow_change": false
+  },
+  {
+    "pr": 36,
+    "head_sha": "a4ee6f04d00b14f9df0cefea9376ffc43d1ce5ab",
+    "merge_sha": "cf46720dba48e963d38c4601420a0eaa6c138f8f",
+    "merged_at": "2026-11-07T00:48:49Z",
+    "run_id": 42320482803,
+    "ci": "success",
+    "workflow_change": false
   }
 ]
