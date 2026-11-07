@@ -15,3 +15,5 @@ Do not label a PR compliant if it only documents sync without implementing it. D
 Known patterns: `apps/web/src/expenses/useExpenseDriveSync.js`, `apps/web/src/starbucks-insights/useStarbucksDriveSync.js`, and `apps/web/src/services/googleDriveService.js`.
 
 Use **one feature = one PR**, keep the Reddit-inspired light visual style, and never commit secrets.
+
+**MANDATORY — Quick Access:** Before shipping any new utility, standalone dashboard or new page route, add its canonical URL shortcut to the Editor's **“Truy cập nhanh”** section in the same PR, without duplicates or changes to existing links. Verify navigation, responsive UI and regression tests. See [AGENTS.md](../AGENTS.md) for acceptance criteria. Missing shortcuts block the PR.

@@ -21,6 +21,17 @@
 **Tình trạng Google Drive sync:**
 <!-- COMPLIANT / BLOCKED / NOT APPLICABLE (kèm bằng chứng hoặc lý do) -->
 
+## Bắt buộc: Shortcut “Truy cập nhanh” trong Editor cho tiện ích/trang mới
+
+- [ ] Tôi đã xác định PR này có tạo tiện ích, dashboard, sub-page hoặc route truy cập riêng mới hay không.
+- [ ] Nếu **có**: đã thêm tên hiển thị + canonical URL của trang mới vào mục **Truy cập nhanh** có sẵn trong Editor, ngay trong PR này.
+- [ ] Đã kiểm tra link mở đúng trang trên desktop/mobile, không trùng URL và không làm mất hoặc thay đổi shortcut cũ.
+- [ ] Đã thêm hoặc cập nhật regression test kiểm tra shortcut; đã xác minh route/deployment.
+- [ ] Nếu không áp dụng: nêu lý do (không có URL/route mới). Thiếu shortcut đối với trang mới = **BLOCKED / NON-COMPLIANT**.
+
+**Trang/URL shortcut mới hoặc lý do không áp dụng:**
+<!-- Ghi rõ tên và URL hoặc N/A kèm lý do -->
+
 ## Kiểm tra
 
 - [ ] `npm run check` (test + syntax)
