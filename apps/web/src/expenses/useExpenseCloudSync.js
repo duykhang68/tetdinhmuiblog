@@ -26,7 +26,7 @@ const messageFor=error=>error?.code==='EXPENSES_DB_MISSING'
   :error?.message||'Không thể đồng bộ lúc này. Dữ liệu vẫn được lưu cục bộ.';
 
 /** Mirrors browser-local state to one owner-scoped Cloudflare D1 snapshot. */
-export function useExpenseCloudSync(setData) {
+export function useExpenseCloudSync(data,setData) {
   const [sync,setSync]=useState(initial);
   const [conflict,setConflict]=useState(null);
   const busy=useRef(false);
@@ -132,7 +132,7 @@ export function useExpenseCloudSync(setData) {
     setSync(s=>['conflict','unconfigured','auth'].includes(s.status)?s:{...s,status:'pending',message:'Thay đổi mới đã lưu tại máy; chuẩn bị sao lưu cloud.'});
     const timeout=setTimeout(()=>void synchronize(),12_000);
     return ()=>clearTimeout(timeout);
-  },[setData,synchronize]); // The caller drives immediate attempts using the revision token below.
+  },[data,synchronize]);
 
   // Multi-tab events: read remote localStorage edits instead of silently dropping them.
   useEffect(()=>{
@@ -178,14 +178,21 @@ export function useExpenseCloudSync(setData) {
       try{
         const auth=await requestCloud('/api/status');
         if(!auth.connected)throw Object.assign(new Error('Cần đăng nhập Google lại.'),{status:401});
+        const currentCloud=await requestCloud('/api/expenses-state');
+        if(currentCloud.ownerId!==remote.ownerId||currentCloud.revision!==remote.revision)
+          throw Object.assign(new Error('Bản cloud đã đổi trong lúc xác nhận. Không ghi đè.'),{status:409});
+        const localBefore=readLocal();
+        if(localBefore.raw!==raw)
+          throw Object.assign(new Error('Bản local đã đổi trong lúc xác nhận. Không ghi đè.'),{status:409});
         const result=await requestCloud('/api/expenses-state',{method:'PUT',
           headers:{'Content-Type':'application/json','X-CSRF-Token':auth.csrf},
-          body:JSON.stringify({expectedRevision:remote.revision,data:readLocal().data})
+          body:JSON.stringify({expectedRevision:remote.revision,data:localBefore.data})
         });
-        const fp=snapshotFingerprint(readLocal().data);
+        const fp=snapshotFingerprint(localBefore.data);
         persistSyncMeta(localStorage,remote.ownerId,result.revision,fp,result.updatedAt);
+        const changed=!snapshotStillCurrent(localBefore.raw);
         setConflict(null);
-        setSync({status:'synced',message:'Đã cập nhật bản cloud theo xác nhận của bạn.',lastSyncedAt:result.updatedAt});
+        setSync({status:changed?'pending':'synced',message:changed?'Có thay đổi local mới; đang chờ đồng bộ tiếp.':'Đã cập nhật bản cloud theo xác nhận của bạn.',lastSyncedAt:result.updatedAt});
       }catch(error){
         setConflict(null);
         setSync(s=>({...s,status:error.status===409?'pending':'error',message:messageFor(error)+' Hãy đồng bộ lại để lấy phiên bản mới nhất.'}));
