@@ -25,7 +25,8 @@ const EDITOR_QUICK_LINKS = [
   {title: 'Research Insights', description: 'Theo dõi và phân tích dữ liệu nghiên cứu.', href: '/research-insights', symbol: '✦', accent: 'research'},
   {title: 'CI / Quality Gate Insights', description: 'Giám sát CI, build và trạng thái kiểm định.', href: '/quality-gate', symbol: '◈', accent: 'quality'},
   {title: 'Collector Insights', description: 'Xem lịch sử tổng hợp và bằng chứng GitHub.', href: '/collector/', symbol: '▤', accent: 'collector'},
-  {title: 'Starbucks Rewards & Insights', description: 'Theo dõi chi tiêu và tiến độ tích Stars.', href: '/starbucks-insights/', symbol: '☕', accent: 'starbucks'}
+  {title: 'Starbucks Rewards & Insights', description: 'Theo dõi chi tiêu và tiến độ tích Stars.', href: '/starbucks-insights/', symbol: '☕', accent: 'starbucks'},
+  {title: 'Daily Expenses & Insights', description: 'Ghi chi tiêu, hạn mức danh mục và phân tích ngân sách tháng.', href: '/expenses/', symbol: '◉', accent: 'expenses'}
 ];
 
 const DEFAULT_HTML='<h2>Giới thiệu</h2><p>Bắt đầu viết bài tại đây…</p>';
