@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sanitizeHtml from 'sanitize-html';
+import { getQualityGateSnapshot } from '../web/src/services/qualityGateData.mjs';
 import { loadResearchInsights } from '../web/src/services/researchInsights.mjs';
 import { randomToken, deriveKey, seal, unseal, secureEquals, codeChallenge, BLOGGER_SCOPE, BLOGGER_BASE, numericId, normalizeInput, safePost, readCookies, errorStatus } from './lib.mjs';
 
@@ -127,7 +128,7 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
       if(req.method==='GET'&&url.pathname==='/auth/google/start'){
         let s=lookup(req);if(!s){s=startSession();res.setHeader('Set-Cookie',cookie(s.id));}
         const state=randomToken(),verifier=randomToken(48);
-        s.flow={state,verifier,expires:Date.now()+10*60_000,returnTo:url.searchParams.get('return_to')==='research-insights'?'/research-insights.html':'/'};persist();
+        s.flow={state,verifier,expires:Date.now()+10*60_000,returnTo:url.searchParams.get('return_to')==='/quality-gate'?'/quality-gate':url.searchParams.get('return_to')==='research-insights'?'/research-insights.html':'/'};persist();
         const auth=new URL('https://accounts.google.com/o/oauth2/v2/auth');
         Object.entries({client_id:config.clientId,redirect_uri:config.redirect,response_type:'code',scope:BLOGGER_SCOPE,access_type:'offline',prompt:'consent',state,code_challenge:codeChallenge(verifier),code_challenge_method:'S256'}).forEach(([k,v])=>auth.searchParams.set(k,v));
         return redirect(res,auth.toString());
@@ -143,7 +144,7 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
         // Rotate the session ID after the OAuth callback to prevent session fixation.
         const newer=startSession();newer.token={access:result.access_token,refresh:result.refresh_token||old.refresh,expires:Date.now()+(result.expires_in||3600)*1000};
         delete sessions[s.id];persist();
-        return redirect(res,config.frontend+(flow.returnTo==='/research-insights.html'?flow.returnTo:'/')+'?connected=1',{'Set-Cookie':cookie(newer.id)});
+        return redirect(res,config.frontend+(['/quality-gate','/research-insights.html'].includes(flow.returnTo)?flow.returnTo:'/')+'?connected=1',{'Set-Cookie':cookie(newer.id)});
       }
       if(req.method==='POST'&&url.pathname==='/api/logout'){
         const s=lookup(req);if(!s)throw fail(401,'Chưa đăng nhập');verifyWrite(req,s);
@@ -164,6 +165,11 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
         return fs.createReadStream(candidate).pipe(res);
       }
       const s=mustAuth(req);
+      if(req.method==='GET'&&url.pathname==='/api/quality-gate'){
+        await accessToken(s);
+        const snapshot=await getQualityGateSnapshot({fetcher,githubToken:process.env.GITHUB_TOKEN||'',cloudflare:{accountId:process.env.CLOUDFLARE_ACCOUNT_ID,projectName:process.env.CLOUDFLARE_PAGES_PROJECT,token:process.env.CLOUDFLARE_API_TOKEN}});
+        return json(res,200,snapshot);
+      }
       if(req.method==='GET'&&url.pathname==='/api/research-insights'){
         await accessToken(s);
         return json(res,200,await loadResearchInsights({fetcher,token:process.env.RESEARCH_GITHUB_TOKEN||''}));
