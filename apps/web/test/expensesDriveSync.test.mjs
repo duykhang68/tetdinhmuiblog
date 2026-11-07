@@ -123,7 +123,8 @@ test('Expenses links GIS on its standalone page, uses Drive and never calls D1 f
   assert.match(page,/Kết nối Google Drive/);
   assert.match(page,/Đồng bộ ngay/);
   assert.match(page,/đồng bộ mỗi 3 phút/);
-  assert.match(hook,/resolveDriveClientId\(import\.meta\.env\.VITE_GOOGLE_CLIENT_ID,manual\)/);
+  assert.match(hook,/discoverExpenseDriveClientId/);
+  assert.match(hook,/environmentValue:import\.meta\.env\.VITE_GOOGLE_CLIENT_ID/);
   assert.match(hook,/setInterval\(\(\)=>\{/);
   assert.match(hook,/SYNC_INTERVAL_MS/);
   assert.match(hook,/SHORT_SYNC_DELAY_MS/);

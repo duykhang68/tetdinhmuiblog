@@ -67,7 +67,7 @@ export default function Expenses(){
     try{const raw=localStorage.getItem(STORAGE_KEY);return raw?normalizeData(JSON.parse(raw)):emptyData();}
     catch{return emptyData();}
   });
-  const {sync,conflict,connected,connect,synchronize,resolveConflict}=useExpenseDriveSync(data,setData);
+  const {sync,conflict,connected,connect,synchronize,resolveConflict,clientConfig,setManualClientId,toggleClientIdInput}=useExpenseDriveSync(data,setData);
   const [month,setMonth]=useState(()=>monthOf(todayVN()));
   const [categoryFilter,setCategoryFilter]=useState('all');
   const [form,setForm]=useState(blankForm);
@@ -187,8 +187,9 @@ export default function Expenses(){
         <span className={'ex-data-note ex-cloud-note ex-cloud-'+sync.status} role="status" title={sync.message}>
           <span className="ex-live-dot"/> {sync.status==='synced'?'Đã lưu Google Drive':sync.status==='ready'?'Drive đã kết nối':sync.status==='syncing'||sync.status==='connecting'?'Đang đồng bộ…':sync.status==='conflict'?'Xung đột dữ liệu':sync.status==='pending'?'Chờ sao lưu Drive':sync.status==='error'?'Cần kiểm tra đồng bộ':'Chưa kết nối Drive'}
         </span>
-        {!connected&&<button type="button" className="ex-outline-link ex-drive-connect" onClick={()=>void connect()} disabled={sync.status==='connecting'}>
-          <Icon name="upload" size={16}/> {sync.status==='connecting'?'Đang kết nối…':'Kết nối Google Drive'}
+        {!connected&&<button type="button" className="ex-outline-link ex-drive-connect" onClick={()=>void connect()}
+          disabled={clientConfig.loading||sync.status==='connecting'}>
+          <Icon name="upload" size={16}/> {clientConfig.loading?'Đang tìm OAuth…':sync.status==='connecting'?'Đang kết nối…':'Kết nối Google Drive'}
         </button>}
         <button type="button" className="ex-outline-link ex-sync-button" onClick={()=>void synchronize()}
           disabled={!connected||sync.status==='syncing'||sync.status==='connecting'} aria-label="Đồng bộ dữ liệu chi tiêu lên Google Drive ngay">
@@ -202,7 +203,17 @@ export default function Expenses(){
       <span>{sync.message}</span>
       <span>Google Drive tự đồng bộ mỗi 3 phút khi trang đang mở và phiên Drive còn hiệu lực. {sync.lastSyncedAt?'Lần lưu Drive gần nhất: '+new Date(sync.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'Chưa có bản sao Drive được xác nhận.'}</span>
       {sync.snapshotId&&<a href={'https://drive.google.com/file/d/'+encodeURIComponent(sync.snapshotId)+'/view'} target="_blank" rel="noopener noreferrer">Xem file sao lưu trên Drive</a>}
+      {!connected&&!clientConfig.loading&&clientConfig.clientId&&!clientConfig.showInput&&
+        <button type="button" className="ex-config-toggle" onClick={toggleClientIdInput}>Đổi Client ID</button>}
     </div>
+    {!connected&&clientConfig.showInput&&<div className="ex-drive-config-panel">
+      <label htmlFor="ex-drive-client-id">OAuth Web Client ID dùng chung Editor</label>
+      <input id="ex-drive-client-id" type="text" value={clientConfig.clientId}
+        placeholder="123456789-abcdef.apps.googleusercontent.com"
+        autoComplete="off" spellCheck="false"
+        onChange={event=>setManualClientId(event.target.value)}/>
+      <p>Chỉ cần nhập nếu không tìm được cấu hình tự động hoặc Google từ chối Client ID hiện có. Dùng cùng Client ID tại Editor → Google Drive · Markdown. Đây là ID công khai, không phải Client Secret.</p>
+    </div>}
 
     <section className="ex-panel ex-hero" aria-label="Tổng quan ngân sách">
       <div className="ex-hero-top"><div><div className="ex-eyebrow">MONTHLY BUDGET OVERVIEW</div><h2>Ngân sách sinh hoạt <span>tháng {monthLabel(month)}</span></h2></div>

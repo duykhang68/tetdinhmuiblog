@@ -70,3 +70,24 @@ Tham khảo Google: [Google Drive files.create](https://developers.google.com/wo
 Chạy \`npm run check\` và \`npm run build\` ở GitHub CI; merge sau khi xanh. Cloudflare Pages production cần deploy commit được merge. PR/CI xanh **chưa đồng nghĩa** một backup JSON đã lưu trong tài khoản Google cụ thể; trạng thái trên /expenses/ mới xác nhận được điều đó.
 
 Nếu trước đó từng dùng D1, những bản D1 chưa được nhập vào local **không được tự động chuyển sang Google Drive**. Hãy phục hồi/xuất JSON trước khi chuyển thiết bị để tránh bỏ sót dữ liệu.
+
+## 7. Hotfix lỗi thiếu VITE_GOOGLE_CLIENT_ID (2026-11-07)
+
+Khi /expenses/ hiện **"Chưa có VITE_GOOGLE_CLIENT_ID"**, nguyên nhân là bundle Vite không có Client ID và trình duyệt chưa có ID được lưu từ Editor. Trước đây trang dừng ngay và không thử đọc cấu hình server, dù Cloudflare Pages Functions đang có `GOOGLE_CLIENT_ID` dành cho Blogger OAuth.
+
+Trang Expenses nay tự tìm **OAuth Web Client ID công khai** theo thứ tự:
+
+1. `import.meta.env.VITE_GOOGLE_CLIENT_ID` từ bundle Vite (nếu hợp lệ).
+2. `localStorage['dn-editor-drive-client-id']` đã lưu từ **Editor → Google Drive · Markdown**, nếu hợp lệ.
+3. `GET /api/drive-client-config` cùng domain: máy chủ trả `GOOGLE_DRIVE_CLIENT_ID` nếu có, nếu không trả `GOOGLE_CLIENT_ID` của Editor (chỉ khi đúng định dạng OAuth Web Client ID).
+
+Endpoint công khai chỉ chứa `clientId`, `configured`, `source` và dùng `Cache-Control: no-store`. **Không trả Client Secret, cookie, session, access token hay refresh token**. Client ID OAuth là thông tin công khai, không phải khóa bí mật.
+
+Sau khi đã có Client ID, nút **Kết nối Google Drive** sẽ mở Google Identity Services bằng tương tác click trực tiếp (việc đọc cấu hình đã hoàn thành từ trước để tránh popup bị chặn). Nếu Google từ chối vì ứng dụng OAuth chưa được cho phép sử dụng Drive hoặc JavaScript origin không hợp lệ, giao diện sẽ cho nhập lại Web Client ID để khắc phục. Client ID nhập tay chỉ được lưu vào khóa đang dùng chung với Editor sau khi đăng nhập thành công.
+
+Nếu backend cũng không có Client ID hợp lệ, người dùng vẫn có thể nhập một Web OAuth Client ID công khai trực tiếp tại /expenses/ hoặc cấu hình lại `VITE_GOOGLE_CLIENT_ID` ở môi trường build và redeploy.
+
+Quan trọng: **Dùng chung Client ID không đồng nghĩa chia sẻ token đăng nhập**. Vì /expenses/ là trang độc lập, mỗi phiên trình duyệt vẫn cần thao tác xác thực Google Drive; token chỉ ở RAM theo cơ chế hiện có. Sau khi kết nối mới auto-sync mỗi 3 phút và nút Đồng bộ ngay mới hoạt động.
+
+Kiểm thử hồi quy: `apps/web/test/expensesDriveClientFallback.test.mjs` bảo đảm ưu tiên cấu hình, fallback an toàn, public endpoint không rò rỉ secret và có input dự phòng.
+

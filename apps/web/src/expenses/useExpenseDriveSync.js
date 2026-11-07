@@ -3,7 +3,7 @@ import {STORAGE_KEY,emptyData,normalizeData} from './model.js';
 import {DRIVE_SYNC_KEY,SYNC_INTERVAL_MS,SHORT_SYNC_DELAY_MS,
   planDriveSync,readDriveSyncMeta,snapshotFingerprint,writeDriveSyncMeta,hasUserData} from './driveSync.js';
 import {googleDrive} from '../services/googleDriveService.js';
-import {resolveDriveClientId} from '../services/driveClientId.js';
+import {discoverExpenseDriveClientId,validClientId,EDITOR_DRIVE_CLIENT_KEY} from './driveClientResolver.js';
 
 const firstState={status:'disconnected',message:'Kết nối Google Drive để bật sao lưu tự động.',lastSyncedAt:null,snapshotId:''};
 const sameStorage=raw=>localStorage.getItem(STORAGE_KEY)===raw;
@@ -32,6 +32,39 @@ export function useExpenseDriveSync(data,setData) {
   const [conflict,setConflict]=useState(null);
   const [connected,setConnected]=useState(googleDrive.connected());
   const busy=useRef(false);
+  const connecting=useRef(false);
+  const [clientConfig,setClientConfig]=useState({
+    clientId:'',source:'loading',loading:true,showInput:false
+  });
+
+  // Resolve public OAuth configuration before the Google sign-in click, so the
+  // GIS popup is not blocked by async calls after user activation.
+  useEffect(()=>{
+    let active=true;
+    const saved=(()=>{try{return localStorage.getItem(EDITOR_DRIVE_CLIENT_KEY)||'';}catch{return '';}})();
+    void discoverExpenseDriveClientId({
+      environmentValue:import.meta.env.VITE_GOOGLE_CLIENT_ID,storedValue:saved
+    }).then(result=>{
+      if(!active)return;
+      setClientConfig({
+        clientId:result.clientId,source:result.source,
+        loading:false,showInput:!result.clientId
+      });
+      if(!result.clientId){
+        setSync(state=>({...state,status:'unconfigured',message:result.error}));
+      }
+    });
+    return ()=>{active=false;};
+  },[]);
+
+  const setManualClientId=useCallback(value=>{
+    setClientConfig(current=>({
+      ...current,clientId:value,source:'manual',showInput:true
+    }));
+  },[]);
+  const toggleClientIdInput=useCallback(()=>{
+    setClientConfig(current=>({...current,showInput:!current.showInput}));
+  },[]);
 
   const syncNow=useCallback(async ()=>{
     if(busy.current)return;
@@ -119,24 +152,35 @@ export function useExpenseDriveSync(data,setData) {
   },[setData]);
 
   const connect=useCallback(async ()=>{
-    if(busy.current)return;
-    const manual=(()=>{try{return localStorage.getItem('dn-editor-drive-client-id')||'';}catch{return '';}})();
-    const {clientId}=resolveDriveClientId(import.meta.env.VITE_GOOGLE_CLIENT_ID,manual);
-    if(!clientId){
-      setSync(s=>({...s,status:'error',
-        message:'Chưa có VITE_GOOGLE_CLIENT_ID. Cấu hình Client ID giống Editor → Google Drive · Markdown.'}));
+    if(busy.current||connecting.current)return;
+    if(clientConfig.loading){
+      setSync(s=>({...s,status:'checking',message:'Đang lấy OAuth Client ID từ cấu hình Editor…'}));
       return;
     }
+    const clientId=String(clientConfig.clientId||'').trim();
+    if(!validClientId(clientId)){
+      setClientConfig(s=>({...s,showInput:true}));
+      setSync(s=>({...s,status:'unconfigured',
+        message:'Không tìm được OAuth Client ID hợp lệ. Nhập Web Client ID trong ô bên dưới, hoặc cấu hình VITE_GOOGLE_CLIENT_ID.'}));
+      return;
+    }
+    connecting.current=true;
     try{
       setSync(s=>({...s,status:'connecting',message:'Đang mở đăng nhập Google Drive…'}));
       await googleDrive.login(clientId);
+      if(clientConfig.source==='manual'){
+        // Client ID is public and shared with Editor. OAuth tokens stay in RAM.
+        try{localStorage.setItem(EDITOR_DRIVE_CLIENT_KEY,clientId);}catch{}
+      }
       setConnected(true);
       await syncNow();
     }catch(error){
       setConnected(googleDrive.connected());
-      setSync(s=>({...s,status:'error',message:errorText(error)}));
-    }
-  },[syncNow]);
+      setClientConfig(s=>({...s,showInput:true}));
+      setSync(s=>({...s,status:'error',
+        message:errorText(error)+' Kiểm tra Web Client ID và Authorized JavaScript Origins.'}));
+    }finally{connecting.current=false;}
+  },[clientConfig,syncNow]);
 
   // On reload we don't pretend the Editor's in-memory token survived navigation.
   useEffect(()=>{
@@ -236,5 +280,6 @@ export function useExpenseDriveSync(data,setData) {
     }
   },[conflict,setData]);
 
-  return {sync,conflict,connected,connect,synchronize:syncNow,resolveConflict};
+  return {sync,conflict,connected,connect,synchronize:syncNow,resolveConflict,
+    clientConfig,setManualClientId,toggleClientIdInput};
 }
