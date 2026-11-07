@@ -167,6 +167,30 @@ export function parseStarbucksReceipt(text) {
   if (subtotal !== null && total !== null && discount !== null && subtotal - discount !== total) {
     warnings.push('Tạm tính, giảm giá và tổng đơn hàng không khớp; cần đối chiếu hóa đơn.');
   }
+  // Khi OCR bỏ qua giá phụ thu, đừng xóa giá món gốc đã nhận ra.
+  // Đối soát chỉ được phép suy ra phần chênh lệch nếu tổng tiền tạo thành một phép tính nhất quán.
+  // Việc suy ra phải được cảnh báo để người dùng kiểm tra trên ảnh trước khi lưu.
+  const confirmedSubtotal = subtotal !== null && total !== null &&
+    subtotal - (discount ?? 0) === total;
+  const canReconcile = shipping === null || shipping === 0;
+  const beforeDiscount = confirmedSubtotal ? subtotal
+    : subtotal === null && total !== null && discount !== null ? total + discount
+      : null;
+  if (canReconcile && beforeDiscount !== null && Number.isSafeInteger(beforeDiscount) && beforeDiscount > 0) {
+    const recognizedBase = Number(fields.baseAmount || 0);
+    const recognizedExtra = Number(fields.extraAmount || 0);
+    if (recognizedBase > 0 && recognizedBase + recognizedExtra < beforeDiscount) {
+      const missingExtra = beforeDiscount - recognizedBase - recognizedExtra;
+      fields.extraAmount = String(recognizedExtra + missingExtra);
+      warnings.push('OCR có thể đã bỏ sót phụ thu/món thêm ' + missingExtra.toLocaleString('vi-VN') +
+        'đ; đã điền số chênh lệch theo ' + (confirmedSubtotal ? 'Tạm tính' : 'Tổng đơn + giảm giá') +
+        '. Hãy kiểm tra trên ảnh trước khi lưu.');
+    } else if (!recognizedBase && recognizedExtra > 0 && beforeDiscount > recognizedExtra) {
+      fields.baseAmount = String(beforeDiscount - recognizedExtra);
+      warnings.push('Chưa nhận diện rõ giá món gốc; đã suy ra từ tổng trước giảm trừ phụ thu. Hãy đối chiếu bằng ảnh.');
+    }
+  }
+
   if (fields.baseAmount && fields.amount) {
     const calculated = calculatePayable(fields.baseAmount, fields.extraAmount || 0, fields.discountAmount || 0);
     if (calculated !== Number(fields.amount)) {
