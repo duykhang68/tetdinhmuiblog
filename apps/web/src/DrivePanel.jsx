@@ -2,9 +2,11 @@ import React, {useEffect, useRef, useState} from 'react';
 import {googleDrive} from './services/googleDriveService.js';
 import {serializeArticle, parseArticle} from './services/markdown.js';
 import {seriesValidation} from './services/series.js';
+import {resolveDriveClientId} from './services/driveClientId.js';
 const clientKey = 'dn-editor-drive-client-id';
 export default function DrivePanel({title, labels, html, series, dirty, onOpen, onBusy, externalBusy}) {
-  const [clientId, setClientId] = useState(() => {try {return localStorage.getItem(clientKey) || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';} catch {return import.meta.env.VITE_GOOGLE_CLIENT_ID || '';}});
+  const [manualClientId, setManualClientId] = useState(() => {try {return localStorage.getItem(clientKey) || '';} catch {return '';}});
+  const {clientId, configured} = resolveDriveClientId(import.meta.env.VITE_GOOGLE_CLIENT_ID, manualClientId);
   const [connected, setConnected] = useState(googleDrive.connected());
   const [working, setWorking] = useState(false), [files, setFiles] = useState([]), [file, setFile] = useState(null);
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [saved, setSaved] = useState('');
@@ -19,7 +21,7 @@ export default function DrivePanel({title, labels, html, series, dirty, onOpen, 
   }
   const login = () => run(async () => {
     await googleDrive.login(clientId.trim());
-    try {localStorage.setItem(clientKey, clientId.trim());} catch {}
+    if (!configured) {try {localStorage.setItem(clientKey, clientId.trim());} catch {}}
     setFile(null); setSaved(''); setFiles([]); setMessage('Đã kết nối Drive.');
     setFiles(await googleDrive.listBlogPosts());
   });
@@ -41,8 +43,7 @@ export default function DrivePanel({title, labels, html, series, dirty, onOpen, 
   return <section className="kit-panel drive-panel" aria-label="Google Drive Markdown"><div className="kit-panel-body">
     <h2>Google Drive · Markdown</h2>
     <p>Lưu bài viết thành file .md trong Drive của bạn.</p>
-    <label htmlFor="drive-client-id">OAuth Client ID</label>
-    <input id="drive-client-id" value={clientId} disabled={externalBusy || working || connected} onChange={e => setClientId(e.target.value)} placeholder="…apps.googleusercontent.com" autoComplete="off" />
+    {configured ? <p className="drive-client-ready">Client ID đã được cấu hình tự động. Nhấn Kết nối Drive để đăng nhập Google.</p> : <><label htmlFor="drive-client-id">OAuth Client ID</label><input id="drive-client-id" value={manualClientId} disabled={externalBusy || working || connected} onChange={e => setManualClientId(e.target.value)} placeholder="…apps.googleusercontent.com" autoComplete="off" /></>}
     <div className="drive-actions"><button className="kit-button" disabled={externalBusy || working} onClick={login}>{connected ? 'Đổi tài khoản Drive' : 'Kết nối Drive'}</button>{connected && <button className="quiet" disabled={externalBusy || working} onClick={() => {googleDrive.disconnect(); setConnected(false); setFile(null); setFiles([]); setSaved(''); setMessage('Đã ngắt phiên Drive trên Editor.');}}>Ngắt Drive</button>}</div>
     <button className="save full" disabled={externalBusy || working || !connected || !title.trim()} onClick={save}>{working ? 'Đang xử lý…' : file ? 'Cập nhật file .md' : 'Lưu .md lên Drive'}</button>
     {file && <a href={'https://drive.google.com/file/d/' + encodeURIComponent(file.id) + '/view'} target="_blank" rel="noopener noreferrer">Xem file trên Drive ↗</a>}
