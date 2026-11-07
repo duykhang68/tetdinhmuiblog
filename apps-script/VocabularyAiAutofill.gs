@@ -28,7 +28,9 @@ const VOCAB_STATE = {
   lastError: 'VOCAB_AI_LAST_ERROR',
   lastSuccess: 'VOCAB_AI_LAST_SUCCESS',
   lastProvider: 'VOCAB_AI_LAST_PROVIDER',
-  lastSweep: 'VOCAB_AI_LAST_SWEEP'
+  lastSweep: 'VOCAB_AI_LAST_SWEEP',
+  priorityStart: 'VOCAB_AI_PRIORITY_START',
+  priorityEnd: 'VOCAB_AI_PRIORITY_END'
 };
 
 function onOpen() {
@@ -79,10 +81,12 @@ function vocabularyAiOnEdit(e) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(8000)) return;
   try {
-    const pending = props.getProperty(VOCAB_STATE.dirty) === '1';
-    const current = pending ? (Number(props.getProperty(VOCAB_STATE.cursor)) || firstRow) : firstRow;
+    // Keep the full-scan cursor intact: new edits must be processed first.
+    const oldStart = Number(props.getProperty(VOCAB_STATE.priorityStart)) || firstRow;
+    const oldEnd = Number(props.getProperty(VOCAB_STATE.priorityEnd)) || range.getLastRow();
     props.setProperties({
-      [VOCAB_STATE.cursor]: String(Math.min(current, firstRow)),
+      [VOCAB_STATE.priorityStart]: String(Math.min(oldStart, firstRow)),
+      [VOCAB_STATE.priorityEnd]: String(Math.max(oldEnd, range.getLastRow())),
       [VOCAB_STATE.dirty]: '1',
       [VOCAB_STATE.nextAttempt]: '0'
     });
@@ -93,6 +97,8 @@ function queueAllVocabularyAi() {
   const props = PropertiesService.getScriptProperties();
   props.setProperties({
     [VOCAB_STATE.cursor]: '2',
+    [VOCAB_STATE.priorityStart]: '0',
+    [VOCAB_STATE.priorityEnd]: '0',
     [VOCAB_STATE.dirty]: '1',
     [VOCAB_STATE.nextAttempt]: '0'
   });
@@ -125,16 +131,19 @@ function processVocabularyAiLocked_(props) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) { props.setProperties({[VOCAB_STATE.dirty]: '0', [VOCAB_STATE.lastSweep]: String(Date.now())}); return; }
 
-  let cursor = Math.max(2, Number(props.getProperty(VOCAB_STATE.cursor)) || 2);
-  // Even after a successful sweep, every minute-worker cycle can rescan the
-  // sheet in bounded chunks, repairing any missed edit-trigger notifications.
-  if (cursor > lastRow) cursor = 2;
+  const priorityStart = Number(props.getProperty(VOCAB_STATE.priorityStart)) || 0;
+  const priorityEnd = Number(props.getProperty(VOCAB_STATE.priorityEnd)) || 0;
+  const urgent = priorityStart >= 2 && priorityEnd >= priorityStart;
+  const scanEnd = urgent ? Math.min(lastRow, priorityEnd) : lastRow;
+  let cursor = urgent ? priorityStart : Math.max(2, Number(props.getProperty(VOCAB_STATE.cursor)) || 2);
+  if (cursor > lastRow && !urgent) cursor = 2;
   let scanned = 0, completed = 0;
+  Logger.log('Vocabulary AI scan: ' + (urgent ? 'priority' : 'backlog') + ', start=' + cursor + ', end=' + scanEnd);
 
-  while (cursor <= lastRow &&
+  while (cursor <= scanEnd &&
       scanned < VOCAB_AI_CONFIG.maximumScannedPerRun &&
       completed < VOCAB_AI_CONFIG.maximumRowsPerRun) {
-    const take = Math.min(100, lastRow - cursor + 1, VOCAB_AI_CONFIG.maximumScannedPerRun - scanned);
+    const take = Math.min(100, scanEnd - cursor + 1, VOCAB_AI_CONFIG.maximumScannedPerRun - scanned);
     const values = sheet.getRange(cursor, 1, take, 6).getValues();
     const formulas = sheet.getRange(cursor, 4, take, 3).getFormulas();
 
@@ -157,7 +166,8 @@ function processVocabularyAiLocked_(props) {
         const fresh = sheet.getRange(rowNumber, 1, 1, 6).getValues()[0];
         const freshFormulas = sheet.getRange(rowNumber, 4, 1, 3).getFormulas()[0];
         if (!lexical.every((v, i) => String(fresh[i] == null ? '' : fresh[i]).trim() === v)) {
-          props.setProperty(VOCAB_STATE.cursor, String(Math.min(rowNumber, Number(props.getProperty(VOCAB_STATE.cursor)) || rowNumber)));
+          props.setProperty(urgent ? VOCAB_STATE.priorityStart : VOCAB_STATE.cursor,
+            String(Math.min(rowNumber, Number(props.getProperty(urgent ? VOCAB_STATE.priorityStart : VOCAB_STATE.cursor)) || rowNumber)));
           continue;
         }
         for (let k = 0; k < 3; k++) {
@@ -176,7 +186,7 @@ function processVocabularyAiLocked_(props) {
         const message = 'Row ' + rowNumber + ': ' + String(error && error.message || error).slice(0, 220);
         // Stay on failing row for a later retry; do not silently skip incomplete data.
         props.setProperties({
-          [VOCAB_STATE.cursor]: String(rowNumber),
+          [urgent ? VOCAB_STATE.priorityStart : VOCAB_STATE.cursor]: String(rowNumber),
           [VOCAB_STATE.dirty]: '1',
           [VOCAB_STATE.nextAttempt]: String(Date.now() + 10 * 60 * 1000),
           [VOCAB_STATE.lastError]: new Date().toISOString() + ' · ' + message,
@@ -188,7 +198,10 @@ function processVocabularyAiLocked_(props) {
 
       if (completed >= VOCAB_AI_CONFIG.maximumRowsPerRun) {
         cursor = rowNumber + 1;
-        props.setProperties({[VOCAB_STATE.cursor]: String(cursor), [VOCAB_STATE.dirty]: '1'});
+        props.setProperties({
+          [urgent ? VOCAB_STATE.priorityStart : VOCAB_STATE.cursor]: String(cursor),
+          [VOCAB_STATE.dirty]: '1'
+        });
         return;
       }
     }
@@ -197,6 +210,18 @@ function processVocabularyAiLocked_(props) {
 
   // On reaching the end, reset the cursor. A future timer tick can rescan
   // to pick up edits, without API calls for already-complete rows.
+  if (urgent) {
+    // Other edits may have arrived during the API call. Never clear their queue.
+    const latestStart = Number(props.getProperty(VOCAB_STATE.priorityStart)) || priorityStart;
+    const latestEnd = Number(props.getProperty(VOCAB_STATE.priorityEnd)) || priorityEnd;
+    const next = cursor > scanEnd ? (latestStart < priorityStart ? latestStart : scanEnd + 1) : cursor;
+    if (next > latestEnd) props.setProperties({
+      [VOCAB_STATE.priorityStart]: '0', [VOCAB_STATE.priorityEnd]: '0'
+    });
+    else props.setProperty(VOCAB_STATE.priorityStart, String(next));
+    props.setProperty(VOCAB_STATE.nextAttempt, '0');
+    return;
+  }
   const wrapped = cursor > lastRow;
   props.setProperties({
     [VOCAB_STATE.cursor]: String(wrapped ? 2 : cursor),
