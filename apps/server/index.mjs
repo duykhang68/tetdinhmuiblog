@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sanitizeHtml from 'sanitize-html';
 import { loadGa4Traffic } from '../web/src/services/ga4Traffic.mjs';
+import {getVocabularySheet} from '../web/src/services/vocabularySheet.mjs';
 import { randomToken, deriveKey, seal, unseal, secureEquals, codeChallenge, BLOGGER_SCOPE, BLOGGER_BASE, numericId, normalizeInput, safePost, readCookies, errorStatus, validatePublishDate } from './lib.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
@@ -165,6 +166,13 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
         return fs.createReadStream(candidate).pipe(res);
       }
       const s=mustAuth(req);
+      if(req.method==='GET'&&url.pathname==='/api/vocabulary-sheet'){
+        await accessToken(s);
+        return json(res,200,await getVocabularySheet({
+          serviceAccountJson:process.env.GOOGLE_SERVICE_ACCOUNT_JSON,
+          force:url.searchParams.get('refresh')==='1'
+        }));
+      }
       if(req.method==='GET'&&url.pathname==='/api/ga4-traffic'){
         if(!s.token.analytics)return json(res,200,{status:'needs_consent'});
         const ga4=await loadGa4Traffic({fetcher,token:await accessToken(s),propertyId:process.env.GA4_PROPERTY_ID||s.ga4PropertyId||'563038949'});
