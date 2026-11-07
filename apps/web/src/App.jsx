@@ -26,6 +26,7 @@ const EDITOR_QUICK_LINKS = [
   {title: 'CI / Quality Gate Insights', description: 'Giám sát CI, build và trạng thái kiểm định.', href: '/quality-gate', symbol: '◈', accent: 'quality'},
   {title: 'Collector Insights', description: 'Xem lịch sử tổng hợp và bằng chứng GitHub.', href: '/collector/', symbol: '▤', accent: 'collector'},
   {title: 'Starbucks Rewards & Insights', description: 'Theo dõi chi tiêu và tiến độ tích Stars.', href: '/starbucks-insights/', symbol: '☕', accent: 'starbucks'},
+  {title: 'Highlands Rewards & Insights', description: 'Chi tiêu Highlands, đọc hóa đơn POS và DRIPS HighlandsĐI.', href: '/highlands-insights/', symbol: '◉', accent: 'highlands'},
   {title: 'Daily Expenses & Insights', description: 'Ghi chi tiêu, hạn mức danh mục và phân tích ngân sách tháng.', href: '/expenses/', symbol: '◉', accent: 'expenses'}
 ];
 

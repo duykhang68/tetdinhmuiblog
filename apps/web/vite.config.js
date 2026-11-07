@@ -9,6 +9,7 @@ export default defineConfig({
         editor: resolve(ROOT, 'index.html'),
         researchInsights: resolve(ROOT, 'research-insights.html'),
         starbucksInsights: resolve(ROOT, 'starbucks-insights/index.html'),
+        highlandsInsights: resolve(ROOT, 'highlands-insights/index.html'),
         expenses: resolve(ROOT, 'expenses/index.html')
       }
     }
