@@ -8,6 +8,9 @@ const SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.googleapis
 const SHEETS='https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+'/values/';
 const DRIVE='https://www.googleapis.com/drive/v3/files';
 const escapeName=encodeURIComponent("'Sheet1'!A2:F");
+const DRIVE_PREFIX='DuyNguyen-Wikipedia-AI-Writer-';
+const backupFilename=(title,date=new Date())=>DRIVE_PREFIX+date.toISOString().replace(/[:.]/g,'-')+'-'+(String(title||'ban-thao').replace(/[\\/<>:"|?*\u0000-\u001f]/g,' ').trim().replace(/\s+/g,' ').slice(0,65)||'ban-thao')+'.json';
+const backupLabel=file=>file.name===DRIVE_NAME?'Bản sao lưu cũ':file.name.replace(DRIVE_PREFIX,'').replace(/\.json$/,'');
 const PROMPT=(source,text)=>`You are an experienced Vietnamese journalist and Vietnamese/Korean/English language educator. Using the Wikipedia material below as background, write an ORIGINAL, neutral, factually faithful Vietnamese explainer article with title, short lead, 3-5 topical subsections and a conclusion. NEVER invent events or quotes; separate uncertain information and attribute claims to Wikipedia. Do not copy passages verbatim. MANDATORY VIETNAMESE EDITORIAL CAPITALIZATION: For every Vietnamese title, heading, subheading, lead and sentence, use Vietnamese sentence case, NEVER English Title Case. Capitalize the first letter at the beginning of a title/sentence or after a sentence-ending period; retain standard capitalization of proper nouns (people, places, organizations, brands) and acronyms only. Example: CORRECT title 'Sự phát triển và đặc điểm của sữa chua đông lạnh'; WRONG 'Sự Phát Triển và Đặc Điểm Của Sữa Chua Đông Lạnh'. Do not randomly capitalize common nouns, adjectives, conjunctions or verbs. Apply the rule to article section headings as well. From YOUR GENERATED article select 12-25 useful meaningful words or expressions and provide precise translations. The grammar field should explain grammar and contain three short example sentences labelled VI:, KR:, EN:. Category should be a useful English category. Return ONLY one JSON object with keys "title", "article" (plain text, paragraphs separated by newlines), "vocabulary" (array of objects with keys "vi","ko","en","context","grammar","category"). All vocabulary must occur in article; no duplicates. Source: ${source}\nWikipedia background (may be truncated):\n${text.slice(0,16000)}`;
 async function responseJSON(response){
  const body=await response.json().catch(()=>({}));
@@ -79,6 +82,7 @@ export default function Writer(){
  const [sheetWriteSucceeded,setSheetWriteSucceeded]=useState(false);
  const [writingProgress,setWritingProgress]=useState({state:'idle',completed:0,stage:'',detail:'Chưa bắt đầu tạo bài',model:''});
  const [access,setAccess]=useState(''),[driveFile,setDriveFile]=useState(null),[lastSync,setLastSync]=useState(''),[dirty,setDirty]=useState(false);
+ const [driveBackups,setDriveBackups]=useState([]),[selectedBackup,setSelectedBackup]=useState(''),[backupListed,setBackupListed]=useState(false);
  const [oauthConfig,setOauthConfig]=useState({clientId:'',loading:true,error:'',source:''});
  useEffect(()=>{
   let active=true;
@@ -109,40 +113,50 @@ export default function Writer(){
   if(r.status===401){setAccess('');throw Error('Google hết phiên đăng nhập, vui lòng kết nối lại.');}
   return responseJSON(r);
  }
+ async function listBackups(token=stateRef.current.access){
+  if(!token)throw Error('Kết nối Google trước khi xem lịch sử Drive.');
+  // appDataFolder is private to this app; list all matching snapshots, including the original legacy file.
+  const found=[];let page='';
+  do{
+   const qs=new URLSearchParams({spaces:'appDataFolder',q:"trashed = false and (name = '"+DRIVE_NAME+"' or name contains '"+DRIVE_PREFIX+"')",fields:'nextPageToken,files(id,name,createdTime,modifiedTime,size)',pageSize:'1000'});
+   if(page)qs.set('pageToken',page);
+   const data=await googleRequest(DRIVE+'?'+qs.toString(),token);
+   found.push(...(data.files||[]).filter(f=>f.name===DRIVE_NAME||(f.name.startsWith(DRIVE_PREFIX)&&f.name.endsWith('.json'))));
+   page=data.nextPageToken||'';
+  }while(page);
+  found.sort((a,b)=>String(b.createdTime||b.modifiedTime||'').localeCompare(String(a.createdTime||a.modifiedTime||'')));
+  setDriveBackups(found);setBackupListed(true);
+  setSelectedBackup(old=>found.some(f=>f.id===old)?old:found[0]?.id||'');
+  return found;
+ }
  async function backup(token=stateRef.current.access){
   if(!token)throw Error('Kết nối Google trước khi đồng bộ Drive.');
-  const s=stateRef.current;
-  const value=JSON.stringify(snapshot(s.url,s.title,s.article,s.rows));
-  let f=s.driveFile;
-  if(f){
-   const remote=await googleRequest(DRIVE+'/'+encodeURIComponent(f.id)+'?fields=id,modifiedTime',token);
-   if(remote.modifiedTime!==f.modifiedTime)throw Error('Drive có bản sửa mới ở thiết bị khác. Hãy khôi phục/xử lý xung đột trước khi ghi đè.');
-   await googleRequest('https://www.googleapis.com/upload/drive/v3/files/'+encodeURIComponent(f.id)+'?uploadType=media',token,{method:'PATCH',headers:{'Content-Type':'application/json'},body:value});
-  }else{
-   // Connection no longer restores automatically: avoid silently creating duplicate backups.
-   const existing=await googleRequest(DRIVE+'?spaces=appDataFolder&q='+encodeURIComponent("name = '"+DRIVE_NAME+"' and trashed = false")+'&fields=files(id,name,modifiedTime)&pageSize=1',token);
-   if(existing.files?.length)throw Error('Drive đã có bản thảo. Hãy chọn “Tải bản thảo từ Drive” để kiểm tra phiên bản hiện có trước khi cập nhật; không tự tạo bản sao trùng.');
-   const metadata={name:DRIVE_NAME,mimeType:'application/json',parents:['appDataFolder']};
-   const boundary='wikiwriter'+Date.now();
-   const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+value+'\r\n--'+boundary+'--';
-   const out=await googleRequest('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime',token,{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body});
-   f=out;
-  }
-  const metadata=await googleRequest(DRIVE+'/'+encodeURIComponent(f.id)+'?fields=id,modifiedTime,webViewLink',token);
-  setDriveFile(metadata);setLastSync(new Date().toLocaleString('vi-VN'));setDirty(false);setNotice('Đã sao lưu bản thảo vào Google Drive (appDataFolder).');
+  const current=stateRef.current;
+  const value=JSON.stringify(snapshot(current.url,current.title,current.article,current.rows));
+  // Never overwrite a previous session. Each manual sync is an independent, recoverable version.
+  const metadata={name:backupFilename(current.title),mimeType:'application/json',parents:['appDataFolder']};
+  const boundary='wikiwriter'+Date.now();
+  const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+value+'\r\n--'+boundary+'--';
+  const result=await googleRequest('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,createdTime,modifiedTime',token,{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body});
+  setDriveFile(result);setLastSync(new Date().toLocaleString('vi-VN'));setDirty(false);
+  setDriveBackups(old=>[result,...old.filter(f=>f.id!==result.id)]);
+  setSelectedBackup(result.id);
+  setNotice('Đã lưu một phiên riêng lên Google Drive. Các bản sao lưu trước vẫn được giữ nguyên.');
  }
  async function restore(token=stateRef.current.access){
-  const data=await googleRequest(DRIVE+'?spaces=appDataFolder&q='+encodeURIComponent("name = '"+DRIVE_NAME+"' and trashed = false")+'&fields=files(id,name,modifiedTime),nextPageToken&pageSize=100',token);
-  const files=(data.files||[]).sort((a,b)=>String(b.modifiedTime).localeCompare(String(a.modifiedTime)));
-  if(!files.length){setNotice('Drive chưa có bản thảo trước đó.');return;}
-  if(stateRef.current.dirty&&!confirm('Dữ liệu hiện tại chưa sao lưu. Bạn muốn thay bằng dữ liệu trên Drive?'))return;
-  const file=files[0];
+  if(!selectedBackup)throw Error('Hãy tải danh sách và chọn một phiên trong dropdown trước khi khôi phục.');
+  const file=driveBackups.find(f=>f.id===selectedBackup);
+  if(!file)throw Error('Phiên đã chọn không còn trong danh sách. Hãy tải lại danh sách Drive.');
+  if(stateRef.current.dirty&&!confirm('Bản thảo hiện tại có thay đổi chưa lưu. Bạn muốn thay nội dung đang làm việc bằng phiên đã chọn?'))return;
   const body=await googleRequest(DRIVE+'/'+encodeURIComponent(file.id)+'?alt=media',token);
-  const s=validateBackup(body);
-  setUrl(s.source);setTitle(s.title);setArticle(s.article);setRows(s.vocabulary);setSheetWriteSucceeded(false);setDriveFile(file);setDirty(false);
-  setNotice('Đã khôi phục bản thảo từ Google Drive.');
+  const restored=validateBackup(body);
+  setUrl(restored.source);setTitle(restored.title);setArticle(restored.article);setRows(restored.vocabulary);
+  setSheetWriteSucceeded(false);setDriveFile(file);setDirty(false);
+  setWritingProgress({state:'idle',completed:0,stage:'',detail:'Đã mở phiên đã chọn từ Google Drive',model:''});
+  setNotice('Đã khôi phục: '+(restored.title||backupLabel(file))+'. Các phiên khác vẫn được giữ nguyên.');
  }
- async function connect(){setBusy('google');setError('');try{await auth();setNotice('Đã kết nối Google Sheets và Drive. Không tự tải hoặc ghi bản thảo; hãy chọn thao tác đồng bộ khi cần.');}catch(e){setError(e.message);}finally{setBusy('');}}
+ async function refreshBackups(){setBusy('listDrive');setError('');setNotice('');try{const files=await listBackups();setNotice(files.length?'Đã tìm thấy '+files.length+' phiên trên Google Drive. Hãy chọn một phiên để khôi phục.':'Chưa tìm thấy bản sao lưu nào trên Drive.');}catch(e){setError(e.message);}finally{setBusy('');}}
+ async function connect(){setBusy('google');setError('');try{await auth();setDriveBackups([]);setSelectedBackup('');setBackupListed(false);setNotice('Đã kết nối Google Sheets và Drive. Nhấn “Xem các phiên đã lưu” để chủ động tải danh sách, không tự khôi phục.');}catch(e){setError(e.message);}finally{setBusy('');}}
  async function restoreManually(){setBusy('restore');setError('');setNotice('');try{await restore();}catch(e){setError(e.message);}finally{setBusy('');}}
  async function generate(){
   setBusy('ai');setError('');setNotice('');
@@ -278,9 +292,11 @@ export default function Writer(){
     </section>
    </div><div className="ww-stack">
     <section className="ww-card ww-connect"><div className="ww-card-head"><span className="ww-step">☁</span><div><h2>Google Sheets & Drive</h2><p>{access?'Đã kết nối tài khoản Google':'Kết nối OAuth để ghi dữ liệu trực tiếp'}</p></div></div>
-     <div className="ww-actions"><button disabled={running||oauthConfig.loading} onClick={connect}>{oauthConfig.loading?'Đang đọc cấu hình Google…':access?'↻ Kết nối lại':'Kết nối Google'}</button><button disabled={running||!access} onClick={restoreManually}>↓ Tải bản thảo từ Drive</button><button disabled={running||!access} onClick={save}>☁ Đồng bộ lên Drive</button></div>
+     <div className="ww-actions"><button disabled={running||oauthConfig.loading} onClick={connect}>{oauthConfig.loading?'Đang đọc cấu hình Google…':access?'↻ Kết nối lại':'Kết nối Google'}</button><button disabled={running||!access} onClick={refreshBackups}>↻ Xem các phiên đã lưu</button><button disabled={running||!access} onClick={save}>☁ Lưu phiên mới lên Drive</button></div>
+     <label>Chọn phiên muốn khôi phục<select value={selectedBackup} disabled={running||!access||!driveBackups.length} onChange={e=>setSelectedBackup(e.target.value)}><option value="">{backupListed?'Chưa có bản sao lưu':'Bấm Xem các phiên đã lưu trước'}</option>{driveBackups.map(file=><option key={file.id} value={file.id}>{(file.createdTime||file.modifiedTime)?new Date(file.createdTime||file.modifiedTime).toLocaleString('vi-VN')+' · ':''}{backupLabel(file)}</option>)}</select></label>
+     <div className="ww-actions"><button disabled={running||!access||!selectedBackup} onClick={restoreManually}>↓ Khôi phục phiên đã chọn</button><span className="ww-note">{backupListed?driveBackups.length+' phiên trên Drive':'Chưa tải danh sách phiên'}</span></div>
      {!oauthConfig.loading&&!validClientId(oauthConfig.clientId)&&<p className="ww-note" role="status">{oauthConfig.error||'Chưa tìm thấy OAuth Client ID dùng chung của Editor.'}</p>}
-     <p className="ww-note">Chỉ đồng bộ khi bạn chủ động bấm nút. “Tải bản thảo từ Drive” lấy dữ liệu xuống; “Đồng bộ lên Drive” lưu dữ liệu lên. Kết nối Google không tự tải hay ghi bản thảo. Không ghi đè bản Drive có thay đổi từ thiết bị khác.</p>
+     <p className="ww-note">Kết nối Google không tự khôi phục. Bấm “Xem các phiên đã lưu”, chọn đúng phiên rồi bấm “Khôi phục phiên đã chọn”. Mỗi lần bấm lưu sẽ tạo một bản riêng, không ghi đè các phiên cũ. Các file sao lưu trước đây vẫn được liệt kê nếu còn tồn tại trên Drive.</p>
      <p className="ww-status">{dirty?'● Có thay đổi chưa đồng bộ':'✓ Bản thảo chưa có thay đổi mới'}{lastSync?' · Lần lưu: '+lastSync:''}</p>
      <a href={'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit?gid=0'} target="_blank" rel="noopener noreferrer">Mở Google Sheet viethananh ↗</a>
     </section>
