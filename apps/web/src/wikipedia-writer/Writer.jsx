@@ -200,13 +200,18 @@ export default function Writer(){
   }catch(e){setError(e.message);}finally{setBusy('');}
  }
  function resetVocabularySession(){
-  if(!sheetWriteSucceeded||!rows.length||busy)return;
-  if(!confirm('Bắt đầu phiên từ vựng mới? Chỉ xóa danh sách tại Section 4. Các từ đã ghi vào Google Sheets vẫn được giữ nguyên.'))return;
+  // Allow starting a fresh session even before a successful Google Sheets upload.
+  if(busy||!(title.trim()||article.trim()||rows.length))return;
+  if(!confirm('Bắt đầu phiên mới? Tiêu đề, bản thảo, URL Wikipedia và từ vựng đang hiển thị sẽ bị xóa khỏi Editor, kể cả nội dung chưa ghi lên Google Sheets. Các dòng đã lưu trên Google Sheets không bị xóa.'))return;
+  setUrl('');
+  setTitle('');
+  setArticle('');
   setRows([]);
   setSheetWriteSucceeded(false);
+  setWritingProgress({state:'idle',completed:0,stage:'',detail:'Sẵn sàng cho bài Wikipedia mới',model:''});
   setDirty(true);
   setError('');
-  setNotice('Đã bắt đầu phiên từ vựng mới. Google Sheet không thay đổi.');
+  setNotice('Đã làm trống bản thảo và từ vựng. Google Sheet không thay đổi.');
  }
  async function save(){setBusy('drive');setError('');try{await backup();}catch(e){setError(e.message);}finally{setBusy('');}}
  useEffect(()=>{
@@ -305,7 +310,7 @@ export default function Writer(){
     <section className="ww-card"><div className="ww-card-head"><span className="ww-step">04</span><div><h2>Từ vựng Việt · Hàn · Anh <span className="ww-count">{rows.length}</span></h2><p>Đã ánh xạ đúng các cột A:F của Sheet1</p></div></div>
      <div className="ww-table-scroll"><table><thead><tr><th>Việt (A)</th><th>Hàn (B)</th><th>Anh (C)</th><th>Context (D)</th><th>Ngữ pháp (E)</th><th>Category (F)</th><th></th></tr></thead><tbody>{rows.map((v,i)=><tr key={i}>{['vi','ko','en','context','grammar','category'].map(k=><td key={k}><textarea rows={k==='grammar'?3:2} aria-label={k+' '+(i+1)} value={v[k]} onChange={e=>{setRows(old=>old.map((x,j)=>j===i?{...x,[k]:e.target.value}:x));setSheetWriteSucceeded(false);setDirty(true);}}/></td>)}<td><button className="ww-remove" aria-label={'Xóa dòng '+(i+1)} onClick={()=>{setRows(old=>old.filter((_,j)=>j!==i));setSheetWriteSucceeded(false);setDirty(true);}}>×</button></td></tr>)}</tbody></table></div>
      {!rows.length&&<p className="ww-empty">Chưa có từ vựng. Hãy tạo bài báo trước.</p>}
-     <div className="ww-actions"><button onClick={()=>{setRows(old=>[...old,{vi:'',ko:'',en:'',context:'',grammar:'',category:'General / Everyday Language'}]);setSheetWriteSucceeded(false);setDirty(true);}}>+ Thêm từ</button><button disabled={running||!sheetWriteSucceeded||!rows.length} onClick={resetVocabularySession} title="Chỉ làm trống từ vựng trong Section 4; không xóa Google Sheet">↻ Phiên từ vựng mới</button><button className="ww-primary" disabled={running||!access||!rows.length} onClick={push}>{busy==='sheet'?'Đang ghi Sheet…':'↗ Ghi từ mới vào Google Sheet'}</button></div>
+     <div className="ww-actions"><button onClick={()=>{setRows(old=>[...old,{vi:'',ko:'',en:'',context:'',grammar:'',category:'General / Everyday Language'}]);setSheetWriteSucceeded(false);setDirty(true);}}>+ Thêm từ</button><button disabled={running||!(title.trim()||article.trim()||rows.length)} onClick={resetVocabularySession} title="Tạo phiên mới: làm trống bản thảo và từ vựng trên Editor, không xóa Google Sheet">↻ Phiên từ vựng mới</button><button className="ww-primary" disabled={running||!access||!rows.length} onClick={push}>{busy==='sheet'?'Đang ghi Sheet…':'↗ Ghi từ mới vào Google Sheet'}</button></div>
     </section>
    </div></div>
    {error&&<div role="alert" className="ww-alert ww-error">{error}</div>}
