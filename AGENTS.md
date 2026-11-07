@@ -26,6 +26,20 @@ Do **not** replace Google Drive with Cloudflare D1/KV, GitHub, or browser storag
 
 The mandate is repository-wide, but **adding this policy does not itself retrofit legacy pages**. Audit and migrate each existing in-scope page with a separate feature/PR and track remaining gaps in the policy document. Do not claim a page is compliant until code, tests and live configuration have been verified.
 
+## Mandatory rule: Editor Quick Access shortcuts for new utilities
+
+**NON-NEGOTIABLE / BẮT BUỘC:** Every newly built utility, standalone tool, dashboard, insights page or feature with its own navigable URL/route MUST have a working shortcut in the Editor's **“Truy cập nhanh”** section as part of the **same feature PR**. The owner must never have to remember or manually type the URL.
+
+Acceptance criteria:
+1. Add a clear Vietnamese label and the canonical production URL/route to the existing Editor Quick Access data/UI; do not create a separate disconnected shortcut list.
+2. The shortcut must be visible and clickable from the Editor, navigate to the correct deployed page, and work on desktop and mobile. External URLs must use safe link behavior.
+3. Deduplicate by canonical normalized URL/route; preserve all existing shortcuts, their labels, ordering and functionality. Prefer the repository's established Quick Access implementation/pattern.
+4. Include an automated test or equivalent regression check for the shortcut and route; verify that the link resolves to the intended page after deployment.
+5. Add the shortcut in the **same commit/PR workflow** that builds the new utility; PRs without it are **BLOCKED / NON-COMPLIANT**. Explicitly document exceptions (e.g. a non-navigable internal component) in the PR.
+6. Keep the existing Editor layout and light-mode styling unchanged outside the minimum necessary shortcut addition.
+
+This rule applies prospectively to new utilities; existing utility shortcuts may be audited or backfilled in separate scoped PRs.
+
 ## Other engineering conventions
 
 - Never commit credentials or private user data.
