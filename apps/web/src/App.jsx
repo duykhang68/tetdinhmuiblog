@@ -10,6 +10,13 @@ import GitHubSmartInsights from './GitHubSmartInsights.jsx';
 import {Callout} from './Callout.js';
 import {ArticleBlocks,BLOCKS,blockHTML} from './ArticleBlocks.js';
 import articleStyles from './article.css?inline';
+import {marked} from 'marked';
+import DOMPurify from 'dompurify';
+import SeriesEditorPanel from './components/SeriesEditorPanel.jsx';
+import BlueprintSelector from './components/BlueprintSelector.jsx';
+import SeriesIndexTable from './components/SeriesIndexTable.jsx';
+import {emptySeries, editableSeries, extractSeriesFromHTML, withSeriesHTML, normalizeSeries, seriesValidation} from './services/series.js';
+import './components/series.css';
 
 const DEFAULT_HTML='<h2>Giới thiệu</h2><p>Bắt đầu viết bài tại đây…</p>';
 const fmt=d=>d?new Date(d).toLocaleString('vi-VN'):'';
@@ -55,6 +62,8 @@ export default function App(){
   const [blogs,setBlogs]=useState([]),[blogId,setBlogId]=useState('');
   const [items,setItems]=useState([]),[filter,setFilter]=useState('draft'),[nextPage,setNextPage]=useState(null);
   const [title,setTitle]=useState(''),[labels,setLabels]=useState(''),[html,setHTML]=useState(DEFAULT_HTML);
+  const [series,setSeries]=useState(emptySeries);
+  const [seriesPosts,setSeriesPosts]=useState([]),[seriesLoading,setSeriesLoading]=useState(false),[seriesPartial,setSeriesPartial]=useState(false),[seriesFault,setSeriesFault]=useState('');
   const [post,setPost]=useState(null),[mode,setMode]=useState('compose');
   const [dirty,setDirty]=useState(false),[saving,setSaving]=useState(false),[autoSync,setAutoSync]=useState(true);
   const [message,setMessage]=useState(''),[fault,setFault]=useState(''),[busy,setBusy]=useState(false);
@@ -64,6 +73,7 @@ export default function App(){
   const [diagramOpen,setDiagramOpen]=useState(false),[diagramAuto,setDiagramAuto]=useState(false);
   const sourceRef=useRef(null),previewFrom=useRef('compose');
   const suppress=useRef(false),inflight=useRef(false),editorCurrent=useRef(null),revision=useRef(0);
+  const seriesRequest=useRef(0);
   const editor=useEditor({
     extensions:[StarterKit.configure({heading:{levels:[2,3]},link:{openOnClick:false,defaultProtocol:'https'}}),TableKit,Image.configure({allowBase64:false}),Callout,...ArticleBlocks],
     content:DEFAULT_HTML,
@@ -75,6 +85,21 @@ export default function App(){
   useEffect(()=>{editor?.setEditable(!readOnly,false);},[editor,readOnly]);
   const wordCount=useMemo(()=>html.replace(/<[^>]*>/g,' ').replace(/&(?:nbsp|#160);/g,' ').trim().split(/\s+/).filter(Boolean).length,[html]);
   const labelsArray=useMemo(()=>[...new Set(labels.split(',').map(x=>x.trim()).filter(Boolean))],[labels]);
+  const activeSeries=useMemo(()=>normalizeSeries(series),[series]);
+  const seriesIssue=seriesValidation(series);
+  const updateSeries=next=>{revision.current++;setSeries(next);setDirty(true);setMessage('Đã thay đổi Series; cần lưu lại bài viết.');};
+  useEffect(()=>{seriesRequest.current++;setSeriesPosts([]);setSeriesPartial(false);setSeriesFault('');setSeriesLoading(false);},[blogId,series.enabled,series.name]);
+  const refreshSeries=async()=>{
+    if(!activeSeries||!connected||!blogId)return;
+    const requestId=++seriesRequest.current;
+    setSeriesLoading(true);setSeriesFault('');
+    try{
+      const data=await api('/series?'+new URLSearchParams({blogId,name:activeSeries.name}));
+      if(requestId!==seriesRequest.current)return;
+      setSeriesPosts(data.posts||[]);setSeriesPartial(!!data.partial);
+    }catch(e){if(requestId===seriesRequest.current)setSeriesFault(e.message||String(e));}
+    finally{if(requestId===seriesRequest.current)setSeriesLoading(false);}
+  };
   const resetFault=()=>setFault('');
   const showError=e=>{setFault(e.message||String(e));setMessage('Lỗi');};
   const init=useCallback(async()=>{try{const s=await api('/status');setStatus(s);if(s.connected){const b=await api('/blogs');setBlogs(b.blogs);const configured=b.blogs.some(x=>x.id===s.defaultBlogId)?s.defaultBlogId:b.blogs[0]?.id||'';setBlogId(configured);}}catch{setStatus({connected:false});}},[]);
@@ -93,17 +118,17 @@ export default function App(){
   useEffect(()=>{
     if(restorable)return;
     const t=setTimeout(()=>{
-      try{localStorage.setItem(localKey(blogId),JSON.stringify({post,title,labels,html,dirty,savedAt:new Date().toISOString()}));}catch{setMessage('Bộ nhớ thiết bị đầy; hãy lưu lên Blogger');}
+      try{localStorage.setItem(localKey(blogId),JSON.stringify({post,title,labels,html,series,dirty,savedAt:new Date().toISOString()}));}catch{setMessage('Bộ nhớ thiết bị đầy; hãy lưu lên Blogger');}
     },800);return()=>clearTimeout(t);
-  },[blogId,post,title,labels,html,dirty,restorable]);
+  },[blogId,post,title,labels,html,series,dirty,restorable]);
   const setEditorHTML=value=>{if(editorCurrent.current){suppress.current=true;editorCurrent.current.commands.setContent(value);suppress.current=false;}};
-  const loadLocal=()=>{if(driveBusy||saving||!restorable)return;setDocumentKey(k=>k+1);revision.current++;setPost(restorable.post||null);setTitle(restorable.title||'');setLabels(restorable.labels||'');setHTML(restorable.html||DEFAULT_HTML);setEditorHTML(restorable.html||DEFAULT_HTML);setMode('html');setDirty(true);setRestorable(null);setMessage('Đã khôi phục bản lưu cục bộ; cần kiểm tra trước khi lưu lên Blogger');};
-  const newPost=()=>{if(driveBusy||saving)return;if(dirty&&!confirm('Nội dung chưa lưu lên Blogger. Vẫn tạo bài mới?'))return;setDocumentKey(k=>k+1);revision.current++;setPost(null);setTitle('');setLabels('');setHTML(DEFAULT_HTML);setEditorHTML(DEFAULT_HTML);setMode('compose');setDirty(false);setMessage('Bài mới: chưa lưu lên Blogger');setFault('');};
+  const loadLocal=()=>{if(driveBusy||saving||!restorable)return;setDocumentKey(k=>k+1);revision.current++;setPost(restorable.post||null);setTitle(restorable.title||'');setLabels(restorable.labels||'');setSeries(restorable.series?.enabled?editableSeries(restorable.series):emptySeries());setHTML(restorable.html||DEFAULT_HTML);setEditorHTML(restorable.html||DEFAULT_HTML);setMode('html');setDirty(true);setRestorable(null);setMessage('Đã khôi phục bản lưu cục bộ; cần kiểm tra trước khi lưu lên Blogger');};
+  const newPost=()=>{if(driveBusy||saving)return;if(dirty&&!confirm('Nội dung chưa lưu lên Blogger. Vẫn tạo bài mới?'))return;setDocumentKey(k=>k+1);revision.current++;setPost(null);setTitle('');setLabels('');setSeries(emptySeries());setHTML(DEFAULT_HTML);setEditorHTML(DEFAULT_HTML);setMode('compose');setDirty(false);setMessage('Bài mới: chưa lưu lên Blogger');setFault('');};
   const openPost=async p=>{
     if(driveBusy||saving)return;
     if(dirty&&!confirm('Bài hiện tại chưa lưu trên Blogger. Vẫn mở bài khác?'))return;
     setBusy(true);resetFault();
-    try{const x=await api(`/posts/${p.id}?blogId=${encodeURIComponent(blogId)}`);setDocumentKey(k=>k+1);revision.current++;setPost(x.post);setTitle(x.post.title);setLabels((x.post.labels||[]).join(', '));setHTML(x.post.content);setEditorHTML(x.post.content);setDirty(false);setMode('html');setMessage('Đã tải bài từ Blogger. Mở HTML để giữ nguyên các khối cũ; chỉ chuyển sang Compose nếu chấp nhận chuẩn hóa HTML.');setRestorable(null);}
+    try{const x=await api(`/posts/${p.id}?blogId=${encodeURIComponent(blogId)}`);setDocumentKey(k=>k+1);revision.current++;setPost(x.post);setTitle(x.post.title);setLabels((x.post.labels||[]).join(', '));const opened=extractSeriesFromHTML(x.post.content);setSeries(opened.series);setHTML(opened.html);setEditorHTML(opened.html);setDirty(false);setMode('html');setMessage('Đã tải bài từ Blogger. Mở HTML để giữ nguyên các khối cũ; chỉ chuyển sang Compose nếu chấp nhận chuẩn hóa HTML.');setRestorable(null);}
     catch(e){showError(e);}finally{setBusy(false);setDraftsOpen(false);}
   };
   const save=async({silent=false}={})=>{
@@ -112,8 +137,9 @@ export default function App(){
     if(!blogId)return showError(new Error('Chưa chọn blog'));
     if(post&&String(post.status||'').toLowerCase()!=='draft')return showError(new Error('Bài đã xuất bản chỉ đọc. Hãy tạo bản nháp mới nếu muốn chỉnh sửa.'));
     if(!title.trim())return showError(new Error('Nhập tiêu đề bài viết trước khi lưu'));
+    if(seriesIssue)return showError(new Error('Series: '+seriesIssue));
     inflight.current=true;const revisionOnSend=revision.current;setSaving(true);resetFault();setMessage('Đang lưu Blogger...');
-    const payload={blogId,title,content:html,labels:labelsArray};
+    const payload={blogId,title,content:withSeriesHTML(html,series),labels:labelsArray};
     try{
       const result=post?await api(`/drafts/${post.id}`,{method:'PATCH',body:{...payload,expectedUpdated:post.updated},csrf:status.csrf}):await api('/drafts',{method:'POST',body:payload,csrf:status.csrf});
       setPost(result.post);if(revision.current===revisionOnSend){setDirty(false);setMessage('Đã lưu bản nháp trên Blogger lúc '+new Date().toLocaleTimeString('vi-VN'));}else{setDirty(true);setMessage('Đã lưu phiên bản trước; có thay đổi mới cần đồng bộ tiếp.');}
@@ -121,10 +147,10 @@ export default function App(){
     }catch(e){showError(e);return null;}finally{inflight.current=false;setSaving(false);}
   };
   useEffect(()=>{
-    if(driveBusy||!autoSync||!dirty||!post||String(post.status||'').toLowerCase()!=='draft'||mode!=='compose'||!navigator.onLine)return;
+    if(driveBusy||!autoSync||!dirty||!post||String(post.status||'').toLowerCase()!=='draft'||mode!=='compose'||!!seriesIssue||!navigator.onLine)return;
     const timer=setTimeout(()=>{if(!inflight.current)save({silent:true});},5000);
     return()=>clearTimeout(timer);
-  },[driveBusy,autoSync,dirty,post?.id,post?.updated,title,labels,html,mode]);
+  },[driveBusy,autoSync,dirty,post?.id,post?.updated,title,labels,html,series,mode,seriesIssue]);
   const publish=async()=>{
     if(!connected||!blogId||!post)return alert('Bạn cần lưu bản nháp trên Blogger trước.');
     if(!confirm('XUẤT BẢN công khai bài viết này lên Blogger? Hành động này không thể hoàn tác bằng nút Undo.'))return;
@@ -173,13 +199,30 @@ export default function App(){
     }else editor.chain().focus().insertContent(markup).run();
     setMessage('Đã thêm khối '+(BLOCKS.find(b=>b[0]===kind)?.[2]||'nội dung')+'.');
   };
+  const insertBlueprint=markdown=>{
+    if(readOnly||saving||driveBusy||mode==='preview'||!markdown?.trim())return;
+    const markup=DOMPurify.sanitize(marked.parse(markdown),{FORBID_TAGS:['script','style','iframe','object','embed']});
+    if(mode==='html'){
+      const start=sourceRef.current?.selectionStart??html.length,end=sourceRef.current?.selectionEnd??start;
+      const insert='\n'+markup+'\n';
+      setHTML(html.slice(0,start)+insert+html.slice(end));revision.current++;setDirty(true);
+      setTimeout(()=>{sourceRef.current?.focus();sourceRef.current?.setSelectionRange(start+insert.length,start+insert.length);},0);
+    }else if(editor){
+      editor.chain().focus('end').insertContent('<p></p>'+markup).run();
+    }
+    setMessage('Đã chèn dàn ý Series vào nội dung bài viết.');
+  };
   const selectBlog=id=>{
     if(driveBusy||saving)return;
     if(id===blogId){setCommunityOpen(false);return;}
     if(dirty&&!confirm('Nội dung chưa lưu lên Blogger. Đổi blog và bỏ thay đổi này?'))return;
-    setDocumentKey(k=>k+1);revision.current++;setBlogId(id);setPost(null);setTitle('');setLabels('');setHTML(DEFAULT_HTML);
+    setDocumentKey(k=>k+1);revision.current++;setBlogId(id);setPost(null);setTitle('');setLabels('');setSeries(emptySeries());setHTML(DEFAULT_HTML);
     setEditorHTML(DEFAULT_HTML);setDirty(false);setMode('compose');setCommunityOpen(false);
   };
+  const allSeriesPosts=activeSeries ? [
+    ...seriesPosts.filter(item=>String(item.id)!==String(post?.id||'')),
+    {id:post?.id||'unsaved-current',title:title||'Bài đang soạn',url:post?.url||'',status:post?.status||'DRAFT',series:activeSeries}
+  ] : [];
   return <div className={'app reddit-layout'+' kit-layout'}>
     <header className="topbar reddit-topbar">
       <div className="brand"><span className="brandmark">d.</span><div><strong>Duy Nguyen <em>Editor</em></strong><small>Reddit-inspired · Blogger CMS</small></div></div>
@@ -217,7 +260,17 @@ export default function App(){
           <div className="kit-paper-status"><div className="kit-save-status" role="status" aria-live="polite"><span className={'kit-status-dot'+(dirty?' is-dirty':'')} aria-hidden="true"/><div><strong>{saving?'Đang lưu lên Blogger…':dirty?'Có thay đổi chưa lưu':post?'Đã đồng bộ với Blogger':'Sẵn sàng để viết'}</strong><small>{message||'Lưu bản nháp khi bạn sẵn sàng.'}</small></div></div><span className="kit-word-count">{wordCount.toLocaleString('vi-VN')} từ <span>·</span> {Math.ceil(wordCount/200)} phút đọc</span></div>
         </section>
         <aside className="kit-right" aria-label="Lưu và xuất bản">
-          <DrivePanel key={documentKey} title={title} labels={labels} html={html} dirty={dirty} onBusy={setDriveBusy} externalBusy={saving||busy} onOpen={article=>{revision.current++;setPost(null);setTitle(article.title);setLabels(article.labels);setHTML(article.html);setEditorHTML(article.html);setMode('html');setDirty(true);setRestorable(null);setFault('');setMessage('Đã mở bài từ Drive. Lưu Drive và lưu Blogger là hai thao tác riêng.');}}/>
+          <SeriesEditorPanel value={series} onChange={updateSeries} disabled={readOnly||saving||driveBusy}/>
+          {series.enabled&&<BlueprintSelector onInsert={insertBlueprint} disabled={readOnly||saving||driveBusy||mode==='preview'}/>}
+          {activeSeries&&<>
+            <SeriesIndexTable seriesName={activeSeries.name} currentPart={activeSeries.part} allSeriesPosts={allSeriesPosts}/>
+            <div className="kit-series-refresh"><button type="button" className="kit-button full" onClick={refreshSeries} disabled={!connected||seriesLoading||driveBusy||saving}>{seriesLoading?'Đang tải mục lục…':'↻ Tải mục lục từ Blogger'}</button>
+              {seriesPartial&&<p className="series-note">Danh sách rất dài: chỉ hiển thị các tập trong 500 bài gần nhất mỗi trạng thái.</p>}
+              {seriesFault&&<p className="series-error" role="alert">{seriesFault}</p>}
+              {!connected&&<p className="series-note">Kết nối Blogger để xem các tập trên tài khoản của bạn.</p>}
+            </div>
+          </>}
+          <DrivePanel key={documentKey} title={title} labels={labels} html={html} series={series} dirty={dirty} onBusy={setDriveBusy} externalBusy={saving||busy} onOpen={article=>{revision.current++;setPost(null);setTitle(article.title);setLabels(article.labels);setSeries(article.series?.enabled?editableSeries(article.series):emptySeries());setHTML(article.html);setEditorHTML(article.html);setMode('html');setDirty(true);setRestorable(null);setFault('');setMessage('Đã mở bài từ Drive. Lưu Drive và lưu Blogger là hai thao tác riêng.');}}/>
           <section className="kit-panel kit-publish-panel"><div className="kit-panel-heading"><span className="kit-heading-mark" aria-hidden="true">↗</span><div><h2>Đưa bài viết lên blog</h2><p>Từng bước, sẵn sàng chia sẻ.</p></div></div><div className="kit-panel-body">
             <div className="kit-destination"><span className="kit-destination-avatar" aria-hidden="true">{(currentBlog?.name||'B')[0].toUpperCase()}</span><div><span>BLOG CỦA BẠN</span><strong>{currentBlog?.name||'Chưa chọn blog'}</strong>{currentBlog?.url&&<a href={currentBlog.url} target="_blank" rel="noopener noreferrer">Mở blog ↗</a>}</div></div>
             <ol className="kit-publish-steps"><li className={title.trim()&&wordCount?'is-done':''}><span>{title.trim()&&wordCount?'✓':'1'}</span><div><strong>Viết điều bạn muốn kể</strong><p>Thêm tiêu đề, nội dung và nhãn.</p></div></li><li className={post&&!dirty?'is-done':''}><span>{post&&!dirty?'✓':'2'}</span><div><strong>Lưu bản nháp</strong><p>Giữ lại bài viết trên Blogger.</p></div></li><li className={readOnly?'is-done':''}><span>{readOnly?'✓':'3'}</span><div><strong>Chia sẻ với mọi người</strong><p>Xem trước rồi xác nhận xuất bản.</p></div></li></ol>
