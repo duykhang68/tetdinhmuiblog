@@ -9,7 +9,7 @@
 <header class="top"><div class="brand"><div class="mark">文</div><div><span class="eyebrow">Duy Nguyen · Learning Workspace</span><h1>Vocabulary <span>Insights.</span></h1><p class="sub">Từ điển Việt — Hàn — Anh, tra cứu thông minh và ôn tập bằng flashcard.</p></div></div><nav class="top-actions"><a class="btn" href="/">← Editor</a><a class="btn" href="https://docs.google.com/spreadsheets/d/19nL6wtouHV-0OumsQR2jF-5xWA1cpbpivRUIsm7hDgk/edit?gid=0" target="_blank" rel="noopener noreferrer">↗ Google Sheets</a></nav></header>
 <section class="panel" aria-labelledby="sync-title"><div class="section-head"><div><span class="kicker">Section 01 · Data connection</span><h2 id="sync-title">Đồng bộ từ vựng</h2><p class="muted">Google Drive → Google Sheets → Vocabulary Insights. Giữ nguyên số dòng kể cả khi hàng bị ẩn trong Sheets.</p></div><span class="status loading" id="status"><span class="dot"></span><span id="status-text">Đang kết nối…</span></span></div>
 <div class="source-row"><div class="source-box"><small>GOOGLE DRIVE · SOURCE FOLDER</small><strong>viethananh</strong><a target="_blank" rel="noopener noreferrer" href="https://drive.google.com/drive/u/0/folders/1coylrqzqPOLZP_lhUdWlb3nI47Qr-af7">Mở thư mục nguồn ↗</a></div><div class="source-box"><small>GOOGLE SHEETS · SOURCE OF TRUTH</small><strong>viethananh / Sheet1</strong><small>6 cột · Việt, Hàn, Anh, Context, Grammar, Category</small></div></div>
-<div class="sync-actions"><button type="button" class="btn primary" id="sync">↻ Đồng bộ ngay</button><span class="muted" id="synced">Chưa đồng bộ · tự kiểm tra mỗi 3 phút khi trang mở</span></div><p class="muted" id="sync-error" role="alert"></p>
+<div class="sync-actions"><a class="btn primary" id="google-login" href="/auth/google/start?return_to=vocabulary-insights" hidden>↗ Đăng nhập với Google</a><button type="button" class="btn primary" id="sync">↻ Đồng bộ ngay</button><span class="muted" id="synced">Chưa đồng bộ · tự kiểm tra mỗi 3 phút khi trang mở</span></div><p class="muted" id="sync-error" role="alert"></p>
 </section>
 <section class="panel" aria-labelledby="kb-title"><div class="section-head"><div><span class="kicker">Section 02 · Knowledge Base</span><h2 id="kb-title">Tra cứu từ điển</h2><p class="muted">Mặc định hiển thị 3 dòng. Mở rộng từng mục để xem ngữ cảnh và ngữ pháp.</p></div><span class="status" id="results-count">0 từ</span></div>
 <div class="inputs"><label class="field">Tìm kiếm mọi ngôn ngữ<input id="search" type="search" placeholder="Tìm tiếng Việt, 한국어, English…" autocomplete="off"></label><label class="field">Danh mục<select id="category"><option value="">Tất cả danh mục</option></select></label><label class="field">Số dòng / trang<select id="pagesize"><option value="3">3 dòng (mặc định)</option><option value="10">10 dòng</option><option value="25">25 dòng</option><option value="50">50 dòng</option></select></label></div>
@@ -32,6 +32,7 @@ const clear=el=>el.replaceChildren();
 function node(tag,txt,cls){const n=document.createElement(tag);if(txt!==undefined)n.textContent=txt;if(cls)n.className=cls;return n;}
 function setStatus(text,kind=''){ $('status').className='status '+kind;$('status-text').textContent=text;}
 function err(text){$('sync-error').textContent=text||'';}
+function showLogin(needed){$('google-login').hidden=!needed; $('sync').hidden=needed;}
 function option(select,value,text){const opt=document.createElement('option');opt.value=value;opt.textContent=text;select.append(opt);}
 function setData(records){
  state.records=records;state.page=1;state.flash=0;state.turned=false;
@@ -93,10 +94,11 @@ async function sync(force=false){
  try{
   const res=await fetch('/api/vocabulary-sheet'+(force?'?refresh=1':''),{credentials:'same-origin',cache:'no-store'});
   const data=await res.json().catch(()=>({}));
-  if(res.status===401){setStatus('Cần đăng nhập','error');err('Hãy kết nối Google trong Editor để truy cập kho từ vựng.');return;}
+  if(res.status===401){setStatus('Cần đăng nhập','error');showLogin(true);err('Nhấn Đăng nhập với Google để tiếp tục. Sau khi đăng nhập, bạn sẽ quay lại trang từ vựng.');return;}
   if(!res.ok)throw Error(data.error||data.message||'Google Sheets API HTTP '+res.status);
   if(!Array.isArray(data.records))throw Error('Dữ liệu trả về không hợp lệ.');
   setData(data.records);
+  showLogin(false);
   setStatus('Đã đồng bộ','');
   $('synced').textContent=fmt(data.total)+' từ · Lần đồng bộ: '+new Date(data.syncedAt).toLocaleString('vi-VN')+' · Tự kiểm tra 3 phút/lần';
  }catch(e){setStatus('Đồng bộ thất bại','error');err(e.message||'Không thể kết nối Google Sheets.');}
