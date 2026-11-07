@@ -183,8 +183,104 @@ export function createDriveService({fetcher = (...args) => fetch(...args), oauth
       revision:Number(file.version||1),updatedAt:file.createdTime||file.modifiedTime||new Date(now()).toISOString(),
       data:stored.data,fileName:file.name};
   }
+  // Starbucks backups are isolated from personal expenses by their appProperties.
+  const STARBUCKS_TAG='dn_starbucks';
+  const STARBUCKS_VALUE='snapshot_v1';
+  const STARBUCKS_FIELDS='id,name,mimeType,createdTime,modifiedTime,version,appProperties';
+  async function listStarbucksSnapshots() {
+    let token='',files=[],pages=0;
+    do {
+      const params=new URLSearchParams({
+        q:"trashed = false and appProperties has { key = 'dn_starbucks' and value = 'snapshot_v1' }",
+        fields:'nextPageToken,files('+STARBUCKS_FIELDS+')',
+        orderBy:'createdTime desc',pageSize:'100'
+      });
+      if(token)params.set('pageToken',token);
+      const body=await (await request(API+'?'+params)).json();
+      files.push(...(body.files||[]).filter(file=>file.appProperties?.[STARBUCKS_TAG]===STARBUCKS_VALUE));
+      token=body.nextPageToken||'';
+      if(++pages>100)throw new Error('Quá nhiều trang snapshot Google Drive, cần kiểm tra và dọn lịch sử.');
+    }while(token);
+    return files.sort((a,b)=>String(b.createdTime||b.modifiedTime||'').localeCompare(String(a.createdTime||a.modifiedTime||''))||
+      String(b.id).localeCompare(String(a.id)));
+  }
+  async function readStarbucksSnapshot(file) {
+    if(!file?.id)throw new Error('Snapshot Drive không có ID.');
+    const res=await request(API+'/'+encodeURIComponent(file.id)+'?alt=media');
+    let envelope;
+    try{envelope=JSON.parse(await res.text());}
+    catch{throw new Error('File sao lưu Starbucks trên Drive không phải JSON hợp lệ. Không tự ghi đè.');}
+    if(envelope?.kind!=='duynguyen-starbucks-snapshot-v1'||!envelope.data)
+      throw new Error('File Drive không đúng định dạng sao lưu Starbucks. Không tự ghi đè.');
+    let data;
+    try {data=(await import('../starbucks-insights/driveSync.js')).normalizeData(envelope.data);}
+    catch(error) {throw new Error('Dữ liệu JSON Drive không hợp lệ: '+error.message);}
+    return {data,baseId:String(envelope.baseId||''),file};
+  }
+  async function readStarbucksState() {
+    const ownerId=await driveIdentity();
+    const files=await listStarbucksSnapshots();
+    if(!files.length)return {ownerId,exists:false,snapshotId:'',revision:0,updatedAt:null,data:null};
+    const latest=files[0];
+    const loaded=await readStarbucksSnapshot(latest);
+    // Track the immutable ancestry. Parallel uploads from the same base are forks,
+    // not replacements; never auto-pull over a fork that lacks our latest file.
+    const byId=new Map(files.map(file=>[String(file.id),file]));
+    const ancestors=[];
+    const seen=new Set([String(latest.id)]);
+    let cursor=String(latest.appProperties?.base_id||'');
+    while(cursor&&cursor!=='root'&&byId.has(cursor)&&!seen.has(cursor)){
+      ancestors.push(cursor);seen.add(cursor);
+      cursor=String(byId.get(cursor).appProperties?.base_id||'');
+    }
+    return {ownerId,exists:true,snapshotId:String(latest.id),revision:Number(latest.version||1),
+      updatedAt:latest.createdTime||latest.modifiedTime||null,data:loaded.data,
+      baseId:loaded.baseId,fileName:latest.name,ancestorIds:ancestors};
+  }
+  async function saveStarbucksSnapshot(data,expectedFileId='') {
+    const {normalizeData}=await import('../starbucks-insights/driveSync.js');
+    const normalized=normalizeData(data);
+    const json=JSON.stringify({kind:'duynguyen-starbucks-snapshot-v1',savedAt:new Date(now()).toISOString(),
+      baseId:expectedFileId||'',data:normalized});
+    if(new Blob([json]).size>4*1024*1024)
+      throw new Error('Bản JSON Starbucks lớn hơn 4 MB; hãy xuất file JSON trước khi đồng bộ.');
+    // Check the previous head before adding a new immutable snapshot.
+    const snapshots=await listStarbucksSnapshots();
+    if(String(snapshots[0]?.id||'')!==String(expectedFileId||'')){
+      const error=new Error('Drive đã có dữ liệu mới từ một thiết bị khác. Không ghi đè; hãy xử lý xung đột.');
+      error.code='STARBUCKS_CONFLICT';error.status=409;throw error;
+    }
+    const stamp=new Date(now()).toISOString().replace(/[:.]/g,'-');
+    const uuid=crypto.randomUUID();
+    const metadata={
+      name:'DuyNguyen-Starbucks-'+stamp+'-'+uuid.slice(0,8)+'.json',
+      mimeType:'application/json',
+      description:'Duy Nguyen · Starbucks Rewards & Insights · Private backup',
+      appProperties:{[STARBUCKS_TAG]:STARBUCKS_VALUE,base_id:String(expectedFileId||'root')}
+    };
+    const boundary='dn_starbucks_'+uuid.replace(/-/g,'');
+    const body=new Blob([
+      '--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n',
+      JSON.stringify(metadata),
+      '\r\n--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n',
+      json,'\r\n--'+boundary+'--\r\n'
+    ]);
+    const response=await request('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields='+encodeURIComponent(STARBUCKS_FIELDS),{
+      method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body
+    });
+    const file=await response.json();
+    if(!file?.id)throw new Error('Google Drive không trả ID file sau khi lưu. Kiểm tra Drive trước khi thử lại.');
+    // A read-back is stronger evidence than a successful POST alone.
+    const stored=await readStarbucksSnapshot(file);
+    if(JSON.stringify(stored.data)!==JSON.stringify(normalized))
+      throw new Error('Nội dung Drive khác bản gửi. Không xác nhận đồng bộ.');
+    return {ownerId:await driveIdentity(),exists:true,snapshotId:String(file.id),
+      revision:Number(file.version||1),updatedAt:file.createdTime||file.modifiedTime||new Date(now()).toISOString(),
+      data:stored.data,fileName:file.name};
+  }
   return {login, disconnect, connected, listBlogPosts, readMarkdown, saveMarkdownToDrive,
-    driveIdentity,listExpenseSnapshots,readExpenseSnapshot,readExpenseState,saveExpenseSnapshot};
+    driveIdentity,listExpenseSnapshots,readExpenseSnapshot,readExpenseState,saveExpenseSnapshot,
+    listStarbucksSnapshots,readStarbucksSnapshot,readStarbucksState,saveStarbucksSnapshot};
 
 }
 export const googleDrive = createDriveService();
