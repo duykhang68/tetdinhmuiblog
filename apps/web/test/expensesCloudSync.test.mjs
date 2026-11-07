@@ -159,18 +159,16 @@ test('Cloudflare HTTP route requires Google session and CSRF, with safe D1 error
     assert.equal((await noDb.json()).code,'EXPENSES_DB_MISSING');
   }finally{mocked.mock.restore();}
 });
-test('Page exposes 3-minute sync, manual control, conflict actions and Google login',()=>{
+test('Legacy Cloudflare D1 endpoint is not used by the Expenses page',()=>{
   const read=path=>readFileSync(new URL(path,import.meta.url),'utf8');
   const page=read('../src/expenses/Expenses.jsx');
-  const hook=read('../src/expenses/useExpenseCloudSync.js');
-  const api=read('../functions/[[path]].js');
+  const hook=read('../src/expenses/useExpenseDriveSync.js');
   assert.match(page,/Đồng bộ ngay/);
-  assert.match(page,/Auto sync mỗi 3 phút/);
-  assert.match(page,/resolveConflict\('cloud'\)/);
+  assert.match(page,/Google Drive/);
+  assert.match(page,/resolveConflict\('drive'\)/);
   assert.match(page,/resolveConflict\('local'\)/);
-  assert.match(hook,/setInterval\(\(\)=>void synchronize\(\),SYNC_INTERVAL_MS\)/);
-  assert.match(hook,/X-CSRF-Token/);
-  assert.match(api,/pathname==='\/api\/expenses-state'/);
-  assert.match(api,/expenseOwnerId/);
-  assert.match(read('../src/expenses/main.jsx'),/cloudSync\.css/);
+  assert.match(hook,/setInterval\(\(\)=>\{/);
+  assert.match(hook,/SYNC_INTERVAL_MS/);
+  assert.doesNotMatch(page,/useExpenseCloudSync|Cloudflare D1|Lần lưu Cloudflare/);
+  assert.doesNotMatch(hook,/\/api\/expenses-state|\/api\/status/);
 });
