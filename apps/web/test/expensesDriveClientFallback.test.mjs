@@ -31,6 +31,14 @@ test('Expenses reuses Editor saved public Client ID if no Vite env',async()=>{
   assert.equal(resolved.source,'editor');
   assert.equal(EDITOR_DRIVE_CLIENT_KEY,'dn-editor-drive-client-id');
 });
+test('Invalid Vite value cannot mask the existing Editor Client ID',async()=>{
+  const resolved=await discoverExpenseDriveClientId({
+    environmentValue:'REPLACE_ME',storedValue:editor,
+    fetcher:()=>{throw Error('Should not need API');}
+  });
+  assert.equal(resolved.clientId,editor);
+  assert.equal(resolved.source,'editor');
+});
 test('Expenses falls back to same-origin backend OAuth config without login',async()=>{
   const calls=[];
   const resolved=await discoverExpenseDriveClientId({
