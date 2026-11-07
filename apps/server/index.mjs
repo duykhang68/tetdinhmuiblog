@@ -180,7 +180,7 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
       }
       if(req.method==='GET'&&url.pathname==='/api/research-insights'){
         await accessToken(s);
-        return json(res,200,await loadResearchInsights({fetcher,token:process.env.RESEARCH_GITHUB_TOKEN||''}));
+        return json(res,200,await loadResearchInsights({fetcher,token:process.env.GITHUB_TOKEN||process.env.RESEARCH_GITHUB_TOKEN||''}));
       }
       if(req.method==='GET'&&url.pathname==='/api/blogs'){
         // Let Blogger choose the caller's role; forcing ADMIN can return INVALID_ARGUMENT.
