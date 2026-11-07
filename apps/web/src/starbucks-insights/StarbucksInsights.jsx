@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   STORAGE_KEY, PAYMENT_OPTIONS, POLICY_EFFECTIVE_DATE, analytics, money, monthlySeries,
-  normalizeTransaction, rewardsProgress, starNumber, starsFor, toCsv, todayVietnam, validDate
+  calculatePayable, normalizeTransaction, rewardsProgress, starNumber, starsFor, toCsv, todayVietnam, validDate
 } from './model.js';
 
 const initialForm = () => ({
-  date: todayVietnam(), store: '', orderId: '', item: '', amount: '', fee: '0', cups: '1',
+  date: todayVietnam(), store: '', orderId: '', item: '', amount: '', baseAmount: '',
+  extraAmount: '0', extraReason: '', discountAmount: '0', discountReason: '',
+  fee: '0', cups: '1',
   payment: 'starbucks-card', eligible: true, identified: true, linked: false, excluded: false
 });
 const initialConfig = () => ({
@@ -132,7 +134,17 @@ export default function StarbucksInsights() {
     }
   }, [transactions, config]);
 
-  const updateForm = (key, value) => setForm(current => ({ ...current, [key]: value }));
+  const updateForm = (key, value) => setForm(current => {
+    const next = { ...current, [key]: value };
+    if (['baseAmount', 'extraAmount', 'discountAmount'].includes(key)) {
+      const payable = calculatePayable(next.baseAmount, next.extraAmount, next.discountAmount);
+      if (payable !== null && Number.isFinite(payable)) next.amount = String(payable);
+    }
+    return next;
+  });
+  const calculatedAmount = calculatePayable(form.baseAmount, form.extraAmount, form.discountAmount);
+  const hasBaseAmount = form.baseAmount !== '';
+  const beforeDiscount = hasBaseAmount ? Number(form.baseAmount) + Number(form.extraAmount || 0) : null;
   const updateConfig = (key, value) => setConfig(current => ({ ...current, [key]: value }));
   const availableYears = useMemo(() => [...new Set([today.slice(0, 4), ...transactions.map(tx => tx.date.slice(0, 4))])].sort().reverse(), [transactions, today]);
   const byPayment = useMemo(() => transactions.filter(tx => paymentFilter === 'all' || tx.payment === paymentFilter), [transactions, paymentFilter]);
@@ -153,13 +165,18 @@ export default function StarbucksInsights() {
     setError('');
     try {
       const id = editing || (globalThis.crypto?.randomUUID?.() ?? String(Date.now()) + '-' + String(Math.random()).slice(2));
-      const next = normalizeTransaction({ ...form, id });
+      const next = normalizeTransaction({ ...form, amount: hasBaseAmount ? calculatedAmount : form.amount, id });
       setTransactions(current => editing ? current.map(tx => tx.id === editing ? next : tx) : [next, ...current]);
       setEditing(null); setForm(initialForm()); setNotice(editing ? 'Đã cập nhật giao dịch.' : 'Đã thêm giao dịch và cập nhật thống kê.');
     } catch (cause) { setError(cause.message); }
   };
   const edit = tx => {
-    setForm({ ...tx, amount: String(tx.amount), fee: String(tx.fee), cups: String(tx.cups) });
+    setForm({
+      ...tx, baseAmount: tx.baseAmount == null ? '' : String(tx.baseAmount),
+      extraAmount: String(tx.extraAmount ?? 0), discountAmount: String(tx.discountAmount ?? 0),
+      extraReason: tx.extraReason || '', discountReason: tx.discountReason || '',
+      amount: String(tx.amount), fee: String(tx.fee), cups: String(tx.cups)
+    });
     setEditing(tx.id);
     document.querySelector('#sb-consumption')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
@@ -219,7 +236,21 @@ export default function StarbucksInsights() {
           <label>Cửa hàng<input type="text" maxLength="120" placeholder="VD: Landmark 81" value={form.store} onChange={e => updateForm('store', e.target.value)}/></label>
           <label>Mã đơn hàng (không bắt buộc)<input type="text" maxLength={120} placeholder="VD: 123456 hoặc SBX-0987" autoComplete="off" value={form.orderId} onChange={e => updateForm('orderId', e.target.value)}/></label>
           <label>Tên món<input type="text" maxLength="120" placeholder="VD: Caffè Latte" value={form.item} onChange={e => updateForm('item', e.target.value)}/></label>
-          <label>Chi tiêu thực tế (VNĐ)<input required type="number" min="1" step="1" placeholder="85000" value={form.amount} onChange={e => updateForm('amount', e.target.value)}/></label>
+          <div className="sb-finance-heading"><strong>Chi tiết hóa đơn</strong><span>Tiền món gốc + phụ thu − giảm giá = thực trả</span></div>
+          <label>Tiền món gốc (VNĐ)<input type="number" min="1" step="1" placeholder="VD: 80000" value={form.baseAmount} onChange={e => updateForm('baseAmount', e.target.value)}/></label>
+          <label>Phụ thu / món thêm (VNĐ)<input type="number" min="0" step="1" value={form.extraAmount} onChange={e => updateForm('extraAmount', e.target.value)}/></label>
+          <label>Giảm giá (VNĐ)<input type="number" min="0" step="1" value={form.discountAmount} onChange={e => updateForm('discountAmount', e.target.value)}/></label>
+          <label>Thực trả (VNĐ)<input required type="number" min="1" step="1" placeholder={hasBaseAmount ? "Tự tính từ hóa đơn" : "VD: 75000"} readOnly={hasBaseAmount} value={hasBaseAmount ? (Number.isFinite(calculatedAmount) ? calculatedAmount : '') : form.amount} onChange={e => updateForm('amount', e.target.value)}/></label>
+          <label className="sb-finance-reason">Chi tiết phụ thu / tùy chỉnh<input type="text" maxLength={200} placeholder="VD: Sữa Half & Half (+5.000đ)" value={form.extraReason} onChange={e => updateForm('extraReason', e.target.value)}/></label>
+          <label className="sb-finance-reason">Lý do giảm giá<input type="text" maxLength={200} placeholder="VD: Ưu đãi ly cá nhân, voucher..." value={form.discountReason} onChange={e => updateForm('discountReason', e.target.value)}/></label>
+          <div className="sb-finance-summary" aria-live="polite">
+            {hasBaseAmount ? <>
+              <span>Tạm tính trước giảm: <strong>{Number.isFinite(beforeDiscount) ? money(beforeDiscount) : '—'}</strong></span>
+              <span className="sb-finance-minus">Giảm: −{money(Number(form.discountAmount) || 0)}</span>
+              <span className="sb-finance-total">Thực trả: <strong>{Number.isFinite(calculatedAmount) ? money(calculatedAmount) : '—'}</strong></span>
+              {calculatedAmount <= 0 && <span className="sb-finance-warning">Tổng thực trả phải lớn hơn 0 ₫.</span>}
+            </> : <span>Nhập tiền món gốc để tự tính tổng. Nếu chỉ biết số thực trả, có thể nhập trực tiếp vào ô “Thực trả”.</span>}
+          </div>
           <label>Phương thức thanh toán<select value={form.payment} onChange={e => updateForm('payment', e.target.value)}>{PAYMENT_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}</select></label>
           <label>Số ly<input required type="number" min="0" max="1000" step="1" value={form.cups} onChange={e => updateForm('cups', e.target.value)}/></label>
           <label>Phí giao hàng / phí không tích sao (VNĐ)<input type="number" min="0" step="1" value={form.fee} onChange={e => updateForm('fee', e.target.value)}/></label>
@@ -300,9 +331,13 @@ export default function StarbucksInsights() {
             <input ref={fileRef} type="file" accept=".json,application/json" className="sb-hidden" onChange={importJson} aria-label="Nhập backup JSON"/>
           </div></div>
         <input type="search" className="sb-search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Tìm món, cửa hàng hoặc mã đơn hàng..." aria-label="Tìm trong lịch sử giao dịch" autoComplete="off"/>
-        <div className="sb-table-scroll"><table><thead><tr><th>Ngày</th><th>Món / Cửa hàng</th><th>Mã đơn hàng</th><th>Thanh toán</th><th className="sb-num">Chi tiêu</th><th className="sb-num">Sao xét hạng</th><th className="sb-num">Sao đổi thưởng</th><th>Thao tác</th></tr></thead>
+        <div className="sb-table-scroll"><table><thead><tr><th>Ngày</th><th>Món / Cửa hàng</th><th>Mã đơn hàng</th><th>Thanh toán</th><th className="sb-num">Tiền món gốc</th><th className="sb-num">Phụ thu</th><th className="sb-num">Giảm giá</th><th className="sb-num">Thực trả</th><th className="sb-num">Sao xét hạng</th><th className="sb-num">Sao đổi thưởng</th><th>Thao tác</th></tr></thead>
           <tbody>{visibleHistory.map(tx => <tr key={tx.id}>
-            <td>{tx.date.split('-').reverse().join('/')}</td><td><strong>{tx.item || '—'}</strong><small>{tx.store || '—'} · {tx.cups} ly</small></td><td className="sb-order-id">{tx.orderId || '—'}</td><td>{PAYMENT_OPTIONS.find(p => p.value === tx.payment)?.label}</td><td className="sb-num sb-money">{money(tx.amount)}</td><td className="sb-num sb-green-text">{starNumber(starsFor(tx))} ★</td><td className="sb-num sb-green-text">{starNumber(starsFor(tx))} ★</td>
+            <td>{tx.date.split('-').reverse().join('/')}</td><td><strong>{tx.item || '—'}</strong><small>{tx.store || '—'} · {tx.cups} ly</small></td><td className="sb-order-id">{tx.orderId || '—'}</td><td>{PAYMENT_OPTIONS.find(p => p.value === tx.payment)?.label}</td>
+            <td className="sb-num">{tx.baseAmount == null ? '—' : money(tx.baseAmount)}</td>
+            <td className="sb-num sb-extra">{tx.extraAmount ? '+' + money(tx.extraAmount) : '—'}{tx.extraReason && <small className="sb-finance-detail" title={tx.extraReason}>{tx.extraReason}</small>}</td>
+            <td className="sb-num sb-discount">{tx.discountAmount ? '−' + money(tx.discountAmount) : '—'}{tx.discountReason && <small className="sb-finance-detail" title={tx.discountReason}>{tx.discountReason}</small>}</td>
+            <td className="sb-num sb-money">{money(tx.amount)}</td><td className="sb-num sb-green-text">{starNumber(starsFor(tx))} ★</td><td className="sb-num sb-green-text">{starNumber(starsFor(tx))} ★</td>
             <td className="sb-actions"><button type="button" onClick={() => edit(tx)} title="Sửa giao dịch" aria-label={'Sửa giao dịch ' + tx.date}><Icon name="pencil" size={16}/></button><button type="button" onClick={() => remove(tx)} title="Xóa giao dịch" aria-label={'Xóa giao dịch ' + tx.date}><Icon name="trash" size={16}/></button></td>
           </tr>)}</tbody>
         </table>{history.length === 0 && <div className="sb-empty-history">Chưa có giao dịch phù hợp. Thêm một hóa đơn để bắt đầu thống kê.</div>}</div>
