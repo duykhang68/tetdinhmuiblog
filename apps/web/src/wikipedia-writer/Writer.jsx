@@ -139,7 +139,8 @@ export default function Writer(){
   setUrl(s.source);setTitle(s.title);setArticle(s.article);setRows(s.vocabulary);setSheetWriteSucceeded(false);setDriveFile(file);setDirty(false);
   setNotice('Đã khôi phục bản thảo từ Google Drive.');
  }
- async function connect(){setBusy('google');setError('');try{const token=await auth();await restore(token);setNotice('Google Sheets và Drive đã kết nối.');}catch(e){setError(e.message);}finally{setBusy('');}}
+ async function connect(){setBusy('google');setError('');try{await auth();setNotice('Đã kết nối Google Sheets và Drive. Không tự tải hoặc ghi bản thảo; hãy chọn thao tác đồng bộ khi cần.');}catch(e){setError(e.message);}finally{setBusy('');}}
+ async function restoreManually(){setBusy('restore');setError('');setNotice('');try{await restore();}catch(e){setError(e.message);}finally{setBusy('');}}
  async function generate(){
   setBusy('ai');setError('');setNotice('');
   setWritingProgress({state:'running',completed:0,stage:'source',detail:'Đang đọc bài Wikipedia…',model:''});
@@ -214,12 +215,7 @@ export default function Writer(){
   setNotice('Đã làm trống bản thảo và từ vựng. Google Sheet không thay đổi.');
  }
  async function save(){setBusy('drive');setError('');try{await backup();}catch(e){setError(e.message);}finally{setBusy('');}}
- useEffect(()=>{
-  const timer=setInterval(()=>{const s=stateRef.current;if(!s.access||!s.dirty||busy)return;
-    backup(s.access).catch(e=>setError('Tự đồng bộ Drive: '+e.message));},180000);
-  return ()=>clearInterval(timer);
- },[busy]);
- // One worker per open page. Persist completed results independently of the editable draft.
+  // One worker per open page. Persist completed results independently of the editable draft.
  useEffect(()=>{
   if(busy||queueRunning.current)return;
   const job=nextJob(jobs);
@@ -279,9 +275,9 @@ export default function Writer(){
     </section>
    </div><div className="ww-stack">
     <section className="ww-card ww-connect"><div className="ww-card-head"><span className="ww-step">☁</span><div><h2>Google Sheets & Drive</h2><p>{access?'Đã kết nối tài khoản Google':'Kết nối OAuth để ghi dữ liệu trực tiếp'}</p></div></div>
-     <div className="ww-actions"><button disabled={running||oauthConfig.loading} onClick={connect}>{oauthConfig.loading?'Đang đọc cấu hình Google…':access?'↻ Kết nối lại / Khôi phục':'Kết nối Google'}</button><button disabled={running||!access||!article} onClick={save}>☁ Đồng bộ ngay</button></div>
+     <div className="ww-actions"><button disabled={running||oauthConfig.loading} onClick={connect}>{oauthConfig.loading?'Đang đọc cấu hình Google…':access?'↻ Kết nối lại':'Kết nối Google'}</button><button disabled={running||!access} onClick={restoreManually}>↓ Tải bản thảo từ Drive</button><button disabled={running||!access} onClick={save}>☁ Đồng bộ lên Drive</button></div>
      {!oauthConfig.loading&&!validClientId(oauthConfig.clientId)&&<p className="ww-note" role="status">{oauthConfig.error||'Chưa tìm thấy OAuth Client ID dùng chung của Editor.'}</p>}
-     <p className="ww-note">Sao lưu bản thảo vào Google Drive mỗi 3 phút khi trang mở và đã kết nối. Không ghi đè bản Drive có thay đổi từ thiết bị khác.</p>
+     <p className="ww-note">Chỉ đồng bộ khi bạn chủ động bấm nút. “Tải bản thảo từ Drive” lấy dữ liệu xuống; “Đồng bộ lên Drive” lưu dữ liệu lên. Kết nối Google không tự tải hay ghi bản thảo. Không ghi đè bản Drive có thay đổi từ thiết bị khác.</p>
      <p className="ww-status">{dirty?'● Có thay đổi chưa đồng bộ':'✓ Bản thảo chưa có thay đổi mới'}{lastSync?' · Lần lưu: '+lastSync:''}</p>
      <a href={'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit?gid=0'} target="_blank" rel="noopener noreferrer">Mở Google Sheet viethananh ↗</a>
     </section>
