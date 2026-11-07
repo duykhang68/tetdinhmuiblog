@@ -5,15 +5,15 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 04:12 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 04:23 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 78 |
-| AUTO-MERGED có bằng chứng | 51 |
-| Auto-merge PR thường | 45 |
+| PR đã merge (tối đa 300 PR gần đây) | 79 |
+| AUTO-MERGED có bằng chứng | 52 |
+| Auto-merge PR thường | 46 |
 | Auto-merge PR thay đổi workflow | 6 |
 | Nguồn merge chưa xác minh | 27 |
 
@@ -21,16 +21,17 @@ Cập nhật: **2026-11-07 04:12 UTC** · Repository: `duykhang68/tetdinhmuiblog
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 51
+    "Auto-merge verified" : 52
     "Chưa xác minh" : 27
 ```
 
-`Auto-merge ` ████████████░░░░░░ **51/78**
+`Auto-merge ` ████████████░░░░░░ **52/79**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#80](https://github.com/duykhang68/tetdinhmuiblog/pull/80) fix(highlands): verify KCN Bau Bang store via ShopID an | 2026-11-07T04:23:40Z | Code/docs | ✅ | CI green trên HEAD `ce9a6e2d`; GitHub chấp nhận merge; [Run #42338247679](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42338247679) |
 | [#79](https://github.com/duykhang68/tetdinhmuiblog/pull/79) fix(highlands): recover real paper receipt OCR despite  | 2026-11-07T04:12:23Z | Code/docs | ✅ | CI green trên HEAD `591dc736`; GitHub chấp nhận merge; [Run #42337393485](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42337393485) |
 | [#78](https://github.com/duykhang68/tetdinhmuiblog/pull/78) fix(highlands): count small eligible purchases in tier  | 2026-11-07T03:59:16Z | Code/docs | ✅ | CI green trên HEAD `93ef9c16`; GitHub chấp nhận merge; [Run #42336391799](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42336391799) |
 | [#77](https://github.com/duykhang68/tetdinhmuiblog/pull/77) feat(highlands): standalone Rewards & Insights with POS | 2026-11-07T03:57:08Z | Code/docs | ✅ | CI green trên HEAD `33badc61`; GitHub chấp nhận merge; [Run #42336251844](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42336251844) |
@@ -85,8 +86,8 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 11.8% (6/51).
-- **Quality gate:** 51 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 11.5% (6/52).
+- **Quality gate:** 52 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.

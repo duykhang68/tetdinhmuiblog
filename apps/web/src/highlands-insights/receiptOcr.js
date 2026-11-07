@@ -9,6 +9,13 @@ const ascii=value=>clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
 // một tín hiệu, không phải điều kiện bắt buộc để giữ các trường đã nhận diện.
 const brandPattern=/(?:h\s*i\s*g\s*h\s*l\s*a\s*n\s*d\s*s|h[i1l][gqc]h?lands)\s*(?:co[fep]{2,3}e?)?/i;
 const isBrand=line=>brandPattern.test(ascii(line));
+// Bảng đối chiếu cửa hàng từ hóa đơn thực đã xác nhận, KHÔNG dùng để suy ra
+// những cửa hàng khác khi không có ShopID trên ảnh.
+const VERIFIED_SHOP_IDS=Object.freeze({'30799':'KCN Bau Bang'});
+const shopIdFrom=lines=>{
+  const line=lines.find(value=>/shop\s*[i1l]\s*[d0]\b|shopid/i.test(value));
+  return line?.match(/shop\s*[i1l]\s*[d0]\s*[:#\-]?\s*(\d{4,7})/i)?.[1]||'';
+};
 const moneyAtEnd=line=>{
   // Chấp nhận các ký hiệu nhiễu OCR sau số tiền (vd. "54,000 —= .", "15.000 SSS").
   // Vẫn chỉ đọc các token tiền VND 4+ chữ số để tránh Check/ShopID/QR.
@@ -135,7 +142,14 @@ export function parseHighlandsReceipt(text){
   if(!branded)warnings.push('Logo Highlands đọc chưa rõ; đã nhận diện từ dấu hiệu hóa đơn POS. Hãy đối chiếu cửa hàng trước khi lưu.');
   const {date,time}=parseDate(lines);
   if(date)fields.date=date;
-  const store=parseStore(lines);if(store)fields.store=store;
+  const shopId=shopIdFrom(lines);
+  const store=parseStore(lines);
+  const verifiedStore=Object.hasOwn(VERIFIED_SHOP_IDS,shopId)?VERIFIED_SHOP_IDS[shopId]:'';
+  if(verifiedStore){
+    fields.store=verifiedStore;
+    if(ascii(store)!==ascii(verifiedStore))
+      warnings.push('Tên cửa hàng được chuẩn hóa từ ShopID '+shopId+' đã đối chiếu trên hóa đơn: '+verifiedStore+'. Vui lòng kiểm tra ảnh.');
+  }else if(store)fields.store=store;
   const orderId=parseOrder(lines);if(orderId)fields.orderId=orderId;
   const {items,options}=parseItems(lines);
   if(items.length){
@@ -198,5 +212,77 @@ export function parseHighlandsReceipt(text){
   if(!items.length)warnings.push('Chưa đọc được danh sách món; cần xem lại vùng sản phẩm trên ảnh.');
   if(!fields.amount)warnings.push('Chưa đọc được tổng thanh toán.');
   warnings.push('Hóa đơn POS không xác nhận đã tích DRIPS; chỉ chọn "Đã quét tài khoản HighlandsĐI" khi bạn thực sự đã quét.');
-  return {fields,warnings,lines,items,subtotal,time,recognizedBrand:branded,signals};
+  return {fields,warnings,lines,items,subtotal,time,recognizedBrand:branded,signals,shopId,storeSource:verifiedStore?'verified-shop-id':store?'ocr':''};
+}
+
+// Giữ mọi lượt OCR để đối soát các trường. Một lượt đọc rõ Check,
+// lượt khác đọc rõ cửa hàng là bình thường với giấy in nhiệt.
+export function mergeHighlandsReceiptCandidates(candidates){
+  const attempts=(Array.isArray(candidates)?candidates:[]).filter(c=>c&&typeof c.text==='string'&&c.text.trim())
+    .slice(0,6).map(c=>({
+      label:String(c.label||'OCR'),
+      confidence:Number(c.confidence||0),
+      text:c.text,
+      parsed:parseHighlandsReceipt(c.text)
+    }));
+  if(!attempts.length)return parseHighlandsReceipt('');
+  const score=c=>{
+    const f=c.parsed.fields||{};
+    const balance=f.amount&&f.baseAmount&&Number(f.amount)===calculatePayable(f.baseAmount,f.extraAmount||0,f.discountAmount||0)?8:0;
+    return (f.amount?40:0)+(f.baseAmount?12:0)+(f.item?22:0)+(f.orderId?11:0)+
+      (f.date?12:0)+(f.store?9:0)+(f.payment?7:0)+(c.parsed.items?.length||0)*8+
+      (c.parsed.storeSource==='verified-shop-id'?16:0)+balance+
+      Math.min(5,c.confidence/20);
+  };
+  attempts.sort((a,b)=>score(b)-score(a));
+  const primary=attempts[0];
+  const fields={...primary.parsed.fields};
+  const warnings=[...primary.parsed.warnings];
+  // ShopID từ bất kỳ lượt đọc rõ nào được tin hơn việc đoán tên cửa hàng
+  // từ một dòng địa chỉ đã méo, nhưng chỉ khi không có ShopID mâu thuẫn.
+  // Ảnh crop chỉ chứa phần header có thể chưa đủ 2 dấu hiệu POS để parser
+  // nhận dạng độc lập. Vẫn trích ShopID thô ở lượt này nhưng chỉ sử dụng
+  // khi một lượt khác đã xác nhận được loại hóa đơn.
+  const shopIds=[...new Set(attempts.map(a=>a.parsed.shopId||
+    shopIdFrom(a.text.split(/\r?\n/).map(clean))).filter(Boolean))];
+  const hasReceiptEvidence=attempts.some(a=>a.parsed.recognizedBrand||
+    (a.parsed.signals||0)>=2);
+  if(hasReceiptEvidence&&shopIds.length===1 && Object.hasOwn(VERIFIED_SHOP_IDS,shopIds[0])){
+    const stable=VERIFIED_SHOP_IDS[shopIds[0]];
+    if(fields.store!==stable){
+      fields.store=stable;
+      warnings.push('Đối chiếu nhiều lượt OCR: ShopID '+shopIds[0]+' tương ứng '+stable+'.');
+    }
+  }else if(shopIds.length>1){
+    warnings.push('Các lượt OCR đọc ShopID khác nhau: '+shopIds.join(', ')+'. Hãy đối chiếu ảnh trước khi lưu.');
+  }
+  // Lấy những trường còn THIẾU từ lượt đọc khác, không tự ghi đè giá tiền
+  // hoặc danh sách món đã đọc được. Mọi xung đột vẫn cần kiểm tra thủ công.
+  const keys=['date','orderId','store','payment','item','itemsCount','baseAmount',
+    'extraAmount','extraReason','discountAmount','discountReason','fee','amount'];
+  for(const key of keys){
+    if(fields[key]!==undefined&&fields[key]!==null&&fields[key]!=='')continue;
+    const candidate=attempts.find(a=>a.parsed.fields[key]!==undefined&&
+      a.parsed.fields[key]!==null&&a.parsed.fields[key]!=='');
+    if(candidate)fields[key]=candidate.parsed.fields[key];
+  }
+  // Nếu đã chọn danh sách món tốt hơn từ lượt khác, lấy kèm giá gốc và
+  // số lượng từ cùng lượt để tránh ghép dữ liệu của các hóa đơn OCR khác nhau.
+  const bestItems=attempts.reduce((best,a)=>(a.parsed.items?.length||0)>(best.parsed.items?.length||0)?a:best,primary);
+  if((bestItems.parsed.items?.length||0)>(primary.parsed.items?.length||0)){
+    for(const key of ['item','itemsCount','baseAmount']){
+      if(bestItems.parsed.fields[key]!==undefined)fields[key]=bestItems.parsed.fields[key];
+    }
+  }
+  if(fields.amount&&fields.baseAmount&&
+    calculatePayable(fields.baseAmount,fields.extraAmount||0,fields.discountAmount||0)!==Number(fields.amount)){
+    warnings.push('Các lượt OCR chưa đối soát khớp giá món và thực trả; giữ nguyên số đọc được để sửa tay.');
+  }
+  const distinct=(messages)=>[...new Set(messages)];
+  if(attempts.length>1)warnings.push('Đã đối chiếu '+attempts.length+' lượt OCR (ảnh gốc và ảnh làm rõ) để khôi phục trường bị thiếu.');
+  return {
+    ...primary.parsed,fields,warnings:distinct(warnings),confidence:primary.confidence,
+    ocrVariants:attempts.map(a=>({label:a.label,confidence:a.confidence,text:a.text})),
+    shopId:shopIds.length===1?shopIds[0]:(primary.parsed.shopId||'')
+  };
 }
