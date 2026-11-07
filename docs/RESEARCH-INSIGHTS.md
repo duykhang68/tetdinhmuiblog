@@ -26,7 +26,11 @@ researcher.py is event-driven, NOT an HTTP server. Its durable research outputs 
 
 Polling is every 3 minutes when the tab is visible; there is also manual refresh. Failed API calls show an error, and stale data stays visibly marked.
 
-GitHub API public limits apply. For reliable multi-device deployments, configure a read-only RESEARCH_GITHUB_TOKEN in Cloudflare Pages environment variables or the local server's environment. Do not expose tokens in API responses.
+GitHub API public limits apply. Backend uses the existing `GITHUB_TOKEN` (shared with Quality Gate) first, then falls back to `RESEARCH_GITHUB_TOKEN`. Configure at least one as a secret in Cloudflare Pages Production settings. GitHub App tokens require **Issues: read** and **Actions: read**. Never place either token in a `VITE_*` environment variable or browser bundle.
+
+**Partial-failure behavior:** `GET /api/research-insights` now returns a `sources.issues` and `sources.actions` health record. Issues and Actions are fetched independently. If Issues fails, researcher KPI, chart, category bars and incident list are shown as unavailable (not zero); Actions KPI stays available. If Actions fails, Issues stats stay available but pipeline and success stats are null. If both fail, the page explains why rather than displaying an unexplained HTTP 500. Code examples: `GH_RATE_LIMIT` (GitHub quota; configure token), `GH_TOKEN_INVALID` (incorrect/expired token), `GH_FORBIDDEN` (missing permissions), `GH_NETWORK` (network/timeout).
+
+Researcher-specific numbers may genuinely be small: `Total Research` counts only GitHub Issues with titles beginning `[RESEARCHER]`; it does **not** count all PRs, workflow runs, or all issues. The chart counts the last 14 days of those researcher issues only. The Runs KPI samples the latest 100 workflows. This distinction is intentional to prevent invented values.
 
 ## Deploy
 
