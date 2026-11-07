@@ -2,6 +2,7 @@
 // No Node HTTP server or local filesystem dependencies.
 import sanitizeHtml from 'sanitize-html';
 import { loadResearchInsights } from '../src/services/researchInsights.mjs';
+import { loadGa4Traffic } from '../src/services/ga4Traffic.mjs';
 import { makeOutboundBudget, googleQuotaError } from '../src/services/freeQuotaPolicy.mjs';
 import { getQualityGateSnapshot } from '../src/services/qualityGateData.mjs';
 
@@ -54,7 +55,7 @@ export async function onRequest({request,env}) {
     if(pathname==='/api/health'&&request.method==='GET')return response({ok:true,service:'DuyNguyen Blogger Editor Cloudflare',revision:'cf-pages-auth-v1'});
     const cfg=configuration(env),key=await sessionKey(cfg.secret),url=new URL(request.url);
     // Request-local cap; Cloudflare Free is the account-level hard ceiling.
-    const charge=makeOutboundBudget();
+    const charge=makeOutboundBudget(pathname==='/api/ga4-traffic'?8:undefined);
     const oldCookie=cookies(request.headers.get('cookie')||'').dn_editor_session;
     let s=oldCookie?await unseal(oldCookie,key):null;
     function fresh(){return {csrf:randomToken(),created:Date.now(),expires:Date.now()+SESSION_SECONDS,token:null,flow:null};}
@@ -68,12 +69,21 @@ export async function onRequest({request,env}) {
     function draftOnly(post){if(String(post.status||'').toLowerCase()!=='draft')throw failure(409,'Bài viết đã xuất bản hoặc không phải bản nháp. Không ghi đè bài đang công khai.');}
     let out;
     if(request.method==='GET'&&pathname==='/api/status') {if(!s)s=fresh();out=response({connected:!!s.token,csrf:s.csrf,defaultBlogId:cfg.blogId||null});}
-    else if(request.method==='GET'&&pathname==='/auth/google/start') {if(!s)s=fresh();const state=randomToken(),verifier=randomToken(48);s.flow={state,verifier,expires:Date.now()+600000,returnTo:url.searchParams.get('return_to')==='/quality-gate'?'/quality-gate':url.searchParams.get('return_to')==='research-insights'?'/research-insights.html':'/'};const digest=await crypto.subtle.digest('SHA-256',TE.encode(verifier));const auth=new URL('https://accounts.google.com/o/oauth2/v2/auth');for(const [k,v] of Object.entries({client_id:cfg.clientId,redirect_uri:cfg.redirect,response_type:'code',scope:SCOPE,access_type:'offline',prompt:'consent',state,code_challenge:base64url(digest),code_challenge_method:'S256'}))auth.searchParams.set(k,v);out=redirect(auth.toString());}
-    else if(request.method==='GET'&&pathname==='/auth/google/callback') {if(!s?.flow||s.flow.expires<Date.now()||!equals(s.flow.state,url.searchParams.get('state')))throw failure(400,'OAuth state không khớp hoặc đã hết hạn. Hãy kết nối lại.');const verifier=s.flow.verifier,returnTo=s.flow.returnTo==='/research-insights.html'?'/research-insights.html':'/';s.flow=null;if(url.searchParams.has('error'))throw failure(400,'Google từ chối truy cập');const code=url.searchParams.get('code');if(!code)throw failure(400,'Google không trả authorization code');const result=await tokenRequest(cfg,{client_id:cfg.clientId,client_secret:cfg.clientSecret,code,code_verifier:verifier,redirect_uri:cfg.redirect,grant_type:'authorization_code'},charge);const refresh=result.refresh_token||s.token?.refresh;if(!refresh)throw failure(401,'Chưa có refresh token. Hãy thu hồi quyền app trong Google Account rồi kết nối lại.');s=fresh();s.token={access:result.access_token,refresh,expires:Date.now()+(result.expires_in||3600)*1000};out=redirect(cfg.frontend+returnTo+'?connected=1');}
+    else if(request.method==='GET'&&pathname==='/auth/google/start') {if(!s)s=fresh();const state=randomToken(),verifier=randomToken(48);const analyticsRequested=url.searchParams.get('return_to')==='research-insights'&&url.searchParams.get('analytics')==='1';
+      s.flow={state,verifier,expires:Date.now()+600000,analyticsRequested,returnTo:url.searchParams.get('return_to')==='/quality-gate'?'/quality-gate':url.searchParams.get('return_to')==='research-insights'?'/research-insights.html':'/'};const digest=await crypto.subtle.digest('SHA-256',TE.encode(verifier));const auth=new URL('https://accounts.google.com/o/oauth2/v2/auth');for(const [k,v] of Object.entries({client_id:cfg.clientId,redirect_uri:cfg.redirect,response_type:'code',scope:analyticsRequested?SCOPE+' https://www.googleapis.com/auth/analytics.readonly':SCOPE,access_type:'offline',prompt:'consent',state,code_challenge:base64url(digest),code_challenge_method:'S256'}))auth.searchParams.set(k,v);out=redirect(auth.toString());}
+    else if(request.method==='GET'&&pathname==='/auth/google/callback') {if(!s?.flow||s.flow.expires<Date.now()||!equals(s.flow.state,url.searchParams.get('state')))throw failure(400,'OAuth state không khớp hoặc đã hết hạn. Hãy kết nối lại.');const verifier=s.flow.verifier,analyticsRequested=!!s.flow.analyticsRequested,returnTo=s.flow.returnTo==='/research-insights.html'?'/research-insights.html':'/';s.flow=null;if(url.searchParams.has('error'))throw failure(400,'Google từ chối truy cập');const code=url.searchParams.get('code');if(!code)throw failure(400,'Google không trả authorization code');const result=await tokenRequest(cfg,{client_id:cfg.clientId,client_secret:cfg.clientSecret,code,code_verifier:verifier,redirect_uri:cfg.redirect,grant_type:'authorization_code'},charge);const refresh=result.refresh_token||s.token?.refresh;if(!refresh)throw failure(401,'Chưa có refresh token. Hãy thu hồi quyền app trong Google Account rồi kết nối lại.');s=fresh();s.token={access:result.access_token,refresh,expires:Date.now()+(result.expires_in||3600)*1000,analytics:analyticsRequested&&(!result.scope||result.scope.split(/\s+/).includes('https://www.googleapis.com/auth/analytics.readonly'))};out=redirect(cfg.frontend+returnTo+'?connected=1');}
     else if(request.method==='POST'&&pathname==='/api/logout') {mustAuth();verifyWrite();return response({ok:true},200,{'Set-Cookie':clearCookie()});}
     else {
       mustAuth();
-      if(request.method==='GET'&&pathname==='/api/quality-gate'){await accessToken();out=response(await getQualityGateSnapshot({fetcher:fetch,githubToken:String(env.GITHUB_TOKEN||''),cloudflare:{accountId:env.CLOUDFLARE_ACCOUNT_ID,projectName:env.CLOUDFLARE_PAGES_PROJECT,token:env.CLOUDFLARE_API_TOKEN}}));}
+      if(request.method==='GET'&&pathname==='/api/ga4-traffic'){
+        if(!s.token.analytics)out=response({status:'needs_consent'});
+        else {
+          const ga4=await loadGa4Traffic({fetcher:fetch,token:await accessToken(),propertyId:String(env.GA4_PROPERTY_ID||s.ga4PropertyId||''),charge});
+          if(ga4.status==='connected')s.ga4PropertyId=ga4.propertyId;
+          out=response(ga4);
+        }
+      }
+      else if(request.method==='GET'&&pathname==='/api/quality-gate'){await accessToken();out=response(await getQualityGateSnapshot({fetcher:fetch,githubToken:String(env.GITHUB_TOKEN||''),cloudflare:{accountId:env.CLOUDFLARE_ACCOUNT_ID,projectName:env.CLOUDFLARE_PAGES_PROJECT,token:env.CLOUDFLARE_API_TOKEN}}));}
       else if(request.method==='GET'&&pathname==='/api/research-insights'){await accessToken();out=response(await loadResearchInsights({fetcher:fetch,token:String(env.RESEARCH_GITHUB_TOKEN||''),charge}));}
       else if(request.method==='GET'&&pathname==='/api/blogs'){const r=await googleApi('GET','/users/self/blogs');out=response({blogs:(r.items||[]).map(b=>({id:String(b.id),name:b.name,url:b.url})),defaultBlogId:cfg.blogId||null});}
       else if(request.method==='GET'&&pathname==='/api/posts'){const blog=checkedBlog(url.searchParams.get('blogId'));const status=url.searchParams.get('status')||'draft';if(!['draft','live'].includes(status))throw failure(400,'status phải là draft hoặc live');const r=await googleApi('GET',`/blogs/${blog}/posts`,{status:status.toUpperCase(),view:'ADMIN',fetchBodies:'false',orderBy:'UPDATED',maxResults:'30',pageToken:(url.searchParams.get('pageToken')||'').slice(0,800)});out=response({posts:(r.items||[]).map(p=>{const x=safePost(p);delete x.content;return x;}),nextPageToken:r.nextPageToken||null});}
