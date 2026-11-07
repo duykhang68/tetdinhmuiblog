@@ -138,3 +138,11 @@ Tài liệu này ghi lại quy trình và phạm vi thay đổi mã nguồn; **k
 - 07/11/2026 — đối chiếu hóa đơn Sora Mall (80.000đ giá món + 5.000đ tùy chỉnh − 10.000đ giảm giá = 75.000đ thực trả); bổ sung breakdown và lý do phụ thu/giảm, form tự tính, bảng lịch sử, JSON/CSV và validation; kiểm thử logic/legacy.
 
 - 07/11/2026 — thêm OCR hóa đơn chạy tại trình duyệt với import ảnh, autofill, đối soát giá, cảnh báo và test; ảnh không được gửi lên server.
+
+
+### OCR name cleanup hotfix — 07/11/2026
+
+- Khắc phục nhận dạng tên cửa hàng "Sora Mall %" thành "Sora Mall" và tên món "-_ Pure Matcha Latte" thành "Pure Matcha Latte".
+- Chỉ gỡ ký tự/biểu tượng bị nhận dạng thừa ở **đầu hoặc cuối** tên, không xóa dấu gạch nối bên trong tên đồ uống, dấu ngoặc size hay phần trăm hợp lệ.
+- Áp dụng cho cả tên cửa hàng, món và phần mô tả tùy chỉnh từ OCR; không tác động dữ liệu giao dịch đã lưu và không thay đổi logic số tiền / Stars.
+- Thêm kiểm thử hồi quy bằng chính chuỗi OCR người dùng báo lỗi và các trường hợp tên hợp lệ.
