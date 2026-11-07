@@ -6,9 +6,25 @@
 
 - `apps/web/src/DrivePanel.jsx` lấy `import.meta.env.VITE_GOOGLE_CLIENT_ID` làm **ưu tiên số 1**, kể cả khi trình duyệt còn Client ID cũ trong `localStorage`.
 - Nếu biến đã được cấu hình, Editor **ẩn ô OAuth Client ID**, chỉ để nút Kết nối Drive (và các thao tác Drive khác).
-- Nếu **chưa** cấu hình biến, ô nhập thủ công vẫn hiện để hỗ trợ môi trường local / các bản deploy chưa cấu hình.
+- Nếu **chưa** cấu hình biến, Editor thử Client ID đã lưu ở trình duyệt, sau đó truy vấn `GET /api/drive-client-config` (cùng origin) để tận dụng `GOOGLE_DRIVE_CLIENT_ID` hoặc `GOOGLE_CLIENT_ID` đang cấu hình tại Cloudflare runtime. **Chỉ khi tất cả đều thiếu/không hợp lệ mới hiện ô nhập thủ công.**
+- Nếu Google từ chối một Client ID tự động (ví dụ `origin_mismatch`), cho phép nhập ID khác để phục hồi và chỉ lưu ID thủ công sau khi kết nối thành công.
 - Editor **không lưu** Client ID từ môi trường vào `localStorage`. Khi thay đổi biến và deploy lại, bundle mới sử dụng ID mới.
 - Đây là **Client ID công khai** của ứng dụng OAuth Web, tuyệt đối **không** đặt Client Secret, access token hoặc refresh token vào biến `VITE_*`.
+
+## Hotfix 2026-11-07 — Editor tự tìm OAuth Client ID từ runtime
+
+Trang **Editor → Google Drive · Markdown** nay dùng cùng bộ resolver như **Expenses**, theo thứ tự:
+
+1. **Build:** `VITE_GOOGLE_CLIENT_ID` hợp lệ (được Vite nhúng vào bundle khi build).
+2. **Trình duyệt:** `dn-editor-drive-client-id` chỉ chứa Client ID công khai từng nhập thành công (không chứa token).
+3. **Cloudflare runtime:** `GET /api/drive-client-config` trả Client ID công khai từ `GOOGLE_DRIVE_CLIENT_ID`, rồi `GOOGLE_CLIENT_ID`.
+4. **Dự phòng:** Hiện ô nhập thủ công và thông báo lỗi rõ ràng nếu không nguồn nào có ID hợp lệ.
+
+Resolver chạy khi mở Editor, **trước cú nhấp Kết nối Drive**, để trình duyệt không chặn Google Identity Services popup. Nút kết nối bị khóa trong lúc đang tải config hoặc khi ID chưa đúng định dạng. Kết nối không được coi là thành công cho đến khi GIS chấp nhận token; không lưu access/refresh token vào localStorage.
+
+**Không nhất thiết phải thêm `VITE_GOOGLE_CLIENT_ID` nếu Cloudflare runtime đã có `GOOGLE_CLIENT_ID` hợp lệ** (Blogger OAuth). Tuy nhiên biến Vite riêng vẫn là cách ưu tiên ổn định cho các deployment khác và Preview. Hai Client ID có thể khác nhau nếu một OAuth client không được cấp origin hoặc scope Drive; cần xác nhận Authorized JavaScript origins và Google Drive API tại Google Cloud. Runtime endpoint cần hoạt động trên Pages deployment thực tế; local Vite proxy có thể cần backend tương ứng.
+
+Test hồi quy: `node --test apps/web/test/editorDriveClientFallback.test.mjs`, rồi `npm run check && npm run build`.
 
 ## 1. Thêm biến vào Cloudflare Pages
 
