@@ -38,3 +38,19 @@
 
 ## Vận hành
 Tại root repo chạy `npm test` và `npm run build`; CI Quality Gate kiểm tra production build. Khi Cloudflare Pages deploy bản `main`, vào `/payroll-insights/` để import bảng lương PDF.
+
+## Mở rộng Google Drive mã hóa · 07/11/2026
+
+**Mục đích:** tuân thủ quy ước các trang thống kê/dữ liệu đều có khả năng backup Google Drive, nhưng tài liệu lương nhạy cảm **không được tự động lưu dưới dạng rõ**.
+
+- Khu vực **Google Drive · Sao lưu có mã hóa** xuất hiện bên dưới Section 1, **tắt mặc định**. Chỉ bật sau khi người dùng điền mật khẩu tối thiểu 12 ký tự và chủ động kết nối OAuth Web Client ID giống Editor (`VITE_GOOGLE_CLIENT_ID`, fallback cấu hình Editor).
+- Sau khi bật, thay đổi trên bảng phân tích được sao lưu tự động sau 12 giây và kiểm tra mỗi 3 phút khi tab mở, có nút **Đồng bộ ngay**; chỉ khi OAuth còn hiệu lực và có dòng dữ liệu.
+- Mật khẩu chỉ giữ trong bộ nhớ của tab, không lưu localStorage, Google Drive hay server. Dùng **PBKDF2-SHA256 310.000 iterations**, salt 16 byte ngẫu nhiên, AES-256-GCM nonce 12 byte ngẫu nhiên và dữ liệu đã xác thực (auth tag). Mỗi snapshot mã hóa riêng.
+- Chỉ upload JSON **đã mã hóa**: số liệu từng dòng, kỳ lương, vùng, số người phụ thuộc và tên tệp dưới lớp mã hóa. **Không upload PDF gốc**; khi restore vẫn phải import lại PDF để xem 1:1.
+- Snapshot riêng `appProperties.dn_payroll = encrypted_snapshot_v1`, tách biệt Starbucks/Highlands/Expenses/Markdown. Mỗi lần push tạo file mới append-only, có CAS kiểm tra snapshot HEAD, read-back xác nhận sau POST; không âm thầm ghi đè khi có thay đổi ở thiết bị khác.
+- Nếu Drive đã có backup, phải chủ động chọn **Khôi phục (giải mã)** hoặc **Giữ bản hiện tại/tạo snapshot mới**; không tự pull/đè dữ liệu. Trước khi restore, UI yêu cầu xác nhận; mật khẩu sai không làm thay đổi dữ liệu đang xem.
+- Quên mật khẩu sẽ không giải mã được. Kết nối Drive phụ thuộc phạm vi OAuth `drive.file`, yêu cầu bật Drive API và Web Client ID. Thời hạn đăng nhập OAuth giới hạn; khi hết hạn cần kết nối lại.
+- Lưu ý: dữ liệu mã hóa vẫn đặt ở Google Drive do người dùng cấp quyền. Nếu cần bảo vệ nghiêm ngặt hơn, không bật đồng bộ và chỉ xuất workbook/PDF khi thật sự cần.
+
+### Hotfix phát hiện khi mở rộng
+- Trước đây React cleanup `useEffect([url])` cũng tăng generation token, nên việc chọn PDF mới có thể bị coi là import cũ và tự hủy kết quả. Cleanup giờ **chỉ revoke Object URL**; token chỉ tăng khi chủ động thay file/xóa/khôi phục hoặc unmount. Test hồi quy xác nhận không có `generation.current+=1` trong cleanup URL.
