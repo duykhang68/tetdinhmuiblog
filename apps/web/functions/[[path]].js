@@ -65,7 +65,8 @@ export async function onRequest({request,env}) {
     // OAuth Client IDs are public identifiers. Reuse the Editor's existing Google
     // OAuth configuration for standalone Drive pages without exposing secrets.
     // Serve a public same-origin read-only value: no token, secret, or session data.
-    if(pathname==='/api/drive-client-config'&&request.method==='GET'){
+    if(pathname==='/api/drive-client-config'){
+      if(request.method!=='GET')return response({error:'Chỉ hỗ trợ GET cho cấu hình OAuth công khai.'},405);
       const driveCandidate=String(env.GOOGLE_DRIVE_CLIENT_ID||'').trim();
       const editorCandidate=String(env.GOOGLE_CLIENT_ID||'').trim();
       const valid=value=>/^[\w-]+\.apps\.googleusercontent\.com$/.test(value);
