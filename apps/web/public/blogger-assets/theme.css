@@ -1,0 +1,14 @@
+/*!
+ * Duy Nguyen · Blogger theme overrides
+ * Source of truth: github.com/duykhang68/tetdinhmuiblog
+ * Public URL: https://duynguyen-reddit-editor.pages.dev/blogger-assets/theme.css
+ *
+ * Safe initial release: variables only, no existing Blogger elements restyled.
+ * Put reviewed Blogger-specific CSS rules BELOW this block.
+ */
+:root {
+  --dn-blogger-accent: #ff4500;
+  --dn-blogger-content-max-width: 1200px;
+}
+
+/* Add approved CSS overrides here; avoid editing the Blogger XML for CSS-only changes. */
