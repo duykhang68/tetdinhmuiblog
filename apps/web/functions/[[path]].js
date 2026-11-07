@@ -28,8 +28,20 @@ function redirect(location,more={}) {return new Response(null,{status:302,header
 function equals(a,b) {const x=TE.encode(String(a||'')),y=TE.encode(String(b||''));if(x.length!==y.length)return false;let n=0;for(let i=0;i<x.length;i++)n|=x[i]^y[i];return n===0;}
 function numericId(x) {if(!/^\d{1,30}$/.test(String(x||'')))throw failure(400,'ID không hợp lệ');return String(x);}
 function safePost(p) {return {id:String(p.id),title:p.title||'',content:p.content||'',labels:p.labels||[],updated:p.updated||'',published:p.published||'',status:p.status||'',url:p.url||''};}
+function seriesFromContent(html) {
+  const marker=String(html||'').match(/<aside\b(?=[^>]*\bdata-kind=["']series-metadata["'])[^>]*>/i);
+  const encoded=marker?.[0].match(/\bdata-series=["']([^"']+)["']/i)?.[1];
+  if (!encoded) return null;
+  try {
+    const value=JSON.parse(decodeURIComponent(encoded));
+    const name=String(value?.name||'').trim();
+    const part=Number(value?.part),total_parts=Number(value?.total_parts);
+    if (!name||!Number.isInteger(part)||part<1||!Number.isInteger(total_parts)||total_parts<part||total_parts>9999)return null;
+    return {name,part,total_parts,target_date:String(value.target_date||''),status:part===total_parts?'completed':'in_progress'};
+  }catch{return null;}
+}
 function normalizeInput(b) {const title=String(b?.title||'').trim(),content=String(b?.content||'');if(!title||title.length>200)throw failure(400,'Tiêu đề phải có 1–200 ký tự');if(content.length>250000)throw failure(400,'Bài viết vượt quá 250.000 ký tự HTML');if(!Array.isArray(b?.labels))throw failure(400,'labels phải là một danh sách');const labels=[...new Set(b.labels.map(x=>String(x).trim()).filter(Boolean))];if(labels.length>20||labels.some(x=>x.length>80))throw failure(400,'Nhãn tối đa 20 mục, mỗi nhãn 80 ký tự');return {title,content,labels};}
-function sanitizeContent(html) {return sanitizeHtml(html,{allowedTags:[...new Set([...sanitizeHtml.defaults.allowedTags,'img','h1','h2','figure','figcaption','aside','details','summary','hr','s','u','table','thead','tbody','tr','th','td'])],allowedAttributes:{a:['href','title','target','rel'],img:['src','alt','title','width','height','loading'],'*':['class'],td:['colspan','rowspan'],th:['colspan','rowspan','scope'],aside:['data-kind'],details:['open']},allowedSchemes:['http','https','mailto'],allowedSchemesByTag:{img:['http','https']},allowProtocolRelative:false,disallowedTagsMode:'discard',transformTags:{a:sanitizeHtml.simpleTransform('a',{rel:'noopener noreferrer'},true)}});}
+function sanitizeContent(html) {return sanitizeHtml(html,{allowedTags:[...new Set([...sanitizeHtml.defaults.allowedTags,'img','h1','h2','figure','figcaption','aside','details','summary','hr','s','u','table','thead','tbody','tr','th','td'])],allowedAttributes:{a:['href','title','target','rel'],img:['src','alt','title','width','height','loading'],'*':['class'],td:['colspan','rowspan'],th:['colspan','rowspan','scope'],aside:['data-kind','data-series','hidden'],details:['open']},allowedSchemes:['http','https','mailto'],allowedSchemesByTag:{img:['http','https']},allowProtocolRelative:false,disallowedTagsMode:'discard',transformTags:{a:sanitizeHtml.simpleTransform('a',{rel:'noopener noreferrer'},true)}});}
 async function readBody(req) {const n=Number(req.headers.get('content-length')||0);if(n>300000)throw failure(413,'Yêu cầu quá lớn');const text=await req.text();if(TE.encode(text).length>300000)throw failure(413,'Yêu cầu quá lớn');try{return text?JSON.parse(text):{};}catch{throw failure(400,'Dữ liệu JSON không hợp lệ');}}
 async function tokenRequest(cfg,form,charge) {charge();const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(form),signal:AbortSignal.timeout(15000)});const data=await r.json().catch(()=>({}));const quota=googleQuotaError(r.status,data);if(quota)throw quota;if(!r.ok)throw failure(401,'Google từ chối token: '+String(data.error||'Không xác định').slice(0,150));return data;}
 function configuration(env) {const get=k=>String(env[k]||'').trim();const c={clientId:get('GOOGLE_CLIENT_ID'),clientSecret:get('GOOGLE_CLIENT_SECRET'),redirect:get('GOOGLE_REDIRECT_URI'),frontend:get('FRONTEND_ORIGIN'),secret:get('APP_SECRET'),blogId:get('BLOGGER_BLOG_ID')};if(!c.clientId||!c.clientSecret||!c.redirect||!c.frontend||!c.secret||c.secret.length<48)throw failure(503,'Thiếu cấu hình Google OAuth/APP_SECRET trên Cloudflare');if(!c.redirect.startsWith(c.frontend+'/auth/google/callback'))throw failure(503,'OAuth callback phải thuộc frontend origin');return c;}
@@ -64,6 +76,24 @@ export async function onRequest({request,env}) {
       else if(request.method==='GET'&&pathname==='/api/blogs'){const r=await googleApi('GET','/users/self/blogs');out=response({blogs:(r.items||[]).map(b=>({id:String(b.id),name:b.name,url:b.url})),defaultBlogId:cfg.blogId||null});}
       else if(request.method==='GET'&&pathname==='/api/posts'){const blog=checkedBlog(url.searchParams.get('blogId'));const status=url.searchParams.get('status')||'draft';if(!['draft','live'].includes(status))throw failure(400,'status phải là draft hoặc live');const r=await googleApi('GET',`/blogs/${blog}/posts`,{status:status.toUpperCase(),view:'ADMIN',fetchBodies:'false',orderBy:'UPDATED',maxResults:'30',pageToken:(url.searchParams.get('pageToken')||'').slice(0,800)});out=response({posts:(r.items||[]).map(p=>{const x=safePost(p);delete x.content;return x;}),nextPageToken:r.nextPageToken||null});}
       else if(request.method==='GET'&&/^\/api\/posts\/\d+$/.test(pathname)){const blog=checkedBlog(url.searchParams.get('blogId'));out=response({post:safePost(await getPost(blog,pathname.split('/').pop()))});}
+      else if(request.method==='GET'&&pathname==='/api/series'){
+        const blog=checkedBlog(url.searchParams.get('blogId'));
+        const name=String(url.searchParams.get('name')||'').trim();
+        if(!name||name.length>180)throw failure(400,'Tên Series phải có 1–180 ký tự');
+        const posts=[];
+        const cursors={DRAFT:(url.searchParams.get('draftToken')||'').slice(0,800),LIVE:(url.searchParams.get('liveToken')||'').slice(0,800)};
+        for(const status of ['DRAFT','LIVE']){
+          if(cursors[status]==='done')continue;
+          const r=await googleApi('GET',`/blogs/${blog}/posts`,{status,view:'ADMIN',fetchBodies:'true',orderBy:'UPDATED',maxResults:'100',pageToken:cursors[status]});
+          for(const post of r.items||[]){
+            const series=seriesFromContent(post.content);
+            if(series?.name.toLocaleLowerCase()===name.toLocaleLowerCase())
+              posts.push({id:String(post.id),title:String(post.title||''),url:String(post.url||''),status:post.status||status,series});
+          }
+          cursors[status]=r.nextPageToken||'done';
+        }
+        out=response({posts,partial:cursors.DRAFT!=='done'||cursors.LIVE!=='done',nextDraftToken:cursors.DRAFT,nextLiveToken:cursors.LIVE});
+      }
       else if(request.method==='POST'&&pathname==='/api/drafts'){verifyWrite();const body=await readBody(request),blog=checkedBlog(body.blogId),payload=normalizeInput(body);payload.content=sanitizeContent(payload.content);out=response({post:safePost(await googleApi('POST',`/blogs/${blog}/posts`,{isDraft:'true'},payload))},201);}
       else if(request.method==='PATCH'&&/^\/api\/drafts\/\d+$/.test(pathname)){verifyWrite();const body=await readBody(request),blog=checkedBlog(body.blogId),id=pathname.split('/').pop(),current=await getPost(blog,id);draftOnly(current);if(!body.expectedUpdated||body.expectedUpdated!==current.updated)throw failure(409,'Bản nháp đã thay đổi. Hãy tải lại bài trước khi lưu.');const payload=normalizeInput(body);payload.content=sanitizeContent(payload.content);out=response({post:safePost(await googleApi('PATCH',`/blogs/${blog}/posts/${id}`,{},payload))});}
       else if(request.method==='POST'&&/^\/api\/publish\/\d+$/.test(pathname)){verifyWrite();const body=await readBody(request),blog=checkedBlog(body.blogId),id=pathname.split('/').pop(),current=await getPost(blog,id);draftOnly(current);if(!body.expectedUpdated||body.expectedUpdated!==current.updated)throw failure(409,'Bản nháp thay đổi trước khi Publish. Hãy tải lại trước.');out=response({post:safePost(await googleApi('POST',`/blogs/${blog}/posts/${id}/publish`))});}

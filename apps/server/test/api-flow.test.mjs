@@ -121,6 +121,9 @@ test('OAuth state + Blogger lists, pagination, diagnostics and draft create/patc
     assert.equal(listedSeries.status,200);
     const indexed=await listedSeries.json();
     assert.equal(indexed.posts.length,2);
+    assert.equal(indexed.partial,false);
+    assert.equal(indexed.nextDraftToken,'done');
+    assert.equal(indexed.nextLiveToken,'done');
     assert.deepEqual(indexed.posts.map(entry=>entry.series.part),[2,2]);
     assert.ok(indexed.posts.every(entry=>!Object.hasOwn(entry,'content')));
     const invalidSeries=await fetch(base+'/api/series?blogId=1346670730934460908&name=',{headers:{cookie:newCookie}});

@@ -185,22 +185,19 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
         const blogId=await checkedBlog(s,url.searchParams.get('blogId'));
         const name=String(url.searchParams.get('name')||'').trim();
         if(!name||name.length>180)throw fail(400,'Tên Series phải có 1–180 ký tự');
-        const posts=[];let partial=false;
+        const posts=[];
+        const cursors={DRAFT:(url.searchParams.get('draftToken')||'').slice(0,800),LIVE:(url.searchParams.get('liveToken')||'').slice(0,800)};
         for(const status of ['DRAFT','LIVE']){
-          let pageToken='';
-          for(let page=0;page<5;page++){
-            const result=await googleApi(s,'GET',`/blogs/${blogId}/posts`,{status,view:'ADMIN',fetchBodies:'true',orderBy:'UPDATED',maxResults:'100',pageToken});
-            for(const post of result.items||[]){
-              const series=seriesFromContent(post.content);
-              if(series?.name.toLocaleLowerCase()===name.toLocaleLowerCase())
-                posts.push({id:String(post.id),title:String(post.title||''),url:String(post.url||''),status:post.status||status,series});
-            }
-            if(!result.nextPageToken)break;
-            if(page===4){partial=true;break;}
-            pageToken=result.nextPageToken;
+          if(cursors[status]==='done')continue;
+          const result=await googleApi(s,'GET',`/blogs/${blogId}/posts`,{status,view:'ADMIN',fetchBodies:'true',orderBy:'UPDATED',maxResults:'100',pageToken:cursors[status]});
+          for(const post of result.items||[]){
+            const series=seriesFromContent(post.content);
+            if(series?.name.toLocaleLowerCase()===name.toLocaleLowerCase())
+              posts.push({id:String(post.id),title:String(post.title||''),url:String(post.url||''),status:post.status||status,series});
           }
+          cursors[status]=result.nextPageToken||'done';
         }
-        return json(res,200,{posts,partial});
+        return json(res,200,{posts,partial:cursors.DRAFT!=='done'||cursors.LIVE!=='done',nextDraftToken:cursors.DRAFT,nextLiveToken:cursors.LIVE});
       }
       const one=url.pathname.match(/^\/api\/posts\/(\d+)$/);
       if(req.method==='GET'&&one){const blogId=await checkedBlog(s,url.searchParams.get('blogId'));return json(res,200,{post:safePost(await getPost(s,blogId,one[1]))});}
