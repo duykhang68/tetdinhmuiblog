@@ -27,7 +27,8 @@ const VOCAB_STATE = {
   errors: 'VOCAB_AI_ERRORS',
   lastError: 'VOCAB_AI_LAST_ERROR',
   lastSuccess: 'VOCAB_AI_LAST_SUCCESS',
-  lastProvider: 'VOCAB_AI_LAST_PROVIDER'
+  lastProvider: 'VOCAB_AI_LAST_PROVIDER',
+  lastSweep: 'VOCAB_AI_LAST_SWEEP'
 };
 
 function onOpen() {
@@ -100,6 +101,8 @@ function queueAllVocabularyAi() {
 function processVocabularyAiQueue() {
   const props = PropertiesService.getScriptProperties();
   if (Number(props.getProperty(VOCAB_STATE.nextAttempt) || 0) > Date.now()) return;
+  const lastSweep = Number(props.getProperty(VOCAB_STATE.lastSweep) || 0);
+  if (props.getProperty(VOCAB_STATE.dirty) !== '1' && Date.now() - lastSweep < 6 * 60 * 60 * 1000) return;
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(2000)) return;
   try {
@@ -119,7 +122,7 @@ function processVocabularyAiQueue() {
 function processVocabularyAiLocked_(props) {
   const sheet = vocabularySheet_();
   const lastRow = sheet.getLastRow();
-  if (lastRow < 2) { props.setProperty(VOCAB_STATE.dirty, '0'); return; }
+  if (lastRow < 2) { props.setProperties({[VOCAB_STATE.dirty]: '0', [VOCAB_STATE.lastSweep]: String(Date.now())}); return; }
 
   let cursor = Math.max(2, Number(props.getProperty(VOCAB_STATE.cursor)) || 2);
   // Even after a successful sweep, every minute-worker cycle can rescan the
@@ -197,6 +200,7 @@ function processVocabularyAiLocked_(props) {
   props.setProperties({
     [VOCAB_STATE.cursor]: String(wrapped ? 2 : cursor),
     [VOCAB_STATE.dirty]: wrapped ? '0' : '1',
+    [VOCAB_STATE.lastSweep]: wrapped ? String(Date.now()) : String(Number(props.getProperty(VOCAB_STATE.lastSweep)) || 0),
     [VOCAB_STATE.nextAttempt]: '0'
   });
 }
