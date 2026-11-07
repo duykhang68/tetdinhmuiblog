@@ -162,7 +162,15 @@ export function parseStarbucksReceipt(text) {
   // Diễn giải phải được autofill dù OCR chưa đọc được con số phụ thu.
   if (optionDetails.length) fields.extraReason = optionDetails.join(' · ').slice(0, 200);
   const subtotal = readLabeledAmount(lines, labels.subtotal);
-  const discount = readLabeledAmount(lines, labels.discount);
+  let discount = readLabeledAmount(lines, labels.discount);
+  // OCR đôi lúc tách "Giảm giá", "Voucher sinh nhật", "-10.000" thành ba dòng.
+  // Chỉ lấy dòng thứ ba nếu đó là số tiền độc lập, không lấy nhầm tổng đơn hay thẻ.
+  if (discount === null) {
+    const discountLine = findIndex(lines, labels.discount);
+    const possibleAmount = lines[discountLine + 2] || '';
+    if (discountLine >= 0 && !ascii(removeMoneyAtEnd(possibleAmount)) &&
+      moneyAtEnd(possibleAmount) !== null) discount = moneyAtEnd(possibleAmount);
+  }
   const total = readLabeledAmount(lines, labels.total);
   if (discount !== null) fields.discountAmount = String(discount);
   const discountReason = parseDiscountReason(lines);
