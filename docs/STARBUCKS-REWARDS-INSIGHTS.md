@@ -46,6 +46,7 @@ Triển khai một trang độc lập dành cho việc ghi nhận chi tiêu tạ
 8. `rewardsProgress()` tính tiến độ chu kỳ 12 tháng và số dư Rewards ước tính có điều chỉnh thủ công.
 9. Bảng lịch sử có tìm kiếm, lọc cùng chart, sửa, xóa, phân trang và xuất/nhập JSON, xuất CSV.
 10. `orderId` là mã đơn hàng/Check No. tùy chọn (chuỗi, tối đa 120 ký tự), được giữ nguyên các số 0 đầu, lưu trong `localStorage`, backup JSON và CSV. Giao dịch cũ thiếu trường này tự được chuẩn hóa thành chuỗi rỗng; cột lịch sử hiển thị `—` khi chưa có mã và hỗ trợ tìm kiếm theo mã.
+11. Chi tiết hóa đơn: `baseAmount` (giá món gốc, null khi không biết), `extraAmount` và `extraReason` (phụ thu/tùy chỉnh), `discountAmount` và `discountReason` (giảm giá). Khi có tiền gốc, form tính `amount = baseAmount + extraAmount - discountAmount`, đồng thời hiển thị tạm tính trước giảm và tổng thực trả. Khi không có tiền gốc, `amount` vẫn nhập thủ công tương thích dữ liệu cũ. KPI và Stars chỉ tính theo `amount` thực trả; CSV và JSON giữ toàn bộ trường mới.
 
 ## 4. Chính sách Starbucks Rewards tại Việt Nam
 
@@ -121,3 +122,4 @@ Tài liệu này ghi lại quy trình và phạm vi thay đổi mã nguồn; **k
 - 07/11/2026 — thêm Editor Quick Access, bộ lọc biểu đồ, lưu giao dịch, bảng lịch sử, sao lưu và tests.
 - 07/11/2026 — bổ sung tài liệu nhật ký này để theo dõi quá trình phát triển và giới hạn của phiên bản đầu tiên.
 - 07/11/2026 — thêm trường tùy chọn Mã đơn hàng (Order ID / Check No.) vào form, model, bảng lịch sử, tìm kiếm và xuất CSV; thêm kiểm thử tương thích dữ liệu cũ. Không thay đổi cơ chế lưu `localStorage` và không giả định đồng bộ Google Sheets.
+- 07/11/2026 — đối chiếu hóa đơn Sora Mall (80.000đ giá món + 5.000đ tùy chỉnh − 10.000đ giảm giá = 75.000đ thực trả); bổ sung breakdown và lý do phụ thu/giảm, form tự tính, bảng lịch sử, JSON/CSV và validation; kiểm thử logic/legacy.
