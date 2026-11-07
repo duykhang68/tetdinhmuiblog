@@ -58,7 +58,7 @@ test('Backup UI is opt-in, exposes 3-minute manual sync, and leaves PDF bytes lo
  assert.match(source,/Đồng bộ ngay/);
  assert.match(source,/Giải mã & khôi phục từ Drive/);
  assert.match(hook,/const WAIT_MS=180000,AFTER_CHANGE_MS=12000/);
- assert.match(hook,/const \[enabled,setEnabled\]=useState\(false\)/);
+ assert.match(hook,/\[enabled,setEnabled\]=useState\(false\)/);
  assert.match(hook,/encryptPayrollData\(snapshot,password\.current\)/);
  assert.match(hook,/googleDrive\.savePayrollEncryptedSnapshot\(encrypted/);
  assert.doesNotMatch(source,/useEffect\(\(\)=>\(\)=>\{generation\.current\+=1;if\(url\)/);
