@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  POLICY_EFFECTIVE_DATE, analytics, membershipPeriod, monthlySeries, normalizeTransaction,
+  POLICY_EFFECTIVE_DATE, analytics, calculatePayable, membershipPeriod, monthlySeries, normalizeTransaction,
   rewardsProgress, starsFor, toCsv, todayVietnam, validDate
 } from '../src/starbucks-insights/model.js';
 
@@ -103,6 +103,53 @@ test('Order ID is optional, preserves leading zeros and survives normalization a
   assert.match(csv, /^\uFEFFid,date,store,orderId,item,/);
   assert.match(csv, /"000123"/);
   assert.match(csv, /"Latte ""Size L"""/);
+});
+
+test('Receipt breakdown reconciles original price, customization surcharge, and discount', () => {
+  // Sora Mall: Pure Matcha Latte 80k + Half & Half 5k − ưu đãi 10k = 75k.
+  const receipt = make({
+    orderId: 'O200147006', date: '2026-11-01', store: 'Sora Mall',
+    item: 'Pure Matcha Latte', payment: 'pos', amount: 75000, cups: 1,
+    baseAmount: 80000, extraAmount: 5000, extraReason: 'Sữa Half & Half',
+    discountAmount: 10000, discountReason: 'Giảm giá ly cá nhân'
+  });
+  assert.equal(calculatePayable(80000, 5000, 10000), 75000);
+  assert.equal(receipt.amount, 75000);
+  assert.equal(receipt.baseAmount, 80000);
+  assert.equal(receipt.extraReason, 'Sữa Half & Half');
+  assert.equal(receipt.discountAmount, 10000);
+  assert.equal(receipt.discountReason, 'Giảm giá ly cá nhân');
+  assert.equal(starsFor(receipt), 1.25);
+  assert.equal(calculatePayable('', 5000, 10000), null);
+  const csv = toCsv([receipt]);
+  assert.match(csv, /baseAmount,extraAmount,extraReason,discountAmount,discountReason,amount/);
+  assert.match(csv, /"Sữa Half & Half"/);
+  assert.match(csv, /"Giảm giá ly cá nhân"/);
+});
+
+test('Legacy transactions without breakdown still work; inconsistent totals are rejected', () => {
+  const legacy = make({ amount: 85000 });
+  assert.equal(legacy.baseAmount, null);
+  assert.equal(legacy.extraAmount, 0);
+  assert.equal(legacy.discountAmount, 0);
+  assert.equal(legacy.extraReason, '');
+  assert.equal(legacy.discountReason, '');
+  assert.equal(starsFor(legacy), 2.125);
+  assert.throws(() => make({ amount: 85000, baseAmount: 80000, extraAmount: 5000, discountAmount: 10000 }), /Tiền thực trả/);
+  assert.throws(() => make({ extraAmount: -1 }), /Phụ thu/);
+  assert.throws(() => make({ discountAmount: -1 }), /Giảm giá/);
+  assert.throws(() => make({ baseAmount: -100 }), /Tiền món gốc/);
+  assert.throws(() => make({ baseAmount: 0 }), /Tiền món gốc/);
+});
+
+test('Receipt breakdown UI contains financial inputs and history columns', () => {
+  const component = readFileSync(new URL('../src/starbucks-insights/StarbucksInsights.jsx', import.meta.url), 'utf8');
+  for (const field of ['baseAmount', 'extraAmount', 'extraReason', 'discountAmount', 'discountReason']) {
+    assert.match(component, new RegExp('value=\\{form\\.' + field + '\\}'));
+  }
+  assert.match(component, /<th className="sb-num">Phụ thu<\/th>/);
+  assert.match(component, /<th className="sb-num">Giảm giá<\/th>/);
+  assert.match(component, /calculatePayable\(form\.baseAmount/);
 });
 
 test('Order ID input and transaction history column are rendered in the form and table', () => {
