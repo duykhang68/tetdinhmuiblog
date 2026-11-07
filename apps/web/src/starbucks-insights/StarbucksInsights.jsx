@@ -5,7 +5,7 @@ import {
 } from './model.js';
 
 const initialForm = () => ({
-  date: todayVietnam(), store: '', item: '', amount: '', fee: '0', cups: '1',
+  date: todayVietnam(), store: '', orderId: '', item: '', amount: '', fee: '0', cups: '1',
   payment: 'starbucks-card', eligible: true, identified: true, linked: false, excluded: false
 });
 const initialConfig = () => ({
@@ -142,7 +142,7 @@ export default function StarbucksInsights() {
   const allowedMonths = useMemo(() => new Set(series.map(row => row.key)), [series]);
   const history = useMemo(() => byPayment.filter(tx =>
     allowedMonths.has(tx.date.slice(0, 7)) &&
-    (tx.item + ' ' + tx.store).toLocaleLowerCase('vi-VN').includes(query.toLocaleLowerCase('vi-VN'))
+    (tx.item + ' ' + tx.store + ' ' + tx.orderId).toLocaleLowerCase('vi-VN').includes(query.toLocaleLowerCase('vi-VN'))
   ).sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)), [byPayment, allowedMonths, query]);
   const pageCount = Math.max(1, Math.ceil(history.length / 8));
   const visibleHistory = history.slice((Math.min(page, pageCount) - 1) * 8, Math.min(page, pageCount) * 8);
@@ -217,6 +217,7 @@ export default function StarbucksInsights() {
         <form className="sb-form" onSubmit={onSubmit}>
           <label>Ngày giao dịch<input required type="date" value={form.date} max={today} onChange={e => updateForm('date', e.target.value)}/></label>
           <label>Cửa hàng<input type="text" maxLength="120" placeholder="VD: Landmark 81" value={form.store} onChange={e => updateForm('store', e.target.value)}/></label>
+          <label>Mã đơn hàng (không bắt buộc)<input type="text" maxLength={120} placeholder="VD: 123456 hoặc SBX-0987" autoComplete="off" value={form.orderId} onChange={e => updateForm('orderId', e.target.value)}/></label>
           <label>Tên món<input type="text" maxLength="120" placeholder="VD: Caffè Latte" value={form.item} onChange={e => updateForm('item', e.target.value)}/></label>
           <label>Chi tiêu thực tế (VNĐ)<input required type="number" min="1" step="1" placeholder="85000" value={form.amount} onChange={e => updateForm('amount', e.target.value)}/></label>
           <label>Phương thức thanh toán<select value={form.payment} onChange={e => updateForm('payment', e.target.value)}>{PAYMENT_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}</select></label>
@@ -298,10 +299,10 @@ export default function StarbucksInsights() {
             <button className="sb-btn sb-btn-soft" type="button" onClick={() => fileRef.current?.click()}><Icon name="upload" size={16}/> Nhập JSON</button>
             <input ref={fileRef} type="file" accept=".json,application/json" className="sb-hidden" onChange={importJson} aria-label="Nhập backup JSON"/>
           </div></div>
-        <input type="search" className="sb-search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Tìm món hoặc cửa hàng..." aria-label="Tìm trong lịch sử giao dịch" autoComplete="off"/>
-        <div className="sb-table-scroll"><table><thead><tr><th>Ngày</th><th>Món / Cửa hàng</th><th>Thanh toán</th><th className="sb-num">Chi tiêu</th><th className="sb-num">Sao xét hạng</th><th className="sb-num">Sao đổi thưởng</th><th>Thao tác</th></tr></thead>
+        <input type="search" className="sb-search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Tìm món, cửa hàng hoặc mã đơn hàng..." aria-label="Tìm trong lịch sử giao dịch" autoComplete="off"/>
+        <div className="sb-table-scroll"><table><thead><tr><th>Ngày</th><th>Món / Cửa hàng</th><th>Mã đơn hàng</th><th>Thanh toán</th><th className="sb-num">Chi tiêu</th><th className="sb-num">Sao xét hạng</th><th className="sb-num">Sao đổi thưởng</th><th>Thao tác</th></tr></thead>
           <tbody>{visibleHistory.map(tx => <tr key={tx.id}>
-            <td>{tx.date.split('-').reverse().join('/')}</td><td><strong>{tx.item || '—'}</strong><small>{tx.store || '—'} · {tx.cups} ly</small></td><td>{PAYMENT_OPTIONS.find(p => p.value === tx.payment)?.label}</td><td className="sb-num sb-money">{money(tx.amount)}</td><td className="sb-num sb-green-text">{starNumber(starsFor(tx))} ★</td><td className="sb-num sb-green-text">{starNumber(starsFor(tx))} ★</td>
+            <td>{tx.date.split('-').reverse().join('/')}</td><td><strong>{tx.item || '—'}</strong><small>{tx.store || '—'} · {tx.cups} ly</small></td><td className="sb-order-id">{tx.orderId || '—'}</td><td>{PAYMENT_OPTIONS.find(p => p.value === tx.payment)?.label}</td><td className="sb-num sb-money">{money(tx.amount)}</td><td className="sb-num sb-green-text">{starNumber(starsFor(tx))} ★</td><td className="sb-num sb-green-text">{starNumber(starsFor(tx))} ★</td>
             <td className="sb-actions"><button type="button" onClick={() => edit(tx)} title="Sửa giao dịch" aria-label={'Sửa giao dịch ' + tx.date}><Icon name="pencil" size={16}/></button><button type="button" onClick={() => remove(tx)} title="Xóa giao dịch" aria-label={'Xóa giao dịch ' + tx.date}><Icon name="trash" size={16}/></button></td>
           </tr>)}</tbody>
         </table>{history.length === 0 && <div className="sb-empty-history">Chưa có giao dịch phù hợp. Thêm một hóa đơn để bắt đầu thống kê.</div>}</div>

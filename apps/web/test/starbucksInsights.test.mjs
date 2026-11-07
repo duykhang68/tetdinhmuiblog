@@ -91,10 +91,27 @@ test('Membership cycle resets at anniversary and Green/Gold goals stay separate 
   assert.equal(gold.redemptionGoal, 10);
 });
 
-test('CSV exports fields and escapes quotes', () => {
-  const csv = toCsv([make({ item: 'Latte "Size L"' })]);
-  assert.match(csv, /^\uFEFFid,date,store,item,/);
+test('Order ID is optional, preserves leading zeros and survives normalization and CSV export', () => {
+  assert.equal(make({}).orderId, '');
+  assert.equal(make({ orderId: null }).orderId, '');
+  assert.equal(make({ orderId: '  001234  ' }).orderId, '001234');
+  assert.equal(make({ orderId: 'SBX-0987' }).orderId, 'SBX-0987');
+  assert.equal(make({ orderId: 'X'.repeat(121) }).orderId.length, 120);
+  assert.equal(normalizeTransaction(make({ orderId: '000086' })).orderId, '000086');
+  assert.equal(starsFor(make({ orderId: 'SBX-0987' })), starsFor(make({})));
+  const csv = toCsv([make({ orderId: '000123', item: 'Latte "Size L"' })]);
+  assert.match(csv, /^\uFEFFid,date,store,orderId,item,/);
+  assert.match(csv, /"000123"/);
   assert.match(csv, /"Latte ""Size L"""/);
+});
+
+test('Order ID input and transaction history column are rendered in the form and table', () => {
+  const component = readFileSync(new URL('../src/starbucks-insights/StarbucksInsights.jsx', import.meta.url), 'utf8');
+  assert.match(component, /Mã đơn hàng \(không bắt buộc\)/);
+  assert.match(component, /value=\{form\.orderId\}/);
+  assert.match(component, /<th>Mã đơn hàng<\/th>/);
+  assert.match(component, /tx\.orderId \|\| '—'/);
+  assert.match(component, /setForm\(initialForm\(\)\)/);
 });
 
 test('Independent page and Editor shortcut are wired to Vite multi-page build', () => {

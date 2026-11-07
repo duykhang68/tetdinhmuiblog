@@ -41,6 +41,7 @@ export function normalizeTransaction(data) {
   const payment = String(data?.payment || '');
   const store = String(data?.store || '').trim();
   const item = String(data?.item || '').trim();
+  const orderId = String(data?.orderId ?? '').trim();
   if (!validDate(date)) throw new Error('Ngày giao dịch không hợp lệ.');
   if (!store && !item) throw new Error('Nhập tên món hoặc cửa hàng.');
   if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Số tiền phải là số nguyên dương.');
@@ -51,6 +52,7 @@ export function normalizeTransaction(data) {
     id: String(data?.id || ''),
     date,
     store: store.slice(0, 120),
+    orderId: orderId.slice(0, 120),
     item: item.slice(0, 120),
     amount,
     fee,
@@ -152,7 +154,7 @@ export function rewardsProgress(transactions, config = {}, now = todayVietnam())
   };
 }
 export function toCsv(transactions) {
-  const columns = ['id', 'date', 'store', 'item', 'amount', 'fee', 'cups', 'payment', 'eligible', 'identified', 'linked', 'excluded'];
+  const columns = ['id', 'date', 'store', 'orderId', 'item', 'amount', 'fee', 'cups', 'payment', 'eligible', 'identified', 'linked', 'excluded'];
   const escape = value => '"' + String(value ?? '').replaceAll('"', '""') + '"';
   return '\uFEFF' + [columns.join(','), ...transactions.map(tx => columns.map(column => escape(tx[column])).join(','))].join('\r\n');
 }
