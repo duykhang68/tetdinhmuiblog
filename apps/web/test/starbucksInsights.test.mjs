@@ -79,15 +79,15 @@ test('Membership cycle resets at anniversary and Green/Gold goals stay separate 
     start: '2026-08-01', end: '2027-08-01', upcoming: false
   });
   const transactions = [
-    make({ id: 'old', date: '2026-07-28', amount: 80000 }),
+    make({ id: 'old', date: '2026-08-28', amount: 80000 }),
     make({ id: 'new', date: '2026-09-30', amount: 80000 })
   ];
-  const green = rewardsProgress(transactions, { cycleStart: '2025-08-01', tier: 'green', redeemed: 1 }, '2026-11-07');
+  const green = rewardsProgress(transactions, { cycleStart: '2025-09-01', tier: 'green', redeemed: 1 }, '2026-11-07');
   assert.equal(green.membership, 2);
   assert.equal(green.rewards, 3);
   assert.equal(green.remaining, 98);
   assert.equal(green.redemptionGoal, 20);
-  const gold = rewardsProgress(transactions, { cycleStart: '2025-08-01', tier: 'gold' }, '2026-11-07');
+  const gold = rewardsProgress(transactions, { cycleStart: '2025-09-01', tier: 'gold' }, '2026-11-07');
   assert.equal(gold.redemptionGoal, 10);
 });
 
