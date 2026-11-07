@@ -80,6 +80,111 @@ export function createDriveService({fetcher = (...args) => fetch(...args), oauth
     });
     return {...await response.json(), etag: response.headers.get('etag')};
   }
-  return {login, disconnect, connected, listBlogPosts, readMarkdown, saveMarkdownToDrive};
+  // Personal expenses use the same GIS token and drive.file scope as Drive Markdown.
+  // Immutable snapshots prevent either device from destroying an older cloud backup.
+  const EXPENSES_TAG='dn_expenses';
+  const EXPENSES_VALUE='snapshot_v1';
+  const EXPENSES_FIELDS='id,name,mimeType,createdTime,modifiedTime,version,appProperties';
+  async function driveIdentity() {
+    const r=await request('https://www.googleapis.com/drive/v3/about?fields=user(permissionId)');
+    const user=await r.json();
+    const ownerId=String(user?.user?.permissionId||'').trim();
+    if(!ownerId)throw new Error('Google Drive không trả về ID chủ sở hữu. Không thể đồng bộ an toàn.');
+    return ownerId;
+  }
+  async function listExpenseSnapshots() {
+    let token='',files=[],pages=0;
+    do {
+      const params=new URLSearchParams({
+        q:"trashed = false and appProperties has { key = 'dn_expenses' and value = 'snapshot_v1' }",
+        fields:'nextPageToken,files('+EXPENSES_FIELDS+')',
+        orderBy:'createdTime desc',pageSize:'100'
+      });
+      if(token)params.set('pageToken',token);
+      const body=await (await request(API+'?'+params)).json();
+      files.push(...(body.files||[]).filter(file=>file.appProperties?.[EXPENSES_TAG]===EXPENSES_VALUE));
+      token=body.nextPageToken||'';
+      if(++pages>100)throw new Error('Quá nhiều trang snapshot Google Drive, cần kiểm tra và dọn lịch sử.');
+    }while(token);
+    return files.sort((a,b)=>String(b.createdTime||b.modifiedTime||'').localeCompare(String(a.createdTime||a.modifiedTime||''))||
+      String(b.id).localeCompare(String(a.id)));
+  }
+  async function readExpenseSnapshot(file) {
+    if(!file?.id)throw new Error('Snapshot Drive không có ID.');
+    const res=await request(API+'/'+encodeURIComponent(file.id)+'?alt=media');
+    let envelope;
+    try{envelope=JSON.parse(await res.text());}
+    catch{throw new Error('File sao lưu chi tiêu trên Drive không phải JSON hợp lệ. Không tự ghi đè.');}
+    if(envelope?.kind!=='duynguyen-expenses-snapshot-v1'||!envelope.data)
+      throw new Error('File Drive không đúng định dạng sao lưu chi tiêu. Không tự ghi đè.');
+    let data;
+    try {data=(await import('../expenses/model.js')).normalizeData(envelope.data);}
+    catch(error) {throw new Error('Dữ liệu JSON Drive không hợp lệ: '+error.message);}
+    return {data,baseId:String(envelope.baseId||''),file};
+  }
+  async function readExpenseState() {
+    const ownerId=await driveIdentity();
+    const files=await listExpenseSnapshots();
+    if(!files.length)return {ownerId,exists:false,snapshotId:'',revision:0,updatedAt:null,data:null};
+    const latest=files[0];
+    const loaded=await readExpenseSnapshot(latest);
+    // Track the immutable ancestry. Parallel uploads from the same base are forks,
+    // not replacements; never auto-pull over a fork that lacks our latest file.
+    const byId=new Map(files.map(file=>[String(file.id),file]));
+    const ancestors=[];
+    const seen=new Set([String(latest.id)]);
+    let cursor=String(latest.appProperties?.base_id||'');
+    while(cursor&&cursor!=='root'&&byId.has(cursor)&&!seen.has(cursor)){
+      ancestors.push(cursor);seen.add(cursor);
+      cursor=String(byId.get(cursor).appProperties?.base_id||'');
+    }
+    return {ownerId,exists:true,snapshotId:String(latest.id),revision:Number(latest.version||1),
+      updatedAt:latest.createdTime||latest.modifiedTime||null,data:loaded.data,
+      baseId:loaded.baseId,fileName:latest.name,ancestorIds:ancestors};
+  }
+  async function saveExpenseSnapshot(data,expectedFileId='') {
+    const {normalizeData}=await import('../expenses/model.js');
+    const normalized=normalizeData(data);
+    const json=JSON.stringify({kind:'duynguyen-expenses-snapshot-v1',savedAt:new Date(now()).toISOString(),
+      baseId:expectedFileId||'',data:normalized});
+    if(new Blob([json]).size>4*1024*1024)
+      throw new Error('Bản JSON chi tiêu lớn hơn 4 MB; hãy xuất file JSON trước khi đồng bộ.');
+    // Check the previous head before adding a new immutable snapshot.
+    const snapshots=await listExpenseSnapshots();
+    if(String(snapshots[0]?.id||'')!==String(expectedFileId||'')){
+      const error=new Error('Drive đã có dữ liệu mới từ một thiết bị khác. Không ghi đè; hãy xử lý xung đột.');
+      error.code='EXPENSES_CONFLICT';error.status=409;throw error;
+    }
+    const stamp=new Date(now()).toISOString().replace(/[:.]/g,'-');
+    const uuid=crypto.randomUUID();
+    const metadata={
+      name:'DuyNguyen-Expenses-'+stamp+'-'+uuid.slice(0,8)+'.json',
+      mimeType:'application/json',
+      description:'Duy Nguyen · Daily Expenses & Insights · Private backup',
+      appProperties:{[EXPENSES_TAG]:EXPENSES_VALUE,base_id:String(expectedFileId||'root')}
+    };
+    const boundary='dn_expenses_'+uuid.replace(/-/g,'');
+    const body=new Blob([
+      '--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n',
+      JSON.stringify(metadata),
+      '\r\n--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n',
+      json,'\r\n--'+boundary+'--\r\n'
+    ]);
+    const response=await request('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields='+encodeURIComponent(EXPENSES_FIELDS),{
+      method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body
+    });
+    const file=await response.json();
+    if(!file?.id)throw new Error('Google Drive không trả ID file sau khi lưu. Kiểm tra Drive trước khi thử lại.');
+    // A read-back is stronger evidence than a successful POST alone.
+    const stored=await readExpenseSnapshot(file);
+    if(JSON.stringify(stored.data)!==JSON.stringify(normalized))
+      throw new Error('Nội dung Drive khác bản gửi. Không xác nhận đồng bộ.');
+    return {ownerId:await driveIdentity(),exists:true,snapshotId:String(file.id),
+      revision:Number(file.version||1),updatedAt:file.createdTime||file.modifiedTime||new Date(now()).toISOString(),
+      data:stored.data,fileName:file.name};
+  }
+  return {login, disconnect, connected, listBlogPosts, readMarkdown, saveMarkdownToDrive,
+    driveIdentity,listExpenseSnapshots,readExpenseSnapshot,readExpenseState,saveExpenseSnapshot};
+
 }
 export const googleDrive = createDriveService();
