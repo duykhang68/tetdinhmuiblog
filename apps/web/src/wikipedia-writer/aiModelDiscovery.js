@@ -42,11 +42,13 @@ export async function listGroqModels(key,fetcher=fetch){
  const data=await jsonResponse(await fetcher(GROQ_ROOT+'/models',{headers:{Authorization:'Bearer '+key}}));
  return chooseGroqModels(data.data||[]);
 }
-export async function generateGemini(key,prompt,fetcher=fetch){
+export async function generateGemini(key,prompt,fetcher=fetch,onProgress=()=>{}){
+ onProgress({type:'discovery',provider:'Gemini'});
  const models=await listGeminiModels(key,fetcher);
  if(!models.length)throw Error('API key Gemini không có model tạo văn bản Gemini 3 được cấp quyền.');
  const errors=[];
  for(const model of models.slice(0,5)){
+  onProgress({type:'generation',provider:'Gemini',model});
   try{
    const data=await jsonResponse(await fetcher(GEMINI_ROOT+'/models/'+encodeURIComponent(model)+':generateContent',{
     method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},
@@ -55,15 +57,17 @@ export async function generateGemini(key,prompt,fetcher=fetch){
    const text=(data.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
    if(!text.trim())throw Error('Model không trả về nội dung văn bản.');
    return {text,model};
-  }catch(e){errors.push(model+': '+String(e.message||e).slice(0,150));}
+  }catch(e){onProgress({type:'retry',provider:'Gemini',model});errors.push(model+': '+String(e.message||e).slice(0,150));}
  }
  throw Error('Không model Gemini nào hoàn thành: '+errors.join(' | '));
 }
-export async function generateGroq(key,prompt,fetcher=fetch){
+export async function generateGroq(key,prompt,fetcher=fetch,onProgress=()=>{}){
+ onProgress({type:'discovery',provider:'Groq'});
  const models=await listGroqModels(key,fetcher);
  if(!models.length)throw Error('API key Groq không có model tạo bài tương thích được cấp quyền.');
  const errors=[];
  for(const model of models.slice(0,4)){
+  onProgress({type:'generation',provider:'Groq',model});
   try{
    const data=await jsonResponse(await fetcher(GROQ_ROOT+'/chat/completions',{
     method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},
@@ -72,7 +76,7 @@ export async function generateGroq(key,prompt,fetcher=fetch){
    const text=data.choices?.[0]?.message?.content||'';
    if(!text.trim())throw Error('Model không trả về nội dung văn bản.');
    return {text,model};
-  }catch(e){errors.push(model+': '+String(e.message||e).slice(0,150));}
+  }catch(e){onProgress({type:'retry',provider:'Groq',model});errors.push(model+': '+String(e.message||e).slice(0,150));}
  }
  throw Error('Không model Groq nào hoàn thành: '+errors.join(' | '));
 }
