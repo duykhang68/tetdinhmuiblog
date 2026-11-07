@@ -68,8 +68,9 @@ function receiptCrop(image){
 }
 function enhanceImage(image,focusTop){
   const bounds=receiptCrop(image);
-  const y=Math.floor(bounds.height*(focusTop?.045:.035));
-  const height=Math.max(1,Math.floor(bounds.height*(focusTop?.58:.86)));
+  const headerOnly=focusTop==='header';
+  const y=Math.floor(bounds.height*(headerOnly?.07:focusTop?.045:.035));
+  const height=Math.max(1,Math.floor(bounds.height*(headerOnly?.25:focusTop?.58:.86)));
   const cropHeight=Math.min(image.height-y,height);
   const scale=Math.max(.75,Math.min(2.7,1900/bounds.width,3600/cropHeight));
   const canvas=document.createElement('canvas');
@@ -104,25 +105,46 @@ export async function recognizeReceiptImage(file,onProgress=()=>{}){
     await worker.setParameters({preserve_interword_spaces:'1'});
     const initial=await worker.recognize(file);
     let best={text:initial.data.text||'',confidence:initial.data.confidence??0},bestScore=quality(best);
-    if(shouldRetryReceiptOcr(best)){
+    const alternatives=[{...best,label:'Ảnh gốc'}];
+    const parsedInitial=parseHighlandsReceipt(best.text);
+    const needsReceiptRetry=shouldRetryReceiptOcr(best);
+    // Ngay cả khi đọc đủ giá, một trường tên cửa hàng bị méo vẫn phải có
+    // lượt OCR riêng cho header để so khớp ShopID và tên cửa hàng.
+    const needsHeaderRetry=!parsedInitial.shopId||
+      parsedInitial.storeSource!=='verified-shop-id'||!parsedInitial.fields?.store;
+    if(needsReceiptRetry||needsHeaderRetry){
       try{
         image=await createImageBitmap(file);
-        onProgress({label:'Đang tách giấy hóa đơn khỏi nền và làm rõ chữ…',percent:0});
-        const cropped=await worker.recognize(enhanceImage(image,true));
-        const candidate={text:cropped.data.text||'',confidence:cropped.data.confidence??0};
-        const candidateScore=quality(candidate);
-        if(candidateScore>bestScore){best=candidate;bestScore=candidateScore;}
-        if(shouldRetryReceiptOcr(best)){
-          onProgress({label:'Đang đọc lại toàn bộ giấy in nhiệt…',percent:0});
-          const full=await worker.recognize(enhanceImage(image,false));
-          const wider={text:full.data.text||'',confidence:full.data.confidence??0};
-          if(quality(wider)>bestScore)best=wider;
+        if(needsReceiptRetry){
+          onProgress({label:'Đang tách giấy hóa đơn khỏi nền và làm rõ chữ…',percent:0});
+          const cropped=await worker.recognize(enhanceImage(image,true));
+          const candidate={text:cropped.data.text||'',confidence:cropped.data.confidence??0};
+          alternatives.push({...candidate,label:'Giấy hóa đơn - vùng món và tiền'});
+          const candidateScore=quality(candidate);
+          if(candidateScore>bestScore){best=candidate;bestScore=candidateScore;}
+          if(shouldRetryReceiptOcr(best)){
+            onProgress({label:'Đang đọc lại toàn bộ giấy in nhiệt…',percent:0});
+            const full=await worker.recognize(enhanceImage(image,false));
+            const wider={text:full.data.text||'',confidence:full.data.confidence??0};
+            alternatives.push({...wider,label:'Giấy hóa đơn - toàn bộ'});
+            const fullScore=quality(wider);
+            if(fullScore>bestScore){best=wider;bestScore=fullScore;}
+          }
+        }
+        if(needsHeaderRetry){
+          onProgress({label:'Đang đọc riêng tiêu đề, địa chỉ và ShopID cửa hàng…',percent:0});
+          // Phân đoạn văn bản như một khối đơn giản để tránh QR và món hàng.
+          await worker.setParameters({tessedit_pageseg_mode:'6'});
+          const header=await worker.recognize(enhanceImage(image,'header'));
+          const headerCandidate={text:header.data.text||'',confidence:header.data.confidence??0};
+          alternatives.push({...headerCandidate,label:'Tiêu đề & ShopID'});
+          await worker.setParameters({tessedit_pageseg_mode:'3'});
         }
       }catch{
-        // Giữ văn bản OCR đầu tiên và đưa cho người dùng đối chiếu; không tạo dữ liệu giả.
+        // Vẫn trả lại tất cả lượt OCR đã thành công, không báo mất dữ liệu.
       }
     }
-    return best;
+    return {...best,alternatives};
   }finally{
     if(image)image.close();
     if(worker)await worker.terminate();
