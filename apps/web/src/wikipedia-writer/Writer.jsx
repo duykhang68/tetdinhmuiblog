@@ -22,6 +22,12 @@ async function wikiExtract(url){
  return {text:item.extract,canonical,title:item.title};
 }
 const snapshot=(source,title,article,vocabulary)=>({schema:'wikipedia-writer-v1',source,title,article,vocabulary,savedAt:new Date().toISOString()});
+const WRITING_STAGES=[
+ {id:'source',label:'Đọc nội dung Wikipedia',detail:'Đang tải và kiểm tra bài nguồn'},
+ {id:'model',label:'Xác định model AI',detail:'Kiểm tra quyền sử dụng Gemini / Groq'},
+ {id:'generate',label:'Viết bài và tạo từ vựng',detail:'Chờ AI hoàn thành bài báo và dữ liệu ba ngôn ngữ'},
+ {id:'validate',label:'Kiểm tra và hiển thị kết quả',detail:'Xác thực nội dung, đưa vào bản thảo'}
+];
 export default function Writer(){
  const [savedAiKeys]=useState(()=>{try{return readRememberedAiKeys(window.localStorage);}catch{return {remember:false,gemini:'',groq:''};}});
  const [rememberAiKeys,setRememberAiKeys]=useState(savedAiKeys.remember);
@@ -46,6 +52,7 @@ export default function Writer(){
  },[rememberAiKeys,gKey,qKey]);
  const [title,setTitle]=useState(''),[article,setArticle]=useState(''),[rows,setRows]=useState([]);
  const [busy,setBusy]=useState(''),[notice,setNotice]=useState(''),[error,setError]=useState('');
+ const [writingProgress,setWritingProgress]=useState({state:'idle',completed:0,stage:'',detail:'Chưa bắt đầu tạo bài',model:''});
  const [access,setAccess]=useState(''),[driveFile,setDriveFile]=useState(null),[lastSync,setLastSync]=useState(''),[dirty,setDirty]=useState(false);
  const [oauthConfig,setOauthConfig]=useState({clientId:'',loading:true,error:'',source:''});
  useEffect(()=>{
@@ -109,19 +116,38 @@ export default function Writer(){
  async function connect(){setBusy('google');setError('');try{const token=await auth();await restore(token);setNotice('Google Sheets và Drive đã kết nối.');}catch(e){setError(e.message);}finally{setBusy('');}}
  async function generate(){
   setBusy('ai');setError('');setNotice('');
+  setWritingProgress({state:'running',completed:0,stage:'source',detail:'Đang đọc bài Wikipedia…',model:''});
   try{
    const wiki=await wikiExtract(url);
+   setWritingProgress({state:'running',completed:1,stage:'model',detail:'Đã đọc bài: '+wiki.title,model:''});
    const prompt=PROMPT(wiki.canonical,wiki.text);
    const attempts=provider==='gemini'?[['Gemini',gKey,generateGemini]]:provider==='groq'?[['Groq',qKey,generateGroq]]:[['Gemini',gKey,generateGemini],['Groq',qKey,generateGroq]];
-   let generated,failures=[];
+   let generated,failures=[],usedModel='';
    for(const [name,key,run] of attempts){
     if(!key.trim()){failures.push(name+': chưa nhập API key');continue;}
-    try{const result=await run(key.trim(),prompt);generated=parseAIJson(result.text);setNotice('Đã tạo bài bằng '+name+' / '+result.model+'. Hãy đọc lại và xác minh thông tin trước khi đồng bộ.');break;}
-    catch(e){failures.push(name+': '+e.message);}
+    try{
+     const result=await run(key.trim(),prompt,undefined,event=>{
+      if(event.type==='discovery')setWritingProgress({state:'running',completed:1,stage:'model',detail:'Đang kiểm tra model của '+event.provider+'…',model:''});
+      if(event.type==='generation')setWritingProgress({state:'running',completed:2,stage:'generate',detail:'Đang tạo bài và trích xuất từ vựng bằng '+event.provider+'…',model:event.model});
+      if(event.type==='retry')setWritingProgress({state:'running',completed:1,stage:'model',detail:'Model '+event.model+' không hoàn thành; đang thử model tiếp theo…',model:''});
+     });
+     setWritingProgress({state:'running',completed:3,stage:'validate',detail:'Đang kiểm tra cấu trúc bài và từ vựng…',model:result.model});
+     generated=parseAIJson(result.text);
+     usedModel=name+' / '+result.model;
+     setNotice('Đã tạo bài bằng '+usedModel+'. Hãy đọc lại và xác minh thông tin trước khi đồng bộ.');
+     break;
+    }catch(e){
+     failures.push(name+': '+e.message);
+     setWritingProgress({state:'running',completed:1,stage:'model',detail:name+' không hoàn thành; đang kiểm tra phương án dự phòng…',model:''});
+    }
    }
    if(!generated)throw Error(failures.join(' | '));
    setTitle(generated.title);setArticle(generated.article);setRows(generated.vocabulary);setDirty(true);
-  }catch(e){setError(e.message);}finally{setBusy('');}
+   setWritingProgress({state:'done',completed:4,stage:'done',detail:'Đã tạo bài và '+generated.vocabulary.length+' mục từ vựng; sẵn sàng biên tập.',model:usedModel});
+  }catch(e){
+   setWritingProgress(old=>({...old,state:'error',detail:'Không hoàn thành: '+String(e.message||e).slice(0,180)}));
+   setError(e.message);
+  }finally{setBusy('');}
  }
  async function push(){
   setBusy('sheet');setError('');setNotice('');
@@ -174,7 +200,29 @@ export default function Writer(){
      <p className="ww-status">{dirty?'● Có thay đổi chưa đồng bộ':'✓ Bản thảo chưa có thay đổi mới'}{lastSync?' · Lần lưu: '+lastSync:''}</p>
      <a href={'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit?gid=0'} target="_blank" rel="noopener noreferrer">Mở Google Sheet viethananh ↗</a>
     </section>
-    <section className="ww-card"><div className="ww-card-head"><span className="ww-step">03</span><div><h2>Từ vựng Việt · Hàn · Anh <span className="ww-count">{rows.length}</span></h2><p>Đã ánh xạ đúng các cột A:F của Sheet1</p></div></div>
+    <section className="ww-card ww-progress" aria-labelledby="ww-progress-title">
+     <div className="ww-card-head"><span className="ww-step">03</span><div><h2 id="ww-progress-title">Thanh tiến độ</h2><p>Theo dõi quá trình tạo bài và trích xuất từ vựng</p></div></div>
+     <div className="ww-progress-overview" role="status" aria-live="polite">
+      <strong>{writingProgress.state==='done'?'Hoàn thành':writingProgress.state==='error'?'Có lỗi':writingProgress.state==='running'?'Đang xử lý':'Sẵn sàng'}</strong>
+      <span>{writingProgress.completed}/4 bước đã hoàn thành</span>
+     </div>
+     <div className={'ww-progress-track '+(writingProgress.state==='running'?'ww-progress-active':'')} role="progressbar" aria-label="Tiến độ tạo bài" aria-valuemin={0} aria-valuemax={4} aria-valuenow={writingProgress.completed} aria-valuetext={writingProgress.completed+' trên 4 bước hoàn thành'}>
+      <span className="ww-progress-fill" style={{width:(writingProgress.completed/4*100)+'%'}}/>
+     </div>
+     <ol className="ww-progress-steps">{WRITING_STAGES.map((step,i)=>{
+      const completed=i<writingProgress.completed;
+      const active=writingProgress.state==='running'&&writingProgress.stage===step.id;
+      const failed=writingProgress.state==='error'&&writingProgress.stage===step.id;
+      return <li key={step.id} className={'ww-progress-step '+(completed?'is-done':active?'is-active':failed?'is-error':'is-waiting')}>
+       <span className="ww-progress-marker" aria-hidden="true">{completed?'✓':failed?'!':i+1}</span>
+       <span><strong>{step.label}</strong><small>{completed?'Đã hoàn thành':active?'Đang thực hiện':failed?'Gặp lỗi':'Chờ xử lý'}</small></span>
+      </li>;
+     })}</ol>
+     <p className="ww-progress-detail" aria-live="polite">{writingProgress.detail}</p>
+     {writingProgress.model&&<p className="ww-progress-model">Model: {writingProgress.model}</p>}
+     <p className="ww-note">Thanh hiển thị các bước đã thực sự hoàn thành, không ước lượng thời gian hoặc phần trăm tiến độ nội bộ của nhà cung cấp AI.</p>
+    </section>
+    <section className="ww-card"><div className="ww-card-head"><span className="ww-step">04</span><div><h2>Từ vựng Việt · Hàn · Anh <span className="ww-count">{rows.length}</span></h2><p>Đã ánh xạ đúng các cột A:F của Sheet1</p></div></div>
      <div className="ww-table-scroll"><table><thead><tr><th>Việt (A)</th><th>Hàn (B)</th><th>Anh (C)</th><th>Context (D)</th><th>Ngữ pháp (E)</th><th>Category (F)</th><th></th></tr></thead><tbody>{rows.map((v,i)=><tr key={i}>{['vi','ko','en','context','grammar','category'].map(k=><td key={k}><textarea rows={k==='grammar'?3:2} aria-label={k+' '+(i+1)} value={v[k]} onChange={e=>{setRows(old=>old.map((x,j)=>j===i?{...x,[k]:e.target.value}:x));setDirty(true);}}/></td>)}<td><button className="ww-remove" aria-label={'Xóa dòng '+(i+1)} onClick={()=>{setRows(old=>old.filter((_,j)=>j!==i));setDirty(true);}}>×</button></td></tr>)}</tbody></table></div>
      {!rows.length&&<p className="ww-empty">Chưa có từ vựng. Hãy tạo bài báo trước.</p>}
      <div className="ww-actions"><button onClick={()=>{setRows(old=>[...old,{vi:'',ko:'',en:'',context:'',grammar:'',category:'General / Everyday Language'}]);setDirty(true);}}>+ Thêm từ</button><button className="ww-primary" disabled={running||!access||!rows.length} onClick={push}>{busy==='sheet'?'Đang ghi Sheet…':'↗ Ghi từ mới vào Google Sheet'}</button></div>
