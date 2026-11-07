@@ -128,9 +128,19 @@ export function createDriveService({fetcher = (...args) => fetch(...args), oauth
     if(!files.length)return {ownerId,exists:false,snapshotId:'',revision:0,updatedAt:null,data:null};
     const latest=files[0];
     const loaded=await readExpenseSnapshot(latest);
+    // Track the immutable ancestry. Parallel uploads from the same base are forks,
+    // not replacements; never auto-pull over a fork that lacks our latest file.
+    const byId=new Map(files.map(file=>[String(file.id),file]));
+    const ancestors=[];
+    const seen=new Set([String(latest.id)]);
+    let cursor=String(latest.appProperties?.base_id||'');
+    while(cursor&&cursor!=='root'&&byId.has(cursor)&&!seen.has(cursor)){
+      ancestors.push(cursor);seen.add(cursor);
+      cursor=String(byId.get(cursor).appProperties?.base_id||'');
+    }
     return {ownerId,exists:true,snapshotId:String(latest.id),revision:Number(latest.version||1),
       updatedAt:latest.createdTime||latest.modifiedTime||null,data:loaded.data,
-      baseId:loaded.baseId,fileName:latest.name};
+      baseId:loaded.baseId,fileName:latest.name,ancestorIds:ancestors};
   }
   async function saveExpenseSnapshot(data,expectedFileId='') {
     const {normalizeData}=await import('../expenses/model.js');
