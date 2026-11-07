@@ -14,30 +14,30 @@ export function hasUserData(data) {
  * Never automatically overwrite independently edited snapshots.
  * Conflict requires an explicit user decision + a fresh server revision check.
  */
-export function planSync({localData,remote,meta}) {
+export function planSync({localData,remote,meta,localMissing=false}) {
   const local=snapshotFingerprint(localData);
   const cloud=remote.exists?snapshotFingerprint(remote.data):snapshotFingerprint(emptyData());
   const owner=String(remote.ownerId||'');
   const sameOwner=meta?.ownerId===owner;
-  const sameSnapshot=local===cloud;
 
-  if(sameSnapshot)return {action:'equal',local,cloud};
+  if(local===cloud)return {action:'equal',local,cloud};
+  // Browser storage deletion is not an intentional "erase the cloud" operation.
+  if(localMissing&&remote.exists)return {action:'pull',local,cloud};
+
+  if(sameOwner&&meta&&typeof meta.fingerprint==='string'){
+    const localChanged=local!==meta.fingerprint;
+    const remoteChanged=remote.revision!==meta.revision||cloud!==meta.fingerprint;
+    if(localChanged&&remoteChanged)return {action:'conflict',local,cloud};
+    if(localChanged)return {action:'push',local,cloud};
+    if(remoteChanged)return {action:'pull',local,cloud};
+  }
   if(!hasUserData(localData)){
     if(remote.exists)return {action:'pull',local,cloud};
     return {action:'equal',local,cloud};
   }
-  if(!remote.exists){
-    if(meta?.ownerId&&(!sameOwner||meta.revision>0))return {action:'conflict',local,cloud};
+  if(!remote.exists&&(!meta?.ownerId||sameOwner&&meta.revision===0))
     return {action:'push',local,cloud};
-  }
-  if(!sameOwner||!meta||typeof meta.fingerprint!=='string')
-    return {action:'conflict',local,cloud};
-
-  const localChanged=local!==meta.fingerprint;
-  const remoteChanged=remote.revision!==meta.revision||cloud!==meta.fingerprint;
-  if(localChanged&&remoteChanged)return {action:'conflict',local,cloud};
-  if(localChanged)return {action:'push',local,cloud};
-  if(remoteChanged)return {action:'pull',local,cloud};
+  // Existing local+cloud snapshots with no reliable shared baseline cannot be merged silently.
   return {action:'conflict',local,cloud};
 }
 
