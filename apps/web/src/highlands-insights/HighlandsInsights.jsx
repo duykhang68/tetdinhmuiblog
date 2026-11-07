@@ -3,7 +3,7 @@ import {
   STORAGE_KEY, PAYMENT_OPTIONS, POLICY_EFFECTIVE_DATE, analytics, money, monthlySeries,
   calculatePayable, normalizeTransaction, rewardsProgress, starNumber, dripsFor, stampsFor, toCsv, todayVietnam, validDate
 } from './model.js';
-import { parseHighlandsReceipt } from './receiptOcr.js';
+import { parseHighlandsReceipt, mergeHighlandsReceiptCandidates } from './receiptOcr.js';
 import { recognizeReceiptImage } from './receiptOcrBrowser.js';
 import { useHighlandsDriveSync } from './useHighlandsDriveSync.js';
 
@@ -255,7 +255,9 @@ export default function HighlandsInsights() {
         setReceiptError('Ảnh chưa đủ rõ để tự điền. Bạn có thể kiểm tra ảnh và thử lại.');
         return;
       }
-      const result = parseHighlandsReceipt(recognized.text);
+      const result = recognized.alternatives?.length
+        ? mergeHighlandsReceiptCandidates(recognized.alternatives)
+        : parseHighlandsReceipt(recognized.text);
       // Không chặn hoàn toàn OCR chỉ vì tiêu đề bị đọc sai: luôn giữ nội dung
       // nhận diện để người dùng đối chiếu, kể cả khi chưa trích xuất được số liệu.
       if (!Object.keys(result.fields).length) {
@@ -368,6 +370,13 @@ export default function HighlandsInsights() {
                   Chỉ lưu khi bạn bấm Thêm giao dịch.</p>
                 {receiptResult.warnings.length > 0 && <ul>{receiptResult.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
                 <details><summary>Xem văn bản OCR để đối chiếu</summary><pre>{receiptResult.lines.join('\n')}</pre></details>
+                {receiptResult.ocrVariants?.length > 1 && <details>
+                  <summary>Xem từng lượt OCR (ảnh gốc / vùng giấy / tiêu đề)</summary>
+                  {receiptResult.ocrVariants.map((variant,index)=><div key={index} className="sb-ocr-variant">
+                    <strong>{variant.label} · tin cậy {Math.round(variant.confidence)}%</strong>
+                    <pre>{variant.text}</pre>
+                  </div>)}
+                </details>}
               </div>
             </div>}
             <small className="sb-ocr-hint">JPG, PNG, WebP · tối đa 10 MB. Lần đầu cần Internet để tải OCR tiếng Việt/Anh. Không tự tạo giao dịch và không lưu ảnh.</small>
