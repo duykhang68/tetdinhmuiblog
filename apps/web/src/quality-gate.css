@@ -201,3 +201,7 @@
 @media (prefers-reduced-motion: reduce) {
   .quality-page *, .quality-page *::before, .quality-page *::after { transition: none !important; animation: none !important; }
 }
+
+
+.quality-page .qg-source-notice { margin: 15px 0; padding: 11px 14px; border: 1px solid #2b6255; border-radius: 9px; background: #112b2d; color: #a0e7cf; display: flex; align-items: center; gap: 9px; font-size: 11px; line-height: 1.65; }
+.quality-page .qg-source-notice svg { flex-shrink: 0; }
