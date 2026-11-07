@@ -51,3 +51,12 @@
 - **UX:** Nếu cả ba lượt không tìm ra trường đáng tin cậy, vẫn hiển thị văn bản OCR thô và cảnh báo; không còn báo lỗi chung rồi vứt mất bản OCR. Không tự lưu giao dịch. Không gửi ảnh lên máy chủ.
 - **Kiểm thử:** Thêm ca kiểm thử từ một lượt nhận dạng thật của ảnh đính kèm (logo `HAAS COFFE`, tổng `Tong tien: 400) SS`, Payoo `54,000 —= .`), cùng ca logo tách chữ, giá món xuống dòng, nhãn không rõ và trường hợp tài liệu không phải Highlands.
 - **Giới hạn:** Tên món/giá món quá mờ có thể vẫn cần người dùng chỉnh lại. Bản CI chỉ kiểm thử parser bằng văn bản nhận diện đã lấy từ ảnh; không thay thế kiểm thử thực tế trên Chrome sau deploy.
+
+## Hotfix độ chính xác cửa hàng OCR — 07/11/2026
+
+- Phản hồi thực tế: parser kiểm thử với văn bản mẫu trả về `KCN Bau Bang`, nhưng OCR trong trình duyệt có thể nhận sai vùng cửa hàng thành chuỗi như `KCN B -p13+ van >`. Điều này phân biệt lỗi nhận dạng ảnh của Tesseract với lỗi phân tích các dòng văn bản đã đọc.
+- Thêm bước OCR **riêng vùng tiêu đề + ShopID**, ngoài OCR ảnh gốc và vùng món/tiền. Các lượt OCR được **đối soát theo từng trường**: ví dụ Check/ngày/Payoo được giữ từ ảnh gốc, còn cửa hàng/ShopID được dùng từ ảnh tiêu đề. Hiển thị toàn bộ các bản văn OCR cho người dùng đối chiếu, không tự ghi giao dịch.
+- Dữ liệu từ hóa đơn người dùng đã xác nhận: `ShopID: 30799` tương ứng `KCN Bau Bang`. Khi nhận được ShopID này và có bằng chứng hóa đơn Highlands/POS hợp lệ, trường cửa hàng có thể chuẩn hóa thành đúng `KCN Bau Bang`, **không áp dụng tùy tiện** cho các mã khác. Hiển thị cảnh báo nguồn chuẩn hóa từ ShopID.
+- Nếu OCR đọc ra **hai ShopID khác nhau**, cảnh báo rõ để kiểm tra; không khẳng định chắc chắn cửa hàng. Nếu không đọc được ShopID, giữ chuỗi OCR để người dùng chỉnh thủ công.
+- Đặc biệt: một lượt chỉ gồm header `HAAS COFFE / KCN Bau Bang / ShopID 30799` chưa đủ dấu hiệu POS để parser độc lập chấp nhận, nhưng có thể cung cấp mã cửa hàng cho kết quả OCR thân hóa đơn đã nhận diện hợp lệ.
+- Bổ sung test cho tên cửa hàng bị méo, ShopID đúng/sai, hợp nhất header và body, mâu thuẫn mã cửa hàng, UI hiển thị OCR thô từng lượt. CI chỉ xác nhận parser, mã và build; chất lượng Tesseract thực tế phải kiểm tra lại bằng cùng ảnh trên Chrome sau deploy.

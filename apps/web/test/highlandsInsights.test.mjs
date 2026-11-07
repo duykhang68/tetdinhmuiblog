@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {parseHighlandsReceipt} from '../src/highlands-insights/receiptOcr.js';
+import {parseHighlandsReceipt,mergeHighlandsReceiptCandidates} from '../src/highlands-insights/receiptOcr.js';
 import {STORAGE_KEY,calculatePayable,normalizeTransaction,dripsFor,stampsFor,
   potentialDripsFor,rewardsProgress,monthlySeries,analytics,toCsv} from '../src/highlands-insights/model.js';
 import {DRIVE_SYNC_KEY} from '../src/highlands-insights/driveSync.js';
@@ -137,6 +137,99 @@ test('Real sample photo OCR artifacts still recover Check, date and 54,000 VND P
  assert.equal(receipt.fields.baseAmount,'54000');
  assert.ok(receipt.warnings.some(w=>/Payoo/.test(w)));
  assert.ok(receipt.warnings.some(w=>/Chưa đọc đủ giá từng món/.test(w)));
+});
+
+test('ShopID 30799 corrects a damaged KCN Bau Bang store address without changing money',()=>{
+ const corrupted=bauBang.replace('HIGHLANDS COFFEE','HAAS COFFE')
+   .replace('KCN Bau Bang, Duong NC -D13-5A, Tru Van','KCN B -p13+ van >');
+ const receipt=parseHighlandsReceipt(corrupted);
+ assert.equal(receipt.shopId,'30799');
+ assert.equal(receipt.storeSource,'verified-shop-id');
+ assert.equal(receipt.fields.store,'KCN Bau Bang');
+ assert.equal(receipt.fields.orderId,'139154');
+ assert.equal(receipt.fields.date,'2026-11-03');
+ assert.equal(receipt.time,'17:45');
+ assert.equal(receipt.fields.payment,'pos');
+ assert.equal(receipt.fields.amount,'54000');
+ assert.ok(receipt.warnings.some(w=>/chuẩn hóa từ ShopID 30799/.test(w)));
+});
+
+test('Unknown ShopID must not hallucinate KCN Bau Bang',()=>{
+ const other=bauBang.replace('ShopID: 30799','ShopID: 55555')
+   .replace('KCN Bau Bang, Duong NC -D13-5A, Tru Van','KCN B -p13+ van >');
+ const receipt=parseHighlandsReceipt(other);
+ assert.equal(receipt.shopId,'55555');
+ assert.equal(receipt.fields.store,'KCN B -p13+ van >');
+ assert.equal(receipt.storeSource,'ocr');
+});
+
+test('OCR candidate fusion obtains store from header and financial totals from receipt body',()=>{
+ const noisy=[
+   'HAAS COFFE',
+   'KCN B -p13+ van >',
+   'Check: 139154',
+   'Ngay: 03-11-2026 17:45 POS01',
+   'Payoo Bank Card 54,000 —= .'
+ ].join('\n');
+ const focused=[
+   'HIGHLANDS COFFEE',
+   'KCN Bau Bang, Duong NC -D13-5A, Tru Van',
+   'ShopID: 30799',
+   'Check: 139154',
+ ].join('\n');
+ const merged=mergeHighlandsReceiptCandidates([
+   {label:'Ảnh gốc',text:noisy,confidence:80},
+   {label:'Tiêu đề & ShopID',text:focused,confidence:65}
+ ]);
+ assert.equal(merged.fields.store,'KCN Bau Bang');
+ assert.equal(merged.shopId,'30799');
+ assert.equal(merged.fields.amount,'54000');
+ assert.equal(merged.fields.orderId,'139154');
+ assert.equal(merged.fields.date,'2026-11-03');
+ assert.equal(merged.time,'17:45');
+ assert.equal(merged.fields.payment,'pos');
+ assert.equal(merged.ocrVariants.length,2);
+ assert.match(merged.ocrVariants[1].text,/KCN Bau Bang/);
+});
+
+test('Header-only OCR can contribute ShopID despite failing standalone POS classifier',()=>{
+ const payment=[
+  'HAAS COFFE','KCN B -p13+ van >','Check: 139154',
+  'Ngay: 03-11-2026 17:45 POS01','Payoo Bank Card 54,000 —= .'
+ ].join('\n');
+ const header=['HAAS COFFE','KCN Bau Bang','ShopID: 30799'].join('\n');
+ assert.equal(Object.keys(parseHighlandsReceipt(header).fields).length,0);
+ const merged=mergeHighlandsReceiptCandidates([
+  {label:'Ảnh gốc',text:payment,confidence:73},
+  {label:'Tiêu đề & ShopID',text:header,confidence:90}
+ ]);
+ assert.equal(merged.shopId,'30799');
+ assert.equal(merged.fields.store,'KCN Bau Bang');
+ assert.equal(merged.fields.orderId,'139154');
+ assert.equal(merged.fields.amount,'54000');
+});
+
+test('OCR candidate fusion leaves a visible warning if recognized ShopIDs disagree',()=>{
+ const original=bauBang;
+ const competing=bauBang.replace('ShopID: 30799','ShopID: 55555')
+   .replace('KCN Bau Bang, Duong NC -D13-5A, Tru Van','KCN Unknown');
+ const merged=mergeHighlandsReceiptCandidates([
+   {label:'Ảnh gốc',text:original,confidence:77},
+   {label:'Tiêu đề',text:competing,confidence:78}
+ ]);
+ assert.ok(merged.warnings.some(message=>/ShopID khác nhau/.test(message)));
+});
+
+test('Live OCR workflow keeps alternative passes, header crop, and manual correction of store',()=>{
+ const read=path=>readFileSync(new URL(path,import.meta.url),'utf8');
+ const browser=read('../src/highlands-insights/receiptOcrBrowser.js');
+ const component=read('../src/highlands-insights/HighlandsInsights.jsx');
+ assert.match(browser,/alternatives\.push/);
+ assert.match(browser,/enhanceImage\(image,'header'\)/);
+ assert.match(browser,/tessedit_pageseg_mode:'6'/);
+ assert.match(component,/mergeHighlandsReceiptCandidates\(recognized\.alternatives\)/);
+ assert.match(component,/Xem từng lượt OCR/);
+ assert.match(component,/onChange=\{e => updateForm\('store', e\.target\.value\)\}/);
 });
 
 test('DRIPS floor to 10,000 and TemDI only with verified member and >=50k',()=>{
