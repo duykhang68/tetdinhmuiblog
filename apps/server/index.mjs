@@ -129,7 +129,7 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
         let s=lookup(req);if(!s){s=startSession();res.setHeader('Set-Cookie',cookie(s.id));}
         const state=randomToken(),verifier=randomToken(48);
         const analyticsRequested=url.searchParams.get('return_to')==='research-insights'&&url.searchParams.get('analytics')==='1';
-        s.flow={state,verifier,expires:Date.now()+10*60_000,analyticsRequested,returnTo:url.searchParams.get('return_to')==='/quality-gate'?'/quality-gate':url.searchParams.get('return_to')==='research-insights'?'/research-insights.html':'/'};persist();
+        s.flow={state,verifier,expires:Date.now()+10*60_000,analyticsRequested,returnTo:url.searchParams.get('return_to')==='vocabulary-insights'?'/vocabulary-insights/':url.searchParams.get('return_to')==='/quality-gate'?'/quality-gate':url.searchParams.get('return_to')==='research-insights'?'/research-insights.html':'/'};persist();
         const auth=new URL('https://accounts.google.com/o/oauth2/v2/auth');
         Object.entries({client_id:config.clientId,redirect_uri:config.redirect,response_type:'code',scope:analyticsRequested?BLOGGER_SCOPE+' https://www.googleapis.com/auth/analytics.readonly':BLOGGER_SCOPE,access_type:'offline',prompt:'consent',state,code_challenge:codeChallenge(verifier),code_challenge_method:'S256'}).forEach(([k,v])=>auth.searchParams.set(k,v));
         return redirect(res,auth.toString());
@@ -145,7 +145,7 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
         // Rotate the session ID after the OAuth callback to prevent session fixation.
         const newer=startSession();newer.token={access:result.access_token,refresh:result.refresh_token||old.refresh,expires:Date.now()+(result.expires_in||3600)*1000,analytics:!!flow.analyticsRequested&&(!result.scope||result.scope.split(/\s+/).includes('https://www.googleapis.com/auth/analytics.readonly'))};
         delete sessions[s.id];persist();
-        return redirect(res,config.frontend+(['/quality-gate','/research-insights.html'].includes(flow.returnTo)?flow.returnTo:'/')+'?connected=1',{'Set-Cookie':cookie(newer.id)});
+        return redirect(res,config.frontend+(['/quality-gate','/research-insights.html','/vocabulary-insights/'].includes(flow.returnTo)?flow.returnTo:'/')+'?connected=1',{'Set-Cookie':cookie(newer.id)});
       }
       if(req.method==='POST'&&url.pathname==='/api/logout'){
         const s=lookup(req);if(!s)throw fail(401,'Chưa đăng nhập');verifyWrite(req,s);
