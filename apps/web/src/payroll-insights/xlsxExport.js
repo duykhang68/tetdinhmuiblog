@@ -99,7 +99,8 @@ export function zipStore(files){
   const offset=local.length,crc=crc32(data);
   u32(local,0x04034b50);u16(local,20);u16(local,0x0800);u16(local,0);u16(local,0);u16(local,0);
   u32(local,crc);u32(local,data.length);u32(local,data.length);u16(local,name.length);u16(local,0);
-  local.push(...name,...data);
+  for(const byte of name)local.push(byte);
+  for(const byte of data)local.push(byte);
   u32(central,0x02014b50);u16(central,20);u16(central,20);u16(central,0x0800);u16(central,0);
   u16(central,0);u16(central,0);u32(central,crc);u32(central,data.length);u32(central,data.length);
   u16(central,name.length);u16(central,0);u16(central,0);u16(central,0);u16(central,0);
