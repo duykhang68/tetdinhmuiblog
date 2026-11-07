@@ -1,13 +1,13 @@
-/* Cloudflare sync controls fit the existing Reddit OrangeRed light design. */
+/* Google Drive sync controls reuse the existing Reddit OrangeRed light design. */
 .ex-cloud-note{min-height:35px}
 .ex-cloud-note.ex-cloud-synced,.ex-cloud-note.ex-cloud-ready{background:#e9f6ed;color:#0a7446}
 .ex-cloud-note.ex-cloud-pending,.ex-cloud-note.ex-cloud-conflict{background:#fff1de;color:#995f12}
-.ex-cloud-note.ex-cloud-unconfigured,.ex-cloud-note.ex-cloud-auth,
+.ex-cloud-note.ex-cloud-disconnected,.ex-cloud-note.ex-cloud-connecting,
 .ex-cloud-note.ex-cloud-error{background:#fff0e8;color:#bb4215}
 .ex-cloud-note.ex-cloud-syncing,.ex-cloud-note.ex-cloud-checking{background:#f1f2f4;color:#56616a}
 .ex-cloud-note.ex-cloud-pending .ex-live-dot,.ex-cloud-note.ex-cloud-conflict .ex-live-dot{background:#d79a33;box-shadow:0 0 0 4px #fbe4b8}
-.ex-cloud-note.ex-cloud-unconfigured .ex-live-dot,
-.ex-cloud-note.ex-cloud-auth .ex-live-dot,
+.ex-cloud-note.ex-cloud-disconnected .ex-live-dot,
+.ex-cloud-note.ex-cloud-connecting .ex-live-dot,
 .ex-cloud-note.ex-cloud-error .ex-live-dot{background:#ff4500;box-shadow:0 0 0 4px #ffe0d2}
 .ex-cloud-note.ex-cloud-syncing .ex-live-dot,
 .ex-cloud-note.ex-cloud-checking .ex-live-dot{background:#77838b;box-shadow:0 0 0 4px #e1e5e9}
@@ -41,3 +41,6 @@
   .ex-cloud-conflict-actions{margin-left:0}
   .ex-cloud-conflict-actions .ex-btn{width:100%;white-space:normal}
 }
+
+.ex-drive-connect{background:#fff0e8;border-color:#ffc4ac;color:#ba3705;font-weight:850}
+.ex-drive-connect:hover{background:#ffe7d9;color:#a72e04}
