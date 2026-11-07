@@ -97,3 +97,27 @@ test('autofill does not overwrite existing D or F',()=>{
   assert.equal(sheetRows[1][4],good.grammar);
   assert.equal(sheetRows[1][5],'Existing category');
 });
+
+test('new A-C edits queue urgent rows without rewinding the backlog cursor',()=>{
+  const values={VOCAB_AI_CURSOR:'2',VOCAB_AI_DIRTY:'1'};
+  const props={getProperty:k=>values[k]??null,setProperties:obj=>Object.assign(values,obj)};
+  const lock={tryLock:()=>true,releaseLock:()=>{}};
+  const context={
+    PropertiesService:{getScriptProperties:()=>props},
+    LockService:{getScriptLock:()=>lock}
+  };
+  vm.runInNewContext(source+'\nthis.onEdit=vocabularyAiOnEdit;',context);
+  context.onEdit({range:{
+    getSheet:()=>({getSheetId:()=>0}),getColumn:()=>1,getLastColumn:()=>3,
+    getRow:()=>1444,getLastRow:()=>1444
+  }});
+  assert.equal(values.VOCAB_AI_CURSOR,'2');
+  assert.equal(values.VOCAB_AI_PRIORITY_START,'1444');
+  assert.equal(values.VOCAB_AI_PRIORITY_END,'1444');
+  context.onEdit({range:{
+    getSheet:()=>({getSheetId:()=>0}),getColumn:()=>2,getLastColumn:()=>3,
+    getRow:()=>1500,getLastRow:()=>1502
+  }});
+  assert.equal(values.VOCAB_AI_PRIORITY_START,'1444');
+  assert.equal(values.VOCAB_AI_PRIORITY_END,'1502');
+});
