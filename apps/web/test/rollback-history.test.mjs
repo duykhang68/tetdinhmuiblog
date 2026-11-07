@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {Script} from 'node:vm';
 import {validatedBranch,actionStatus,mergeRollbackHistory,loadRollbackHistory,loadRollbackDetail} from '../src/services/rollbackHistory.mjs';
 
 test('branch allowlist excludes unsupported refs',()=> {
@@ -41,4 +43,17 @@ test('endpoint returns 100 maximum and only validated live API data',async()=>{
   assert.equal(value.source,'github');
   assert.equal(value.rows.length,1);
   assert.equal(value.historyLimit,100);
+});
+
+test('standalone dashboard JavaScript parses; no mock fallback; 5-minute/manual sync',()=>{
+  const html=readFileSync(new URL('../public/rollback-dashboard/index.html', import.meta.url),'utf8');
+  const source=html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i);
+  assert.ok(source,'Single-file dashboard must include JavaScript');
+  assert.doesNotThrow(()=>new Script(source[1]));
+  assert.doesNotMatch(html,/const DEMO\s*=/);
+  assert.doesNotMatch(html,/mockData\s*\(/);
+  assert.match(html,/setInterval\(\(\)=>\{if\(!document\.hidden\)refresh\(\)\},REFRESH_MS\)/);
+  assert.match(html,/↻ Đồng bộ ngay/);
+  assert.match(html,/\/api\/rollback-history\?branch=/);
+  assert.match(html,/Rollback đang bị khóa/);
 });
