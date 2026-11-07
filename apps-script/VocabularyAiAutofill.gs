@@ -79,7 +79,8 @@ function vocabularyAiOnEdit(e) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(8000)) return;
   try {
-    const current = Number(props.getProperty(VOCAB_STATE.cursor)) || firstRow;
+    const pending = props.getProperty(VOCAB_STATE.dirty) === '1';
+    const current = pending ? (Number(props.getProperty(VOCAB_STATE.cursor)) || firstRow) : firstRow;
     props.setProperties({
       [VOCAB_STATE.cursor]: String(Math.min(current, firstRow)),
       [VOCAB_STATE.dirty]: '1',
