@@ -8,7 +8,8 @@ export default defineConfig({
       input: {
         editor: resolve(ROOT, 'index.html'),
         researchInsights: resolve(ROOT, 'research-insights.html'),
-        starbucksInsights: resolve(ROOT, 'starbucks-insights/index.html')
+        starbucksInsights: resolve(ROOT, 'starbucks-insights/index.html'),
+        expenses: resolve(ROOT, 'expenses/index.html')
       }
     }
   },
