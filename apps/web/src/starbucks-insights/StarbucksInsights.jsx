@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   STORAGE_KEY, PAYMENT_OPTIONS, POLICY_EFFECTIVE_DATE, analytics, money, monthlySeries,
   calculatePayable, normalizeTransaction, rewardsProgress, starNumber, starsFor, toCsv, todayVietnam, validDate
 } from './model.js';
 import { parseStarbucksReceipt } from './receiptOcr.js';
 import { recognizeReceiptImage } from './receiptOcrBrowser.js';
+import { useStarbucksDriveSync } from './useStarbucksDriveSync.js';
 
 const initialForm = () => ({
   date: todayVietnam(), store: '', orderId: '', item: '', amount: '', baseAmount: '',
@@ -131,7 +132,6 @@ export default function StarbucksInsights() {
   const [receiptError, setReceiptError] = useState('');
   const [receiptResult, setReceiptResult] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState('');
-  const today = todayVietnam();
   useEffect(() => () => { if (receiptPreview) URL.revokeObjectURL(receiptPreview); }, [receiptPreview]);
 
   useEffect(() => {
@@ -142,6 +142,15 @@ export default function StarbucksInsights() {
       setError('Không thể lưu vào trình duyệt. Hãy xuất JSON để tránh mất dữ liệu.');
     }
   }, [transactions, config]);
+
+  const driveData = useMemo(() => ({ transactions, config }), [transactions, config]);
+  const setRestoredData = useCallback(data => {
+    setTransactions(data.transactions); setConfig(data.config);
+    setEditing(null); setForm(initialForm()); setNotice('Đã tải dữ liệu Starbucks từ Google Drive.');
+  }, []);
+  const { sync, conflict, connected, connect, synchronize, resolveConflict,
+    clientConfig, setManualClientId, toggleClientIdInput } = useStarbucksDriveSync(driveData, setRestoredData);
+  const today = todayVietnam();
 
   const updateForm = (key, value) => setForm(current => {
     const next = { ...current, [key]: value };
@@ -278,6 +287,48 @@ export default function StarbucksInsights() {
           <a href="/" className="sb-back"><Icon name="back" size={16}/> Về Editor</a>
         </div>
       </header>
+
+      <section className={'sb-panel sb-drive sb-drive-' + sync.status} aria-label="Đồng bộ dữ liệu Starbucks với Google Drive">
+        <div className="sb-drive-top">
+          <div className="sb-drive-title">
+            <span className="sb-drive-symbol"><Icon name="upload" size={20}/></span>
+            <div><span className="sb-kicker">PRIVATE GOOGLE DRIVE BACKUP</span>
+              <h2>Đồng bộ Google Drive <span className="sb-drive-dot" aria-hidden="true"/></h2>
+              <p>Lưu giao dịch, giá món gốc, phụ thu, giảm giá, mã đơn và cấu hình Stars. Tách biệt dữ liệu với trang Expenses.</p>
+            </div>
+          </div>
+          <div className="sb-drive-buttons">
+            {!connected && <button className="sb-btn sb-btn-soft" type="button" disabled={clientConfig.loading || sync.status==='connecting'} onClick={()=>void connect()}>
+              {clientConfig.loading ? 'Đang tìm OAuth…' : sync.status==='connecting' ? 'Đang kết nối…' : 'Kết nối Google Drive'}
+            </button>}
+            <button className="sb-btn sb-btn-primary" type="button" disabled={!connected || sync.status==='syncing' || sync.status==='connecting'} onClick={()=>void synchronize()}>
+              <Icon name="upload" size={16}/>{sync.status==='syncing' ? 'Đang đồng bộ…' : 'Đồng bộ ngay'}
+            </button>
+          </div>
+        </div>
+        <div className="sb-drive-details" role="status" aria-live="polite">
+          <strong>{sync.status==='synced' ? 'Đã sao lưu an toàn' : sync.status==='conflict' ? 'Cần xử lý xung đột' : sync.status==='pending' ? 'Chờ sao lưu' : connected ? 'Google Drive đã kết nối' : 'Chưa kết nối Drive'}</strong>
+          <span>{sync.message}</span>
+          <span>Tự đồng bộ mỗi 3 phút khi trang đang mở và phiên OAuth còn hiệu lực. {sync.lastSyncedAt ? 'Lần sao lưu: ' + new Date(sync.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}) : 'Chưa xác nhận bản sao trên Drive.'}</span>
+          {sync.snapshotId && <a href={'https://drive.google.com/file/d/' + encodeURIComponent(sync.snapshotId) + '/view'} target="_blank" rel="noopener noreferrer">Mở bản sao Google Drive</a>}
+          {!connected && !clientConfig.loading && clientConfig.clientId && !clientConfig.showInput &&
+            <button className="sb-drive-text-btn" type="button" onClick={toggleClientIdInput}>Đổi OAuth Client ID</button>}
+        </div>
+        {!connected && clientConfig.showInput && <div className="sb-drive-config">
+          <label htmlFor="sb-google-client">OAuth Web Client ID dùng chung Editor</label>
+          <input id="sb-google-client" type="text" value={clientConfig.clientId} autoComplete="off" spellCheck="false"
+            placeholder="123456789-example.apps.googleusercontent.com" onChange={e=>setManualClientId(e.target.value)}/>
+          <small>Chỉ cần nhập nếu không tìm được cấu hình tự động. Client ID là công khai; không nhập Client Secret.</small>
+        </div>}
+        {conflict && <div className="sb-drive-conflict" role="alert">
+          <strong>Có hai bản dữ liệu khác nhau — chưa ghi đè bản nào.</strong>
+          <p>Trước khi chọn một bản, hệ thống sẽ tải JSON dự phòng của bản còn lại. Các snapshot cũ trên Drive vẫn được giữ.</p>
+          <div className="sb-drive-buttons">
+            <button className="sb-btn sb-btn-soft" type="button" onClick={()=>void resolveConflict('drive')}>Sao lưu local &amp; khôi phục Drive</button>
+            <button className="sb-btn sb-btn-soft" type="button" onClick={()=>void resolveConflict('local')}>Sao lưu Drive &amp; dùng bản local</button>
+          </div>
+        </div>}
+      </section>
 
       <section className="sb-panel sb-entry" id="sb-consumption" aria-labelledby="sb-entry-title">
         <div className="sb-section-heading"><div><span className="sb-kicker">01 / CONSUMPTION</span><h2 id="sb-entry-title">Ghi nhận giao dịch</h2><p>Thêm hóa đơn mới. Biểu đồ và sao sẽ tự cập nhật mà không phải tải lại trang.</p></div><span className="sb-section-icon"><Icon name="receipt"/></span></div>
@@ -444,7 +495,7 @@ export default function StarbucksInsights() {
         </table>{history.length === 0 && <div className="sb-empty-history">Chưa có giao dịch phù hợp. Thêm một hóa đơn để bắt đầu thống kê.</div>}</div>
         {pageCount > 1 && <div className="sb-pagination"><span>Trang {Math.min(page, pageCount)} / {pageCount}</span><div><button disabled={page <= 1} onClick={() => setPage(page - 1)}>Trước</button><button disabled={page >= pageCount} onClick={() => setPage(page + 1)}>Sau</button></div></div>}
       </section>
-      <footer className="sb-footer"><span>© Duy Nguyen · Reddit-inspired Light Analytics</span><span>Dữ liệu chỉ lưu trên trình duyệt này — hãy sao lưu JSON định kỳ.</span></footer>
+      <footer className="sb-footer"><span>© Duy Nguyen · Reddit-inspired Light Analytics</span><span>Dữ liệu lưu tại trình duyệt; có thể sao lưu Google Drive sau khi kết nối và cấp quyền.</span></footer>
     </div>
   </div>;
 }

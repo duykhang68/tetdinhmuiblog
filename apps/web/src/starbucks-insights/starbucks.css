@@ -178,3 +178,32 @@ a{color:var(--sb-orange)}
 @media(max-width:740px){.sb-finance-equation{grid-template-columns:1fr;gap:6px}.sb-finance-operator{font-size:19px;line-height:1}.sb-finance-figure{min-height:0}.sb-finance-figure strong{font-size:21px}.sb-finance-summary{padding:14px}.sb-form>label.sb-finance-reason{grid-column:1/-1}.sb-shell{padding:19px 14px 27px}.sb-header{flex-direction:column;align-items:start}.sb-header-actions{width:100%;justify-content:space-between}.sb-brand-icon{width:48px;height:48px;border-radius:14px}.sb-brand{gap:11px}.sb-brand h1{font-size:23px}.sb-entry,.sb-chart-panel,.sb-progress-panel,.sb-settings-panel,.sb-history{padding:19px 16px;border-radius:16px}.sb-form{grid-template-columns:repeat(2,minmax(0,1fr))}.sb-insights{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 0}.sb-insights>div:nth-child(3){padding-left:0}.sb-insights>div:nth-child(2){border-right:0}.sb-history-heading{flex-direction:column;align-items:start}.sb-export{justify-content:flex-start}.sb-chart-heading h3{font-size:16px}.sb-heading{align-items:start;flex-direction:column}.sb-form-note{margin-left:0}}
 @media(max-width:480px){.sb-receipt-import{padding:12px}.sb-receipt-intro button{width:100%}.sb-ocr-thumb{width:78px}.sb-form>label.sb-finance-reason{grid-column:1}.sb-brand h1{font-size:20px}.sb-form,.sb-settings-fields{grid-template-columns:1fr}.sb-form>label{grid-column:1}.sb-kpis{gap:9px}.sb-stat{padding:13px}.sb-stat-value{font-size:19px;white-space:normal}.sb-stat-top{font-size:10px}.sb-section-heading h2,.sb-heading h2{font-size:20px}.sb-chart-detail{flex-direction:column;align-items:flex-start}.sb-insights strong{font-size:14px}.sb-select-label select{max-width:150px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}
+
+
+/* Google Drive backup — Reddit light mode; intentionally separate from Expenses data. */
+.sb-drive{padding:21px 25px;margin-bottom:24px;border-color:#f3d5c5;background:linear-gradient(110deg,#fffaf7 0%,#fff 52%,#f8fcfa 100%)}
+.sb-drive-top,.sb-drive-title,.sb-drive-buttons{display:flex;align-items:center;gap:14px}
+.sb-drive-top{justify-content:space-between;flex-wrap:wrap}
+.sb-drive-title{flex:1 1 380px;min-width:0}
+.sb-drive-title>div{min-width:0}
+.sb-drive-symbol{display:grid;place-items:center;flex:0 0 auto;width:47px;height:47px;border-radius:14px;background:#ffebe1;color:#e44b16}
+.sb-drive h2{font-size:18px;line-height:1.3;font-weight:900;letter-spacing:-.035em;margin:5px 0}
+.sb-drive p{font-size:11.5px;line-height:1.6;color:#66737a;margin:5px 0}
+.sb-drive-buttons{flex-wrap:wrap;gap:9px}
+.sb-drive-buttons .sb-btn{white-space:normal;text-align:center}
+.sb-drive-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#a9b4bc;margin-left:5px}
+.sb-drive-synced .sb-drive-dot{background:#098450;box-shadow:0 0 0 4px #dff7e9}
+.sb-drive-conflict .sb-drive-dot,.sb-drive-error .sb-drive-dot{background:#d83c33}
+.sb-drive-syncing .sb-drive-dot,.sb-drive-pending .sb-drive-dot{background:#ef8e20}
+.sb-drive-details{display:flex;align-items:center;flex-wrap:wrap;gap:8px 15px;margin-top:16px;padding:12px 14px;border:1px solid #e9e9e6;background:rgba(255,255,255,.83);border-radius:11px;color:#53626c;font-size:11px;line-height:1.5}
+.sb-drive-details strong{font-size:11.5px;font-weight:850;color:#00754a}
+.sb-drive-conflict .sb-drive-details strong,.sb-drive-error .sb-drive-details strong{color:#ad3330}
+.sb-drive-details a{font-weight:800}
+.sb-drive-text-btn{border:0;background:none;color:#d8470d;font-weight:800;font-size:11px;padding:3px}
+.sb-drive-config{display:flex;flex-direction:column;gap:8px;max-width:480px;margin-top:14px;font-size:11.5px;font-weight:800}
+.sb-drive-config input{width:100%;border:1px solid #d7e0e5;border-radius:9px;background:#fff;color:#202a30;padding:11px}
+.sb-drive-config small{font-weight:500;color:#6b767e;line-height:1.5}
+.sb-drive-conflict{border:1px solid #f7c9ba;background:#fff5f0;padding:14px;border-radius:13px;margin-top:14px}
+.sb-drive-conflict strong{font-size:12px;color:#a9321d}
+.sb-drive-conflict .sb-drive-buttons{margin-top:12px}
+@media(max-width:680px){.sb-drive{padding:17px 15px}.sb-drive-title{align-items:flex-start}.sb-drive-buttons{width:100%}.sb-drive-buttons .sb-btn{flex:1 1 150px}.sb-drive-details{align-items:flex-start;flex-direction:column}}
