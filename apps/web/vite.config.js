@@ -7,7 +7,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         editor: resolve(ROOT, 'index.html'),
-        researchInsights: resolve(ROOT, 'research-insights.html')
+        researchInsights: resolve(ROOT, 'research-insights.html'),
+        starbucksInsights: resolve(ROOT, 'starbucks-insights/index.html')
       }
     }
   },
