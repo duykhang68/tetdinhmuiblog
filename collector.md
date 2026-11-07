@@ -5,15 +5,15 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 01:04 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 01:07 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 40 |
-| AUTO-MERGED có bằng chứng | 18 |
-| Auto-merge PR thường | 13 |
+| PR đã merge (tối đa 300 PR gần đây) | 41 |
+| AUTO-MERGED có bằng chứng | 19 |
+| Auto-merge PR thường | 14 |
 | Auto-merge PR thay đổi workflow | 5 |
 | Nguồn merge chưa xác minh | 22 |
 
@@ -21,16 +21,17 @@ Cập nhật: **2026-11-07 01:04 UTC** · Repository: `duykhang68/tetdinhmuiblog
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 18
+    "Auto-merge verified" : 19
     "Chưa xác minh" : 22
 ```
 
-`Auto-merge ` ████████░░░░░░░░░░ **18/40**
+`Auto-merge ` ████████░░░░░░░░░░ **19/41**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#42](https://github.com/duykhang68/tetdinhmuiblog/pull/42) fix: recover Quality Gate pipeline sync via public GitH | 2026-11-07T01:07:28Z | Code/docs | ✅ | CI green trên HEAD `5bae7630`; GitHub chấp nhận merge; [Run #42322277332](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42322277332) |
 | [#41](https://github.com/duykhang68/tetdinhmuiblog/pull/41) feat(editor): live GitHub Actions Queue in right sideba | 2026-11-07T01:04:31Z | Code/docs | ✅ | CI green trên HEAD `8b43b349`; GitHub chấp nhận merge; [Run #42321986154](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42321986154) |
 | [#40](https://github.com/duykhang68/tetdinhmuiblog/pull/40) feat(collector): standalone live Markdown Insights dash | 2026-11-07T01:02:10Z | Code/docs | ✅ | CI green trên HEAD `2c26c114`; GitHub chấp nhận merge; [Run #42321760638](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42321760638) |
 | [#39](https://github.com/duykhang68/tetdinhmuiblog/pull/39) feat: standalone CI / Quality Gate Insights dashboard w | 2026-11-07T01:01:04Z | Code/docs | ✅ | CI green trên HEAD `c3373331`; GitHub chấp nhận merge; [Run #42321649414](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42321649414) |
@@ -52,8 +53,8 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 27.8% (5/18).
-- **Quality gate:** 18 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 26.3% (5/19).
+- **Quality gate:** 19 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
