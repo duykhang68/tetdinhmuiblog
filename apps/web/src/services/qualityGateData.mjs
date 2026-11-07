@@ -31,15 +31,40 @@ export function aggregateRuns(runs, clock = new Date()) {
 function withTimeout(fetcher, url, init) {
   return fetcher(url, {...init, signal: AbortSignal.timeout(12000)});
 }
+async function githubApiError(res, tokenConfigured) {
+  const detail = await res.json().catch(() => ({}));
+  const message = String(detail?.message || '');
+  const remaining = res.headers.get('x-ratelimit-remaining');
+  const limited = res.status === 429 || remaining === '0' || /rate limit|abuse detection/i.test(message);
+  let code, explanation;
+  if (limited) {
+    code = 'GITHUB_RATE_LIMIT';
+    explanation = 'GitHub API đã giới hạn lượt gọi. ' +
+      (tokenConfigured ? 'Kiểm tra hạn mức token và thử lại sau.' : 'Hãy cấu hình GITHUB_TOKEN (Actions: read) trong Cloudflare Pages Secrets.');
+  } else if (res.status === 401) {
+    code = 'GITHUB_TOKEN_INVALID';
+    explanation = 'GitHub từ chối token (HTTP 401). Kiểm tra hoặc thay GITHUB_TOKEN trong Cloudflare Pages Secrets.';
+  } else if (res.status === 403) {
+    code = tokenConfigured ? 'GITHUB_PERMISSION_DENIED' : 'GITHUB_TOKEN_REQUIRED';
+    explanation = tokenConfigured
+      ? 'GitHub từ chối quyền đọc Actions (HTTP 403). Kiểm tra Actions: read và repo duykhang68/tetdinhmuiblog của token.'
+      : 'GitHub từ chối truy cập không xác thực (HTTP 403). Cấu hình GITHUB_TOKEN phía server, không đặt token vào trình duyệt.';
+  } else {
+    code = 'GITHUB_API_ERROR';
+    explanation = 'GitHub API trả HTTP ' + res.status + '. Kiểm tra GitHub Actions và đường dẫn workflow.';
+  }
+  const error = new Error(explanation);
+  error.code = code;
+  error.status = [401, 403, 429].includes(res.status) ? 503 : 502;
+  const retryAfter = res.headers.get('retry-after');
+  if (limited && retryAfter && /^[0-9]+$/.test(retryAfter)) error.retryAfter = retryAfter;
+  return error;
+}
 function makeGithubFetcher(fetcher, token) {
   return async path => {
     const headers = {'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(token ? {Authorization: 'Bearer ' + token} : {})};
     const res = await withTimeout(fetcher, GH + path, {headers});
-    if (!res.ok) {
-      const err = new Error(res.status === 403 || res.status === 429 ? 'GitHub API rate limit hoặc thiếu quyền. Cấu hình GITHUB_TOKEN ở server.' : 'GitHub API HTTP ' + res.status);
-      err.status = res.status === 403 || res.status === 429 ? 503 : 502;
-      throw err;
-    }
+    if (!res.ok) throw await githubApiError(res, Boolean(token));
     return res.json();
   };
 }
