@@ -7,15 +7,17 @@
 - Dispatch workflow: `.github/workflows/rollback-deploy.yml`
 - Repository: `duykhang68/tetdinhmuiblog`; default branch: `main`
 
-The web app is a single self-contained HTML file: vanilla JavaScript and custom Reddit-inspired light CSS, with no build dependency or third-party scripts. Open it directly in a browser for a demo/offline view. Vite copies the file from `public` into `dist` unchanged.
+The web app is a single self-contained HTML file: vanilla JavaScript and custom Reddit-inspired light CSS, with no build dependency or third-party scripts. Open it directly in a browser for live read-only GitHub access (internet required). Offline mode never shows invented records. Vite copies the file from `public` into `dist` unchanged.
 
 ## Data accuracy
 
 1. Read `/commits?sha=<branch>`, `/pulls?state=closed`, `/actions/runs`, and the dedicated CI workflow runs.
 2. Reconcile PRs by merge commit SHA first, then by `(#PR-number)` in the commit message when possible.
 3. Display latest 10 commits per page. Searching, status filtering, pagination, accordion details and lazy changed-file retrieval are client-side.
-4. If GitHub fails, label records **DEMO** explicitly. Example status/PR data in demo mode is illustrative, not authenticated evidence.
-5. An Actions `success` means the matched workflow completed successfully, **not** that Cloudflare Pages has deployed that commit. Unmatched commits are `No signal`, not automatically `Failed`.
+4. **Never populate sample/DEMO entries** when an upstream request fails. If sync fails, report OFFLINE or STALE, preserve previously verified records only as stale read-only reference, and block rollback actions.
+5. Cloudflare Pages `/api/rollback-history` serves this *public repository only*, using server-side `GITHUB_TOKEN` or `RESEARCH_GITHUB_TOKEN` when configured. Credentials never appear in client responses. On a local file or proxy failure, the SPA tries the public GitHub REST endpoints directly.
+6. Automatically sync every **5 minutes while tab is visible**, refresh after returning to a stale tab, and expose **Đồng bộ ngay** for manual refresh. Data older than the 5-minute threshold (with 30s scheduling tolerance) cannot be used to initiate rollback.
+7. An Actions `success` means the matched workflow completed successfully, **not** that Cloudflare Pages has deployed that commit. Unmatched commits are `No signal`, not automatically `Failed`.
 
 ## Credentials
 
@@ -42,11 +44,13 @@ The rollback workflow also needs a GitHub Actions secret `ROLLBACK_WORKFLOW_TOKE
 
 ## QA checklist
 
-- [ ] Load local `index.html` and confirm 100% light theme and marked DEMO data while offline.
-- [ ] Load `/rollback-dashboard/` via Cloudflare after merge and verify actual GitHub rows, cards, search, filtering, pagination and expansion.
+- [ ] Load local `index.html` and confirm 100% light theme. When offline, it must show no invented data and refuse rollback.
+- [ ] Load `/rollback-dashboard/` via Cloudflare after merge and verify real GitHub rows using the same-origin `/api/rollback-history?branch=main` endpoint, cards, search, filtering, pagination and expansion.
 - [ ] Check that changed files appear on expansion and links use the selected repository.
 - [ ] Test API read without token on the public repository, then with a token via Settings.
-- [ ] Ensure invalid SHA, unknown branch, unauthorized token and missing workflow all fail before dispatch.
+- [ ] Ensure invalid SHA, unknown branch, unauthorized token, stale/offline snapshot and missing workflow all fail before dispatch.
+- [ ] Verify background sync every 5 minutes, manual **Đồng bộ ngay** and refresh when a hidden tab becomes visible.
+- [ ] Simulate GitHub 403/network error and verify OFFLINE/STALE only: no DEMO or false live counts.
 - [ ] Validate confirmation checkbox blocks dispatch until checked.
 - [ ] Test workflow using a **non-production test branch** that exists and contains a known ancestor SHA; inspect generated PR and CI before any merge.
 - [ ] Verify no PAT is persisted if the remember option remains unchecked.
@@ -57,3 +61,6 @@ The rollback workflow also needs a GitHub Actions secret `ROLLBACK_WORKFLOW_TOKE
 - `gh-pages` / `deploy` may not exist on this repository; their selection is supported but runtime validation will reject missing branches.
 - Single-file/offline operation necessarily cannot authenticate or dispatch GitHub actions without an Internet connection.
 - Rollback leaves existing workflow definitions unchanged to preserve current security gates. It therefore restores application content, not an exact historical workflow configuration.
+## Live sync deployment notes
+
+On Cloudflare Pages, configure `GITHUB_TOKEN` as a **secret** (or existing `RESEARCH_GITHUB_TOKEN`) with `Contents: Read` and `Actions: Read` for `duykhang68/tetdinhmuiblog`. The endpoint also supports public unauthenticated GitHub API calls, but these have a substantially lower rate limit. The Function only reads the fixed public repository and never returns token data. The live history includes at most the latest 100 commits, 100 closed PRs and 100 recent Actions runs (plus CI sample), so card counts describe the loaded sample, not all-time GitHub totals. The frontend does **not** automatically deploy or roll back based on timer refresh; the 5-minute sync is read-only.
