@@ -1,13 +1,16 @@
 import TurndownService from 'turndown';
 import {marked} from 'marked';
 import DOMPurify from 'dompurify';
+import {consumeSeriesFrontmatter, seriesFrontmatter} from './series.js';
 const converter = new TurndownService({headingStyle: 'atx', codeBlockStyle: 'fenced'});
 // Rich article blocks and tables remain valid inline HTML inside Markdown.
 converter.keep(['table','aside','section','figure','details','div','u']);
-export function serializeArticle({title, labels, html}) {
-  return '<!-- duy-editor:' + JSON.stringify({title, labels}).replace(/</g, '\\u003c').replace(/>/g, '\\u003e') + ' -->\n\n# ' + title.replace(/\r?\n/g, ' ') + '\n\n' + converter.turndown(html) + '\n';
+export function serializeArticle({title, labels, html, series}) {
+  return seriesFrontmatter(series) + '<!-- duy-editor:' + JSON.stringify({title, labels}).replace(/</g, '\\u003c').replace(/>/g, '\\u003e') + ' -->\n\n# ' + title.replace(/\r?\n/g, ' ') + '\n\n' + converter.turndown(html) + '\n';
 }
 export function parseArticle(content, name = 'Bài viết') {
+  const frontmatter=consumeSeriesFrontmatter(content);
+  content=frontmatter.content;
   let title = name.replace(/\.md$/i, ''), labels = '';
   const match = content.match(/^<!-- duy-editor:(.*?) -->\r?\n/);
   if (match) {
@@ -19,5 +22,5 @@ export function parseArticle(content, name = 'Bài viết') {
     const heading = content.match(/^# (.+)(?:\r?\n|$)/);
     if (heading) { title = heading[1]; content = content.slice(heading[0].length); }
   }
-  return {title, labels, html: DOMPurify.sanitize(marked.parse(content), {ADD_ATTR: ['class', 'data-kind'], FORBID_TAGS: ['style','iframe','object','embed']})};
+  return {title, labels, html: DOMPurify.sanitize(marked.parse(content), {ADD_ATTR: ['class', 'data-kind'], FORBID_TAGS: ['style','iframe','object','embed']}), series:frontmatter.series};
 }

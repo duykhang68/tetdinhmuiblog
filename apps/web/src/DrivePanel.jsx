@@ -1,14 +1,15 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {googleDrive} from './services/googleDriveService.js';
 import {serializeArticle, parseArticle} from './services/markdown.js';
+import {seriesValidation} from './services/series.js';
 const clientKey = 'dn-editor-drive-client-id';
-export default function DrivePanel({title, labels, html, dirty, onOpen, onBusy, externalBusy}) {
+export default function DrivePanel({title, labels, html, series, dirty, onOpen, onBusy, externalBusy}) {
   const [clientId, setClientId] = useState(() => {try {return localStorage.getItem(clientKey) || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';} catch {return import.meta.env.VITE_GOOGLE_CLIENT_ID || '';}});
   const [connected, setConnected] = useState(googleDrive.connected());
   const [working, setWorking] = useState(false), [files, setFiles] = useState([]), [file, setFile] = useState(null);
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [saved, setSaved] = useState('');
   const lock = useRef(false);
-  const fingerprint = JSON.stringify({title, labels, html});
+  const fingerprint = JSON.stringify({title, labels, html, series});
   useEffect(() => {const timer = setInterval(() => setConnected(googleDrive.connected()), 1000); return () => clearInterval(timer);}, []);
   async function run(action) {
     if (lock.current || externalBusy) return;
@@ -23,7 +24,9 @@ export default function DrivePanel({title, labels, html, dirty, onOpen, onBusy, 
     setFiles(await googleDrive.listBlogPosts());
   });
   const save = () => run(async () => {
-    const result = await googleDrive.saveMarkdownToDrive(title, serializeArticle({title, labels, html}), file);
+    const issue=seriesValidation(series);
+    if(issue) throw new Error('Series: '+issue);
+    const result = await googleDrive.saveMarkdownToDrive(title, serializeArticle({title, labels, html, series}), file);
     setFile(result); setSaved(fingerprint); setMessage('Đã lưu ' + result.name + ' lúc ' + new Date().toLocaleTimeString('vi-VN'));
     setFiles(await googleDrive.listBlogPosts());
   });
