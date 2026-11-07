@@ -14,7 +14,7 @@ const moneyAtEnd = line => {
   return value;
 };
 
-const removeMoneyAtEnd = line => String(line).replace(/[-−]?\s*[₫đ]?\s*(?:\d{1,3}(?:[.,\s]\d{3})+|\d{1,8})(?:\s*(?:[₫đ]|vnd))?\s*$/iu, '').trim();
+const removeMoneyAtEnd = line => String(line).replace(/[-−]?\s*(?:[₫đ]|[dD](?=\d))?\s*(?:\d{1,3}(?:[.,\s]\d{3})+|\d{1,8})(?:\s*(?:[₫đ]|vnd))?\s*$/iu, '').trim();
 const labels = {
   order: /(?:ma don hang|order id|check no|check number)/,
   date: /(?:ngay\s*&?\s*gio|ngay giao dich|date\s*(?:&|and)?\s*time)/,
@@ -38,10 +38,10 @@ const clean = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 function parseOrderId(lines) {
   const index = findIndex(lines, labels.order);
   if (index < 0) return '';
-  const first = ascii(lines[index]).replace(/^.*?(?:ma don hang|order id|check no|check number)\s*[:：-]?\s*/, '');
-  for (const value of [first, clean(lines[index + 1])]) {
-    const candidate = value.match(/\b[A-Z0-9][A-Z0-9-]{5,29}\b/i)?.[0];
-    if (candidate && /\d/.test(candidate) && !/^(?:20\d{2}[\/-]\d|ngay|date)/i.test(candidate)) return candidate;
+  for (const row of [lines[index], lines[index + 1]]) {
+    const matches = String(row || '').match(/\b[A-Z0-9][A-Z0-9-]{5,29}\b/gi) || [];
+    const candidate = matches.find(value => /\d/.test(value) && !/^20\d{2}[-/]\d/.test(value));
+    if (candidate) return candidate;
   }
   return '';
 }
