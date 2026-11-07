@@ -36,3 +36,15 @@ test('Editor shortcut and authenticated API are wired',()=>{
   assert.match(server,/GOOGLE_SERVICE_ACCOUNT_JSON/);
   assert.doesNotMatch(html,/PRIVATE KEY|client_secret|GOOGLE_SERVICE_ACCOUNT_JSON/);
 });
+
+test('Google sign-in is reachable after a 401 and returns to vocabulary insights',()=>{
+  const cloud=readFileSync(new URL('../functions/[[path]].js',import.meta.url),'utf8');
+  const local=readFileSync(new URL('../../server/index.mjs',import.meta.url),'utf8');
+  assert.match(html,/id="google-login" href="\/auth\/google\/start\?return_to=vocabulary-insights"/);
+  assert.match(html,/if\(res.status===401\)[^\n]*showLogin\(true\)/);
+  assert.match(html,/showLogin\(false\)/);
+  for (const source of [cloud,local]){
+    assert.match(source,/url\.searchParams\.get\('return_to'\)==='vocabulary-insights'\?'\/vocabulary-insights\/'/);
+    assert.match(source,/\['\/quality-gate','\/research-insights\.html'[^\]]*'\/vocabulary-insights\/'\]/);
+  }
+});
