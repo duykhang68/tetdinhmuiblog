@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import sanitizeHtml from 'sanitize-html';
 import { getQualityGateSnapshot } from '../web/src/services/qualityGateData.mjs';
 import { loadResearchInsights } from '../web/src/services/researchInsights.mjs';
+import { loadGa4Traffic } from '../web/src/services/ga4Traffic.mjs';
 import { randomToken, deriveKey, seal, unseal, secureEquals, codeChallenge, BLOGGER_SCOPE, BLOGGER_BASE, numericId, normalizeInput, safePost, readCookies, errorStatus } from './lib.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
@@ -128,9 +129,10 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
       if(req.method==='GET'&&url.pathname==='/auth/google/start'){
         let s=lookup(req);if(!s){s=startSession();res.setHeader('Set-Cookie',cookie(s.id));}
         const state=randomToken(),verifier=randomToken(48);
-        s.flow={state,verifier,expires:Date.now()+10*60_000,returnTo:url.searchParams.get('return_to')==='/quality-gate'?'/quality-gate':url.searchParams.get('return_to')==='research-insights'?'/research-insights.html':'/'};persist();
+        const analyticsRequested=url.searchParams.get('return_to')==='research-insights'&&url.searchParams.get('analytics')==='1';
+        s.flow={state,verifier,expires:Date.now()+10*60_000,analyticsRequested,returnTo:url.searchParams.get('return_to')==='/quality-gate'?'/quality-gate':url.searchParams.get('return_to')==='research-insights'?'/research-insights.html':'/'};persist();
         const auth=new URL('https://accounts.google.com/o/oauth2/v2/auth');
-        Object.entries({client_id:config.clientId,redirect_uri:config.redirect,response_type:'code',scope:BLOGGER_SCOPE,access_type:'offline',prompt:'consent',state,code_challenge:codeChallenge(verifier),code_challenge_method:'S256'}).forEach(([k,v])=>auth.searchParams.set(k,v));
+        Object.entries({client_id:config.clientId,redirect_uri:config.redirect,response_type:'code',scope:analyticsRequested?BLOGGER_SCOPE+' https://www.googleapis.com/auth/analytics.readonly':BLOGGER_SCOPE,access_type:'offline',prompt:'consent',state,code_challenge:codeChallenge(verifier),code_challenge_method:'S256'}).forEach(([k,v])=>auth.searchParams.set(k,v));
         return redirect(res,auth.toString());
       }
       if(req.method==='GET'&&url.pathname==='/auth/google/callback'){
@@ -142,7 +144,7 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
         const result=await tokenRequest({client_id:config.clientId,client_secret:config.clientSecret,code,code_verifier:flow.verifier,redirect_uri:config.redirect,grant_type:'authorization_code'});
         const old=s.token||{};if(!result.refresh_token && !old.refresh)throw fail(401,'Chưa có refresh token. Hãy thu hồi quyền app trong Google Account rồi kết nối lại.');
         // Rotate the session ID after the OAuth callback to prevent session fixation.
-        const newer=startSession();newer.token={access:result.access_token,refresh:result.refresh_token||old.refresh,expires:Date.now()+(result.expires_in||3600)*1000};
+        const newer=startSession();newer.token={access:result.access_token,refresh:result.refresh_token||old.refresh,expires:Date.now()+(result.expires_in||3600)*1000,analytics:!!flow.analyticsRequested&&(!result.scope||result.scope.split(/\s+/).includes('https://www.googleapis.com/auth/analytics.readonly'))};
         delete sessions[s.id];persist();
         return redirect(res,config.frontend+(['/quality-gate','/research-insights.html'].includes(flow.returnTo)?flow.returnTo:'/')+'?connected=1',{'Set-Cookie':cookie(newer.id)});
       }
@@ -169,6 +171,12 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
         await accessToken(s);
         const snapshot=await getQualityGateSnapshot({fetcher,githubToken:process.env.GITHUB_TOKEN||process.env.RESEARCH_GITHUB_TOKEN||'',cloudflare:{accountId:process.env.CLOUDFLARE_ACCOUNT_ID,projectName:process.env.CLOUDFLARE_PAGES_PROJECT,token:process.env.CLOUDFLARE_API_TOKEN}});
         return json(res,200,snapshot);
+      }
+      if(req.method==='GET'&&url.pathname==='/api/ga4-traffic'){
+        if(!s.token.analytics)return json(res,200,{status:'needs_consent'});
+        const ga4=await loadGa4Traffic({fetcher,token:await accessToken(s),propertyId:process.env.GA4_PROPERTY_ID||s.ga4PropertyId||'563038949'});
+        if(ga4.status==='connected'){s.ga4PropertyId=ga4.propertyId;persist();}
+        return json(res,200,ga4);
       }
       if(req.method==='GET'&&url.pathname==='/api/research-insights'){
         await accessToken(s);
