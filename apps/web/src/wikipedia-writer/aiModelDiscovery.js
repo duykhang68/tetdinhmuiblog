@@ -2,6 +2,17 @@
 // catalog availability also means this account is allowed to invoke a model.
 const GEMINI_ROOT='https://generativelanguage.googleapis.com/v1beta';
 const GROQ_ROOT='https://api.groq.com/openai/v1';
+const DISCOVERY_TIMEOUT_MS=12000;
+const GENERATION_TIMEOUT_MS=45000;
+// Bound requests to prevent an unresponsive AI model from blocking the editor indefinitely.
+async function timedFetch(fetcher,url,options={},timeoutMs=GENERATION_TIMEOUT_MS){
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),timeoutMs);
+ try{return await fetcher(url,{...options,signal:controller.signal});}
+ catch(error){if(controller.signal.aborted)throw Error('Yêu cầu quá thời gian '+Math.round(timeoutMs/1000)+' giây.');throw error;}
+ finally{clearTimeout(timer);}
+}
+
 const GEMINI_PREFERENCE=['gemini-3.8-flash','gemini-3.7-flash','gemini-3.6-flash','gemini-3.5-flash','gemini-3.5-flash-lite'];
 const GROQ_PREFERENCE=['qwen/qwen3.8-27b','openai/gpt-oss-120b','qwen/qwen3.6-27b'];
 const safeGemini=id=>/^gemini-3\.(?:8|7|6|5|1)-[a-z0-9-]+$/.test(id)
@@ -33,13 +44,13 @@ export async function listGeminiModels(key,fetcher=fetch){
  const all=[];let page='';
  for(let i=0;i<4;i++){
   const url=GEMINI_ROOT+'/models?pageSize=100'+(page?'&pageToken='+encodeURIComponent(page):'');
-  const data=await jsonResponse(await fetcher(url,{headers:{'x-goog-api-key':key}}));
+  const data=await jsonResponse(await timedFetch(fetcher,url,{headers:{'x-goog-api-key':key}},DISCOVERY_TIMEOUT_MS));
   all.push(...(data.models||[]));page=data.nextPageToken||'';if(!page)break;
  }
  return chooseGeminiModels(all);
 }
 export async function listGroqModels(key,fetcher=fetch){
- const data=await jsonResponse(await fetcher(GROQ_ROOT+'/models',{headers:{Authorization:'Bearer '+key}}));
+ const data=await jsonResponse(await timedFetch(fetcher,GROQ_ROOT+'/models',{headers:{Authorization:'Bearer '+key}},DISCOVERY_TIMEOUT_MS));
  return chooseGroqModels(data.data||[]);
 }
 export async function generateGemini(key,prompt,fetcher=fetch,onProgress=()=>{}){
@@ -50,10 +61,10 @@ export async function generateGemini(key,prompt,fetcher=fetch,onProgress=()=>{})
  for(const model of models.slice(0,5)){
   onProgress({type:'generation',provider:'Gemini',model});
   try{
-   const data=await jsonResponse(await fetcher(GEMINI_ROOT+'/models/'+encodeURIComponent(model)+':generateContent',{
+   const data=await jsonResponse(await timedFetch(fetcher,GEMINI_ROOT+'/models/'+encodeURIComponent(model)+':generateContent',{
     method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},
     body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',temperature:0.45,maxOutputTokens:8192}})
-   }));
+   },GENERATION_TIMEOUT_MS));
    const text=(data.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
    if(!text.trim())throw Error('Model không trả về nội dung văn bản.');
    return {text,model};
@@ -69,10 +80,10 @@ export async function generateGroq(key,prompt,fetcher=fetch,onProgress=()=>{}){
  for(const model of models.slice(0,4)){
   onProgress({type:'generation',provider:'Groq',model});
   try{
-   const data=await jsonResponse(await fetcher(GROQ_ROOT+'/chat/completions',{
+   const data=await jsonResponse(await timedFetch(fetcher,GROQ_ROOT+'/chat/completions',{
     method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},
     body:JSON.stringify({model,temperature:0.4,max_completion_tokens:7000,response_format:{type:'json_object'},messages:[{role:'system',content:'Return valid JSON only.'},{role:'user',content:prompt}]})
-   }));
+   },GENERATION_TIMEOUT_MS));
    const text=data.choices?.[0]?.message?.content||'';
    if(!text.trim())throw Error('Model không trả về nội dung văn bản.');
    return {text,model};
