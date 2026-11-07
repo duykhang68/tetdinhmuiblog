@@ -7,8 +7,8 @@ import {
 const initial={status:'checking',message:'Đang kiểm tra lưu trữ Cloudflare',lastSyncedAt:null};
 function readLocal() {
   const raw=localStorage.getItem(STORAGE_KEY);
-  try{return {raw,data:raw?normalizeData(JSON.parse(raw)):emptyData()};}
-  catch{return {raw,data:emptyData()};}
+  try{return {raw,data:raw?normalizeData(JSON.parse(raw)):emptyData(),invalid:false};}
+  catch{return {raw,data:emptyData(),invalid:true};}
 }
 function backupSnapshot(data,name) {
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
@@ -46,9 +46,10 @@ export function useExpenseCloudSync(data,setData) {
       }
       csrf.current=auth.csrf||'';
       const original=readLocal();
+      if(original.invalid){setSync(s=>({...s,status:'error',message:'Dữ liệu local không hợp lệ. Không tự đồng bộ để tránh mất dữ liệu.'}));return;}
       const remote=await requestCloud('/api/expenses-state');
       const meta=readSyncMeta(localStorage);
-      const plan=planSync({localData:original.data,remote,meta});
+      const plan=planSync({localData:original.data,remote,meta,localMissing:original.raw===null});
 
       // Local edits can happen while the GET is in flight. Never overwrite them.
       if(!snapshotStillCurrent(original.raw)){
@@ -161,6 +162,11 @@ export function useExpenseCloudSync(data,setData) {
       if(!window.confirm('Bản local chưa đồng bộ sẽ được tải xuống thành JSON dự phòng trước khi thay bằng bản Cloudflare. Tiếp tục?'))return;
       backupSnapshot(readLocal().data,'expenses-local-before-cloud-restore.json');
       try{
+        const fresh=await requestCloud('/api/expenses-state');
+        if(fresh.ownerId!==remote.ownerId||fresh.revision!==remote.revision)
+          throw Object.assign(new Error('Bản Cloudflare đã thay đổi. Chưa khôi phục; hãy đồng bộ lại.'),{status:409});
+        if(!snapshotStillCurrent(raw))
+          throw Object.assign(new Error('Bản local vừa thay đổi. Chưa khôi phục; hãy đồng bộ lại.'),{status:409});
         const canonical=snapshotFingerprint(remote.data||emptyData());
         localStorage.setItem(STORAGE_KEY,canonical);
         persistSyncMeta(localStorage,remote.ownerId,remote.revision,canonical,remote.updatedAt);
