@@ -165,21 +165,27 @@ export default function Writer(){
      body:JSON.stringify({majorDimension:'ROWS',values:fresh.map(toSheetRow)})
    });
    setSheetWriteSucceeded(true);
-   setNotice('Đã thêm '+(result.updates?.updatedRows||fresh.length)+' dòng vào Google Sheet. '+(rows.length-fresh.length)+' dòng trùng được bỏ qua. Bạn có thể nhấn “Phiên từ vựng mới” để làm trống Section 4.');
+   // A successful append completes the article session. Preserve Section 4 until the user resets it.
+   setUrl('');
+   setTitle('');
+   setArticle('');
+   setWritingProgress({state:'idle',completed:0,stage:'',detail:'Sẵn sàng cho bài Wikipedia mới',model:''});
+   setDirty(true);
+   setNotice('Đã thêm '+(result.updates?.updatedRows||fresh.length)+' dòng vào Google Sheet. '+(rows.length-fresh.length)+' dòng trùng được bỏ qua. Đã làm trống bản thảo để bắt đầu bài Wikipedia mới. Bạn có thể nhấn “Phiên từ vựng mới” để làm trống Section 4.');
   }catch(e){setError(e.message);}finally{setBusy('');}
  }
  function resetVocabularySession(){
   if(!sheetWriteSucceeded||!rows.length||busy)return;
-  if(!confirm('Bắt đầu phiên từ vựng mới? Chỉ xóa danh sách tại Section 4. Các từ đã ghi vào Google Sheets và bài báo hiện tại vẫn được giữ nguyên.'))return;
+  if(!confirm('Bắt đầu phiên từ vựng mới? Chỉ xóa danh sách tại Section 4. Các từ đã ghi vào Google Sheets vẫn được giữ nguyên.'))return;
   setRows([]);
   setSheetWriteSucceeded(false);
   setDirty(true);
   setError('');
-  setNotice('Đã bắt đầu phiên từ vựng mới. Google Sheet và bài báo hiện tại không thay đổi.');
+  setNotice('Đã bắt đầu phiên từ vựng mới. Google Sheet không thay đổi.');
  }
  async function save(){setBusy('drive');setError('');try{await backup();}catch(e){setError(e.message);}finally{setBusy('');}}
  useEffect(()=>{
-  const timer=setInterval(()=>{const s=stateRef.current;if(!s.access||!s.dirty||!s.article||busy)return;
+  const timer=setInterval(()=>{const s=stateRef.current;if(!s.access||!s.dirty||busy)return;
     backup(s.access).catch(e=>setError('Tự đồng bộ Drive: '+e.message));},180000);
   return ()=>clearInterval(timer);
  },[busy]);
