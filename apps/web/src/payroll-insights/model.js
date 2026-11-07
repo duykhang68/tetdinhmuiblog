@@ -46,7 +46,7 @@ export function readVnd(value){
  const amount=Number(numbers.replace(/[.,]/g,''));
  return Number.isSafeInteger(amount)?(negative?-amount:amount):null;
 }
-const DATE_WORDS=/\b(?:ngay|thang|nam|date|period|ngay sinh|cmnd|cccd|mst|tai khoan|id|ma nv|so dien thoai)\b/i;
+const DATE_WORDS=/\b(?:ngay|thang|nam|date|period|ngay sinh|cmnd|cccd|mst|tai khoan|id|ma nv|ma nhan vien|ma so nhan vien|so dien thoai)\b/i;
 function rowId(label,page){let h=2166136261;for(const c of page+':'+label){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return 'p'+page+'-'+(h>>>0).toString(36);}
 export function extractLine(line,page=1){
  const raw=String(line??'').trim().replace(/\s+/g,' ');
