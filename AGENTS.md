@@ -32,3 +32,15 @@ The mandate is repository-wide, but **adding this policy does not itself retrofi
 - Prefer existing `apps/web/src/services/googleDriveService.js` and patterns in `apps/web/src/expenses/` and `apps/web/src/starbucks-insights/` over creating a new OAuth stack.
 - Maintain accessible, responsive **Reddit-inspired light mode** unless the owner explicitly requests otherwise; avoid changing unrelated layouts or approved behavior.
 - Follow the project's CI quality gate and keep changes scoped to one feature per PR.
+
+## Mandatory rule: Quick Access shortcuts for every new page
+
+**NON-NEGOTIABLE / BẮT BUỘC:** Whenever a PR creates a new website page, standalone route, dashboard, utility, insights view, or other user-facing destination with its own URL, it MUST register a visible, working shortcut in the Editor's existing **“Truy cập nhanh” (Quick Access)** section. The owner must not have to memorize or manually type the URL.
+
+Acceptance criteria:
+1. Add a clearly named shortcut pointing to the correct canonical deployed URL or route; do not link to an unrelated GitHub source file in place of the usable page.
+2. Use the existing Quick Access section and navigation conventions rather than creating a competing widget. Keep existing links intact, deduplicate by canonical destination, and use consistent ordering/labels.
+3. The shortcut must work on desktop and mobile, be keyboard accessible, and lead to the actual page (not a 404 or placeholder).
+4. When a route is renamed or retired, update/remove its corresponding shortcut in the **same PR**. A page and its shortcut must ship together.
+5. Include the Quick Access entry in the PR acceptance checklist and test/verify navigation in CI where feasible. Do not mark a new-page PR complete without the entry and a checked URL.
+6. This rule is repository-wide and applies alongside the Google Drive sync mandate; neither rule exempts the other.
