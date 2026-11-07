@@ -192,6 +192,23 @@ test('OCR candidate fusion obtains store from header and financial totals from r
  assert.match(merged.ocrVariants[1].text,/KCN Bau Bang/);
 });
 
+test('Header-only OCR can contribute ShopID despite failing standalone POS classifier',()=>{
+ const payment=[
+  'HAAS COFFE','KCN B -p13+ van >','Check: 139154',
+  'Ngay: 03-11-2026 17:45 POS01','Payoo Bank Card 54,000 —= .'
+ ].join('\n');
+ const header=['HAAS COFFE','KCN Bau Bang','ShopID: 30799'].join('\n');
+ assert.equal(Object.keys(parseHighlandsReceipt(header).fields).length,0);
+ const merged=mergeHighlandsReceiptCandidates([
+  {label:'Ảnh gốc',text:payment,confidence:73},
+  {label:'Tiêu đề & ShopID',text:header,confidence:90}
+ ]);
+ assert.equal(merged.shopId,'30799');
+ assert.equal(merged.fields.store,'KCN Bau Bang');
+ assert.equal(merged.fields.orderId,'139154');
+ assert.equal(merged.fields.amount,'54000');
+});
+
 test('OCR candidate fusion leaves a visible warning if recognized ShopIDs disagree',()=>{
  const original=bauBang;
  const competing=bauBang.replace('ShopID: 30799','ShopID: 55555')
