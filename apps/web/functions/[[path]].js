@@ -2,6 +2,7 @@
 // No Node HTTP server or local filesystem dependencies.
 import sanitizeHtml from 'sanitize-html';
 import { loadGa4Traffic } from '../src/services/ga4Traffic.mjs';
+import {getVocabularySheet} from '../src/services/vocabularySheet.mjs';
 import { makeOutboundBudget, googleQuotaError } from '../src/services/freeQuotaPolicy.mjs';
 import {loadExpenseCloud,writeExpenseCloud} from '../src/expenses/cloudStore.mjs';
 
@@ -100,7 +101,14 @@ export async function onRequest({request,env}) {
     else if(request.method==='POST'&&pathname==='/api/logout') {mustAuth();verifyWrite();return response({ok:true},200,{'Set-Cookie':clearCookie()});}
     else {
       mustAuth();
-      if(request.method==='GET'&&pathname==='/api/expenses-state'){
+      if(request.method==='GET'&&pathname==='/api/vocabulary-sheet'){
+        const result=await getVocabularySheet({
+          serviceAccountJson:env.GOOGLE_SERVICE_ACCOUNT_JSON,
+          force:url.searchParams.get('refresh')==='1'
+        });
+        out=response(result);
+      }
+      else if(request.method==='GET'&&pathname==='/api/expenses-state'){
         const owner=await expenseOwnerId();
         const snapshot=await loadExpenseCloud({db:env.EXPENSES_DB,ownerId:owner});
         out=response({...snapshot,ownerId:owner});
