@@ -330,7 +330,7 @@ export default function HighlandsInsights() {
       </section>
 
       <section className="sb-panel sb-entry" id="sb-consumption" aria-labelledby="sb-entry-title">
-        <div className="sb-section-heading"><div><span className="sb-kicker">01 / CONSUMPTION</span><h2 id="sb-entry-title">Ghi nhận giao dịch</h2><p>Thêm hóa đơn mới. Biểu đồ và sao sẽ tự cập nhật mà không phải tải lại trang.</p></div><span className="sb-section-icon"><Icon name="receipt"/></span></div>
+        <div className="sb-section-heading"><div><span className="sb-kicker">01 / CONSUMPTION</span><h2 id="sb-entry-title">Ghi nhận giao dịch</h2><p>Thêm hóa đơn mới. Biểu đồ chi tiêu, DRIPS và TemĐI ước tính sẽ cập nhật ngay.</p></div><span className="sb-section-icon"><Icon name="receipt"/></span></div>
         <form className="sb-form" onSubmit={onSubmit}>
           <div className="sb-receipt-import">
             <div className="sb-receipt-intro">
