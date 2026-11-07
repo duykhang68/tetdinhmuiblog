@@ -50,5 +50,5 @@ test('Blogger article prose is justified without changing titles or structured b
   assert.match(css, /text-align-last:\s*start/);
   assert.match(css, /blockquote p, \.hd-quote p, \.hd-callout p, \.hd-note p/);
   assert.match(css, /figcaption p, table p, \.hd-table-wrap p/);
-  assert.match(css, /\[style\\\*='text-align: center'\]/);
+  assert.ok(css.includes("[style*='text-align: center']"));
 });
