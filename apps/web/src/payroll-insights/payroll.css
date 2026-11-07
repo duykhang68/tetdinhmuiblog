@@ -103,3 +103,18 @@ a{color:#cb3500}
 @media(max-width:980px){.pr-shell{padding:22px 16px 30px}.pr-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.pr-law-grid{grid-template-columns:1fr}.pr-pdf-viewer object{height:72vh}.pr-section-head{align-items:flex-start}}
 @media(max-width:650px){.pr-header{flex-wrap:wrap}.pr-back{margin-left:75px}.pr-shell{padding:17px 10px}.pr-panel{padding:18px 13px;border-radius:16px}.pr-privacy{flex-direction:column;gap:4px}.pr-section-head{flex-direction:column;gap:8px}.pr-pick{flex-wrap:wrap;padding:14px}.pr-pick b{width:100%}.pr-setup{grid-template-columns:1fr}.pr-summary-strip{grid-template-columns:1fr}.pr-metrics{gap:8px}.pr-metric{padding:13px}.pr-pdf-viewer object{min-height:500px;height:72vh}.pr-brand h1{font-size:25px}.pr-table-filters input{min-width:100%}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+/* Opt-in encrypted Drive backup: neutral Reddit Light, no visual false "synced" state. */
+.pr-drive{border-color:#cfdde4;background:#fcfdfd}
+.pr-drive-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:17px}
+.pr-drive-heading h2{margin:7px 0;font-size:19px;letter-spacing:-.035em}
+.pr-drive-heading p{font-size:11.5px;line-height:1.7;color:#65747e;margin:0}
+.pr-drive-state{flex:0 0 auto;white-space:nowrap;border:1px solid #cbded3;background:#eef8f0;color:#186448;padding:8px 12px;border-radius:999px;font-size:10px;font-weight:850}
+.pr-drive-controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}
+.pr-drive-controls label{min-width:240px;flex:1;display:flex;flex-direction:column;gap:7px;font-size:11px;font-weight:800;color:#526773}
+.pr-drive-controls input{width:100%;height:41px;border:1px solid #d8e2e8;border-radius:10px;padding:8px 11px;background:#fff;color:#1d3038}
+.pr-drive-actions{display:flex;flex-wrap:wrap;gap:9px}
+.pr-drive-message{margin:13px 0 0;border:1px solid #e0e8ec;border-radius:10px;background:#f6f8fa;padding:12px 13px;color:#546572;font-size:11px;font-weight:750;line-height:1.65}
+.pr-drive-conflict,.pr-drive-error{background:#fff8f4;border-color:#f0d9c9;color:#965124}
+.pr-drive-synced{background:#effaf2;border-color:#cfe5d4;color:#166a40}
+@media(max-width:650px){.pr-drive-heading{flex-direction:column}.pr-drive-controls label,.pr-drive-controls .pr-btn{width:100%}}
