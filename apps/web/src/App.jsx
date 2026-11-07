@@ -7,6 +7,7 @@ import {api} from './api.js';
 import DrivePanel from './DrivePanel.jsx';
 import DiagramStudio from './DiagramStudio.jsx';
 import GitHubSmartInsights from './GitHubSmartInsights.jsx';
+import GitHubActionsQueue from './GitHubActionsQueue.jsx';
 import {Callout} from './Callout.js';
 import {ArticleBlocks,BLOCKS,blockHTML} from './ArticleBlocks.js';
 import articleStyles from './article.css?inline';
@@ -270,7 +271,8 @@ export default function App(){
           {mode==='preview'&&<Preview title={title||'Bài viết không tiêu đề'} html={html}/>}
           <div className="kit-paper-status"><div className="kit-save-status" role="status" aria-live="polite"><span className={'kit-status-dot'+(dirty?' is-dirty':'')} aria-hidden="true"/><div><strong>{saving?'Đang lưu lên Blogger…':dirty?'Có thay đổi chưa lưu':post?'Đã đồng bộ với Blogger':'Sẵn sàng để viết'}</strong><small>{message||'Lưu bản nháp khi bạn sẵn sàng.'}</small></div></div><span className="kit-word-count">{wordCount.toLocaleString('vi-VN')} từ <span>·</span> {Math.ceil(wordCount/200)} phút đọc</span></div>
         </section>
-        <aside className="kit-right" aria-label="Lưu và xuất bản">
+        <aside className="kit-right" aria-label="Xuất bản và giám sát GitHub Actions">
+          <GitHubActionsQueue/>
           <SeriesEditorPanel value={series} onChange={updateSeries} disabled={readOnly||saving||driveBusy}/>
           {series.enabled&&<BlueprintSelector onInsert={insertBlueprint} disabled={readOnly||saving||driveBusy||mode==='preview'}/>}
           {activeSeries&&<>
