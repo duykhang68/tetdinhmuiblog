@@ -35,24 +35,26 @@ async function groq(key,prompt){
 }
 const snapshot=(source,title,article,vocabulary)=>({schema:'wikipedia-writer-v1',source,title,article,vocabulary,savedAt:new Date().toISOString()});
 export default function Writer(){
- const [savedAiKeys]=useState(()=>readRememberedAiKeys(typeof window!=='undefined'?window.localStorage:null));
+ const [savedAiKeys]=useState(()=>{try{return readRememberedAiKeys(window.localStorage);}catch{return {remember:false,gemini:'',groq:''};}});
  const [rememberAiKeys,setRememberAiKeys]=useState(savedAiKeys.remember);
  const [url,setUrl]=useState(''),[provider,setProvider]=useState('auto'),[gKey,setGKey]=useState(savedAiKeys.gemini),[qKey,setQKey]=useState(savedAiKeys.groq);
  const [keyStorageError,setKeyStorageError]=useState('');
  function updateRememberAiKeys(checked){
   setRememberAiKeys(checked);
-  if(!persistAiKeys(window.localStorage,checked,gKey,qKey)){
+  let saved=false;try{saved=persistAiKeys(window.localStorage,checked,gKey,qKey);}catch{}
+  if(!saved){
    setKeyStorageError('Trình duyệt không cho phép lưu trên thiết bị này.');
    setRememberAiKeys(false);
   }else setKeyStorageError('');
  }
  function clearSavedAiKeys(){
-  persistAiKeys(window.localStorage,false,'','');
+  try{persistAiKeys(window.localStorage,false,'','');}catch{}
   setRememberAiKeys(false);setGKey('');setQKey('');setKeyStorageError('');
  }
  useEffect(()=>{
   if(!rememberAiKeys)return;
-  if(!persistAiKeys(window.localStorage,true,gKey,qKey))setKeyStorageError('Không thể cập nhật khóa đã lưu trên thiết bị.');
+  let saved=false;try{saved=persistAiKeys(window.localStorage,true,gKey,qKey);}catch{}
+  if(!saved)setKeyStorageError('Không thể cập nhật khóa đã lưu trên thiết bị.');
  },[rememberAiKeys,gKey,qKey]);
  const [title,setTitle]=useState(''),[article,setArticle]=useState(''),[rows,setRows]=useState([]);
  const [busy,setBusy]=useState(''),[notice,setNotice]=useState(''),[error,setError]=useState('');
