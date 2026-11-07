@@ -324,12 +324,33 @@ export default function StarbucksInsights() {
           <label className="sb-finance-reason">Chi tiết phụ thu / tùy chỉnh<input type="text" maxLength={200} placeholder="VD: Sữa Half & Half (+5.000đ)" value={form.extraReason} onChange={e => updateForm('extraReason', e.target.value)}/></label>
           <label className="sb-finance-reason">Lý do giảm giá<input type="text" maxLength={200} placeholder="VD: Ưu đãi ly cá nhân, voucher..." value={form.discountReason} onChange={e => updateForm('discountReason', e.target.value)}/></label>
           <div className="sb-finance-summary" aria-live="polite">
+            <div className="sb-finance-summary-header">
+              <strong>Đối soát hóa đơn</strong>
+              <small>Cập nhật ngay theo các số tiền trong form · đơn vị VNĐ</small>
+            </div>
             {hasBaseAmount ? <>
-              <span>Tạm tính trước giảm: <strong>{Number.isFinite(beforeDiscount) ? money(beforeDiscount) : '—'}</strong></span>
-              <span className="sb-finance-minus">Giảm: −{money(Number(form.discountAmount) || 0)}</span>
-              <span className="sb-finance-total">Thực trả: <strong>{Number.isFinite(calculatedAmount) ? money(calculatedAmount) : '—'}</strong></span>
-              {calculatedAmount <= 0 && <span className="sb-finance-warning">Tổng thực trả phải lớn hơn 0 ₫.</span>}
-            </> : <span>Nhập tiền món gốc để tự tính tổng. Nếu chỉ biết số thực trả, có thể nhập trực tiếp vào ô “Thực trả”.</span>}
+              <div className="sb-finance-equation">
+                <div className="sb-finance-figure sb-finance-before">
+                  <small>Tạm tính trước giảm</small>
+                  <strong>{Number.isFinite(beforeDiscount) ? money(beforeDiscount) : '—'}</strong>
+                  <span>Giá gốc {money(Number(form.baseAmount) || 0)} + phụ thu {money(Number(form.extraAmount) || 0)}</span>
+                </div>
+                <span className="sb-finance-operator" aria-hidden="true">−</span>
+                <div className="sb-finance-figure sb-finance-discount">
+                  <small>Giảm giá</small>
+                  <strong>{money(Number(form.discountAmount) || 0)}</strong>
+                  <span>{form.discountReason || 'Chưa có diễn giải giảm giá'}</span>
+                </div>
+                <span className="sb-finance-operator" aria-hidden="true">=</span>
+                <div className="sb-finance-figure sb-finance-payable">
+                  <small>Thực trả</small>
+                  <strong>{Number.isFinite(calculatedAmount) ? money(calculatedAmount) : '—'}</strong>
+                  <span>Số tiền sau các khoản điều chỉnh</span>
+                </div>
+              </div>
+              {calculatedAmount <= 0 && <p className="sb-finance-warning">Tổng thực trả phải lớn hơn 0 ₫.</p>}
+            </> : <p className="sb-finance-empty">Nhập tiền món gốc để xem đối soát tự động. Nếu chỉ biết số thực trả, bạn vẫn có thể nhập trực tiếp vào ô “Thực trả”.</p>}
+            {receiptResult && Number(form.discountAmount) > 0 && !form.discountReason && <p className="sb-finance-ocr-note">OCR chưa tìm thấy diễn giải giảm giá rõ ràng trên hóa đơn; bạn có thể nhập bổ sung. Hệ thống không tự đoán lý do.</p>}
           </div>
           <label>Phương thức thanh toán<select value={form.payment} onChange={e => updateForm('payment', e.target.value)}>{PAYMENT_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}</select></label>
           <label>Số ly<input required type="number" min="0" max="1000" step="1" value={form.cups} onChange={e => updateForm('cups', e.target.value)}/></label>
