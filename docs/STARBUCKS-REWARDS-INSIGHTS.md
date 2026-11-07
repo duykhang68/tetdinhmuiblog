@@ -146,3 +146,11 @@ Tài liệu này ghi lại quy trình và phạm vi thay đổi mã nguồn; **k
 - Chỉ gỡ ký tự/biểu tượng bị nhận dạng thừa ở **đầu hoặc cuối** tên, không xóa dấu gạch nối bên trong tên đồ uống, dấu ngoặc size hay phần trăm hợp lệ.
 - Áp dụng cho cả tên cửa hàng, món và phần mô tả tùy chỉnh từ OCR; không tác động dữ liệu giao dịch đã lưu và không thay đổi logic số tiền / Stars.
 - Thêm kiểm thử hồi quy bằng chính chuỗi OCR người dùng báo lỗi và các trường hợp tên hợp lệ.
+
+### OCR original amount + surcharge hotfix — 07/11/2026
+
+- Trường hợp Sora Mall: OCR có thể nhận được giá món gốc 80.000đ, tạm tính 85.000đ, giảm 10.000đ, thực trả 75.000đ nhưng bỏ sót phụ thu Half & Half 5.000đ. Form cũ xóa `baseAmount` nếu chưa khớp; đã bỏ hành vi xóa dữ liệu OCR.
+- Parser bổ sung đối soát để **điền phụ thu thiếu 5.000đ** khi các tổng hóa đơn nhất quán: `subtotal - discount = total`, và `missing extra = subtotal - baseAmount - extraAmount`. Nếu OCR không đọc được tạm tính nhưng đọc rõ tổng + giảm, cho phép suy ra phần chênh lệch từ hai khoản đó.
+- Phần tiền suy ra có **cảnh báo rõ ràng**; nếu dữ liệu tổng xung đột hoặc có phí giao hàng, không tự suy ra phụ thu. Không tự động sửa tổng thực trả để che lỗi OCR.
+- Giá gốc và phụ thu đã đọc được luôn giữ trên form để đối chiếu thủ công; khi các khoản chưa cân bằng, validation vẫn ngăn lưu giao dịch cho đến khi người dùng sửa.
+- Có test hồi quy cho hóa đơn Sora Mall, OCR bỏ sót dòng tùy chỉnh, OCR thiếu tạm tính, tổng sai và kiểm tra không tính phụ thu hai lần. Không thay đổi giao diện, cách lưu dữ liệu hay chính sách Stars.
