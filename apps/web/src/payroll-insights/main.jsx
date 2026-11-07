@@ -152,7 +152,7 @@ function App(){
   <section className="pr-panel pr-drive" aria-label="Sao lưu Google Drive mã hóa">
    <div className="pr-drive-heading">
     <div>{sectionLabel('↗','PRIVATE ENCRYPTED BACKUP')}<h2>Google Drive · Sao lưu có mã hóa</h2>
-     <p>Chỉ mã hóa JSON phân tích, không upload PDF gốc. Tự đồng bộ mỗi 3 phút khi trang đang mở và bạn chủ động bật.</p></div>
+     <p>Chỉ mã hóa JSON phân tích; PDF gốc không được upload. Tự đồng bộ mỗi 3 phút khi trang đang mở và bạn chủ động bật.</p></div>
     <span className="pr-drive-state">{drive.enabled?'ĐÃ BẬT (MÃ HÓA)':'TẮT THEO MẶC ĐỊNH'}</span>
    </div>
    {!drive.enabled?<div className="pr-drive-controls">
