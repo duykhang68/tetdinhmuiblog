@@ -115,6 +115,50 @@ test('Inconsistent or partial OCR warns instead of inventing payment totals', ()
   assert.ok(missing.warnings.some(text => /Chưa đọc được tổng thực trả/.test(text)));
 });
 
+test('OCR recovers missing 5,000 surcharge without clearing original 80,000 price', () => {
+  const missingSurcharge = sora.replace('Lựa chọn Sữa: Sữa Half & Half ₫5,000', 'Lựa chọn Sữa: Sữa Half & Half');
+  const result = parseStarbucksReceipt(missingSurcharge);
+  assert.equal(result.fields.baseAmount, '80000');
+  assert.equal(result.fields.extraAmount, '5000');
+  assert.equal(result.fields.discountAmount, '10000');
+  assert.equal(result.fields.amount, '75000');
+  assert.equal(result.subtotal, 85000);
+  assert.ok(result.warnings.some(message => /bỏ sót phụ thu\/món thêm 5\.000đ/.test(message)));
+});
+
+test('OCR can reconcile a missing surcharge when subtotal text is unreadable', () => {
+  const noSubtotal = sora.replace('Lựa chọn Sữa: Sữa Half & Half ₫5,000', 'Lựa chọn Sữa: Sữa Half & Half')
+    .replace('Tạm tính ₫85,000\n', '');
+  const result = parseStarbucksReceipt(noSubtotal);
+  assert.equal(result.fields.baseAmount, '80000');
+  assert.equal(result.fields.extraAmount, '5000');
+  assert.equal(result.fields.amount, '75000');
+  assert.ok(result.warnings.some(message => /Tổng đơn \+ giảm giá/.test(message)));
+});
+
+test('OCR keeps an uncertain original amount visible but never invents a surcharge on inconsistent totals', () => {
+  const conflicting = sora.replace('Lựa chọn Sữa: Sữa Half & Half ₫5,000', 'Lựa chọn Sữa: Sữa Half & Half')
+    .replace('Tạm tính ₫85,000', 'Tạm tính ₫82,000');
+  const result = parseStarbucksReceipt(conflicting);
+  assert.equal(result.fields.baseAmount, '80000');
+  assert.equal(result.fields.extraAmount, undefined);
+  assert.equal(result.fields.amount, '75000');
+  assert.ok(result.warnings.some(message => /không khớp/i.test(message)));
+});
+
+test('OCR uses the recognized surcharge and never adds it twice', () => {
+  const result = parseStarbucksReceipt(sora);
+  assert.equal(result.fields.baseAmount, '80000');
+  assert.equal(result.fields.extraAmount, '5000');
+  assert.equal(result.warnings.length, 0);
+});
+
+test('Form import no longer deletes a read original price when the OCR breakdown differs', () => {
+  const component = readFileSync(new URL('../src/starbucks-insights/StarbucksInsights.jsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(component, /delete mapped\.baseAmount/);
+  assert.match(component, /Giá món gốc \+ phụ thu/);
+});
+
 test('Upload remains opt-in, browser-only and does not save an OCR result', () => {
   const component = readFileSync(new URL('../src/starbucks-insights/StarbucksInsights.jsx', import.meta.url), 'utf8');
   const worker = readFileSync(new URL('../src/starbucks-insights/receiptOcrBrowser.js', import.meta.url), 'utf8');
