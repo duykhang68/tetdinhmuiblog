@@ -5,32 +5,33 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 04:47 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 04:49 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 81 |
-| AUTO-MERGED có bằng chứng | 54 |
+| PR đã merge (tối đa 300 PR gần đây) | 82 |
+| AUTO-MERGED có bằng chứng | 55 |
 | Auto-merge PR thường | 48 |
-| Auto-merge PR thay đổi workflow | 6 |
+| Auto-merge PR thay đổi workflow | 7 |
 | Nguồn merge chưa xác minh | 27 |
 
 ### Phân bố bằng chứng
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 54
+    "Auto-merge verified" : 55
     "Chưa xác minh" : 27
 ```
 
-`Auto-merge ` ████████████░░░░░░ **54/81**
+`Auto-merge ` ████████████░░░░░░ **55/82**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#83](https://github.com/duykhang68/tetdinhmuiblog/pull/83) chore(ci): run Auditor every five days; document Cloudf | 2026-11-07T04:49:00Z | Workflow/config | ✅ | CI green trên HEAD `a37c8ffc`; GitHub chấp nhận merge; [Run #42340054629](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42340054629) |
 | [#82](https://github.com/duykhang68/tetdinhmuiblog/pull/82) feat(payroll): private PDF payslip viewer, smart formul | 2026-11-07T04:46:52Z | Code/docs | ✅ | CI green trên HEAD `9b9a7dde`; GitHub chấp nhận merge; [Run #42339907415](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42339907415) |
 | [#81](https://github.com/duykhang68/tetdinhmuiblog/pull/81) fix(editor): auto-discover Google Drive OAuth Client ID | 2026-11-07T04:24:51Z | Code/docs | ✅ | CI green trên HEAD `72b94338`; GitHub chấp nhận merge; [Run #42338338273](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42338338273) |
 | [#80](https://github.com/duykhang68/tetdinhmuiblog/pull/80) fix(highlands): verify KCN Bau Bang store via ShopID an | 2026-11-07T04:23:40Z | Code/docs | ✅ | CI green trên HEAD `ce9a6e2d`; GitHub chấp nhận merge; [Run #42338247679](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42338247679) |
@@ -88,8 +89,8 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 11.1% (6/54).
-- **Quality gate:** 54 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 12.7% (7/55).
+- **Quality gate:** 55 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
