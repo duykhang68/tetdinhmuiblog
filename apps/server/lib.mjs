@@ -42,3 +42,14 @@ export function readCookies(header=''){
   return Object.fromEntries(String(header).split(';').map(x=>x.trim().split('=')).filter(x=>x.length===2));
 }
 export function errorStatus(error){return Number.isInteger(error?.status)?error.status:500;}
+
+/** Require a future RFC 3339 timestamp with an explicit numeric UTC offset. */
+export function validatePublishDate(value,now=Date.now()) {
+  const s=String(value||'');
+  if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/.test(s) || !Number.isFinite(Date.parse(s)))
+    throw Object.assign(new Error('Ngày giờ xuất bản phải có định dạng RFC 3339 và múi giờ rõ ràng.'),{status:400});
+  const point=Date.parse(s);
+  if(point<=now+120000)throw Object.assign(new Error('Lịch đăng phải cách thời gian hiện tại ít nhất 2 phút.'),{status:400});
+  if(point>now+2*365*86400000)throw Object.assign(new Error('Chỉ hỗ trợ đặt lịch trong vòng 2 năm.'),{status:400});
+  return s;
+}
