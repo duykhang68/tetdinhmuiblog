@@ -5,32 +5,33 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 02:10 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 02:18 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 55 |
-| AUTO-MERGED có bằng chứng | 31 |
+| PR đã merge (tối đa 300 PR gần đây) | 56 |
+| AUTO-MERGED có bằng chứng | 32 |
 | Auto-merge PR thường | 26 |
-| Auto-merge PR thay đổi workflow | 5 |
+| Auto-merge PR thay đổi workflow | 6 |
 | Nguồn merge chưa xác minh | 24 |
 
 ### Phân bố bằng chứng
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 31
+    "Auto-merge verified" : 32
     "Chưa xác minh" : 24
 ```
 
-`Auto-merge ` ██████████░░░░░░░░ **31/55**
+`Auto-merge ` ██████████░░░░░░░░ **32/56**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#57](https://github.com/duykhang68/tetdinhmuiblog/pull/57) feat: Reddit Light Rollback ID Dashboard with guarded r | 2026-11-07T02:18:47Z | Workflow/config | ✅ | CI green trên HEAD `b4ce56a0`; GitHub chấp nhận merge; [Run #42328590872](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42328590872) |
 | [#56](https://github.com/duykhang68/tetdinhmuiblog/pull/56) feat(series): thêm mẫu Review phim chiếu rạp và Trên ta | 2026-11-07T02:10:05Z | Code/docs | ✅ | CI green trên HEAD `0c67f7b7`; GitHub chấp nhận merge; [Run #42327834238](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42327834238) |
 | [#55](https://github.com/duykhang68/tetdinhmuiblog/pull/55) feat(editor): Schedule a Post via Blogger API + Markdow | 2026-11-07T01:47:39Z | Code/docs | ✅ | CI green trên HEAD `05e4091f`; GitHub chấp nhận merge; [Run #42325921828](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42325921828) |
 | [#53](https://github.com/duykhang68/tetdinhmuiblog/pull/53) feat: Starbucks Rewards & Insights — Reddit light dashb | 2026-11-07T01:41:15Z | Code/docs | ✅ | CI green trên HEAD `225f2e1c`; GitHub chấp nhận merge; [Run #42325386004](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42325386004) |
@@ -65,8 +66,8 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 16.1% (5/31).
-- **Quality gate:** 31 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 18.8% (6/32).
+- **Quality gate:** 32 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
