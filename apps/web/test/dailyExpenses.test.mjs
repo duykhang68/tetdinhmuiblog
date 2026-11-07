@@ -108,3 +108,19 @@ test('Standalone Vite route, editor shortcut and light design are included',()=>
   assert.match(css,/#173e33/);
   assert.doesNotMatch(css,/color-scheme:dark|slate-950/);
 });
+
+test('Reddit OrangeRed light-theme layer loads after base styles and uses accessible CTAs',()=>{
+  const read=path=>readFileSync(new URL(path,import.meta.url),'utf8');
+  const entry=read('../src/expenses/main.jsx');
+  assert.match(entry,/import '\.\/expenses\.css';\s*import '\.\/reddit-light\.css';/);
+  const theme=read('../src/expenses/reddit-light.css');
+  assert.match(theme,/--ex-orange:\s*#ff4500/);
+  assert.match(theme,/--ex-bg:\s*#f6f7f8/);
+  assert.match(theme,/--ex-orange-cta:\s*#d63e05/);
+  assert.match(theme,/\.ex-summary-main\s*\{\s*color:#1a1a1b;\s*background:linear-gradient/);
+  assert.match(theme,/\.ex-chart-bar\.is-peak\{background:var\(--ex-orange\)\}/);
+  assert.match(theme,/\.ex-meter-warning>span\{background:#ecae42\}/);
+  assert.match(theme,/\.ex-meter-exceeded>span\{background:#dc4f50\}/);
+  assert.doesNotMatch(theme,/color-scheme:\s*dark|background:\s*#173e33/);
+  assert.match(read('../src/editor-kit.css'),/\.kit-layout \.kit-quick-link-expenses\{--quick-accent:#ff4500\}/);
+});
