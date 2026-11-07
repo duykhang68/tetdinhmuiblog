@@ -22,7 +22,7 @@ researcher.py is event-driven, NOT an HTTP server. Its durable research outputs 
 - **Activity:** newly created researcher incidents by UTC calendar day over the most recent 14-day window.
 - **Error classes and incident types:** derived from researcher issue code/body.
 - **Occurrences:** 1 + issue comment count (proxy only; comments can include other conversation).
-- **Website traffic:** unavailable until real GA4 or server analytics has been configured. No fabricated visitor counts.
+- **Website traffic:** verified GA4 web stream `G-Z83BHS8KMY` / Stream ID `16289663503` at `https://duynguyen99.blogspot.com`. Four metrics: distinct active users over 7 calendar days (including today), sessions, page views, and realtime active users over the last 30 minutes. Never derive active users from page views.
 
 Polling is every 3 minutes when the tab is visible; there is also manual refresh. Failed API calls show an error, and stale data stays visibly marked.
 
@@ -35,3 +35,23 @@ Build command: npm run build. Build output: apps/web/dist. Cloudflare Pages Func
 For local development: npm run dev and open http://localhost:5173/research-insights.html. Google OAuth requires the existing apps/server/.env configuration, a running Node API, and authorized OAuth origin/callback.
 
 Run tests: npm run check, then npm run build. Never assume a successful deploy before CI and Cloudflare publish are confirmed.
+
+## GA4 website traffic (production + localhost)
+
+This dashboard reads your **existing** Blogger GA4 stream; it does not inject a tracking tag into Blogger. Ensure the GA4 tag for `G-Z83BHS8KMY` already runs on `https://duynguyen99.blogspot.com/` and Google Analytics > Realtime shows events from an actual visit. Measurement ID and Stream ID are **not** the numeric Property ID needed by the Data API.
+
+**Setup in the same Google Cloud project as your existing Editor OAuth client:**
+
+1. Enable **Google Analytics Admin API** (`analyticsadmin.googleapis.com`) and **Google Analytics Data API** (`analyticsdata.googleapis.com`).
+2. Ensure the Google account used in the Editor has at least **Viewer** access to this GA4 property. Do not create an API key, service account, or put tokens into frontend code.
+3. Deploy the changes. On Research Insights, under **Signal health → Website traffic**, click **Kết nối Google Analytics**. This intentionally starts OAuth with `https://www.googleapis.com/auth/analytics.readonly` in addition to the existing Blogger scope. Existing Blogger-only sessions do not automatically gain Analytics access.
+4. The backend first discovers accessible GA4 properties via Analytics Admin API (checking up to four, prioritizing properties named for the blog), then verifies the stream's ID, measurement ID, and URL *before* querying metrics. When multiple properties exist, configure numeric `GA4_PROPERTY_ID` in **Cloudflare → Workers & Pages → project → Settings → Variables and Secrets → Production**, and redeploy if required. The same variable is optional in `apps/server/.env` for localhost. Never set it to `16289663503` unless Google Analytics **Property settings** independently shows this as the property's own ID.
+5. Refresh Research Insights to read source data. The GA4 section polls every 3 minutes while the tab is visible, independently of the GitHub Research Insights endpoint.
+
+**Endpoint:** `GET /api/ga4-traffic` is session-protected and returns source-verified metrics only. The Google OAuth token remains in the encrypted Cloudflare cookie / local backend session, not in the JSON response. GA4 access is opt-in; `/api/status`, Blogger, and GitHub Insights continue using the existing OAuth behavior.
+
+**Statuses:** `needs_consent` requests Google Analytics read-only access; `needs_property` means the property could not be automatically matched or the configured ID belongs to a different stream; `unavailable` reports API/permission/quota/network issues. No API failure is represented as zero traffic. A verified empty GA4 report is the only case where zero is displayed.
+
+**Interpretation:** A `7-day active users` metric represents users active over the entire requested date range (not the sum of daily users). The realtime metric covers the last 30 minutes, not users online this second. GA4 reports can have processing delay and do not necessarily match every UI view exactly.
+
+**Diagnostics:** If Analytics shows "API not enabled", enable both APIs in Google Cloud. If "no access", grant the signed-in user Viewer access in Google Analytics Admin. If "needs property", find the numeric ID under **Google Analytics → Admin → Property settings → Property ID**, and set the `GA4_PROPERTY_ID` backend variable. If no analytics events arrive, check the actual Blogger theme's Google tag and browser consent/ad-blocking; this API integration cannot record site visitors by itself.
