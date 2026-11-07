@@ -326,7 +326,19 @@ export default function App(){
           {mode==='compose'&&<><fieldset className="kit-formatting" disabled={readOnly}><Ribbon editor={editor}/></fieldset><div className="kit-writing-area article-content"><EditorContent editor={editor}/></div></>}
           {mode==='html'&&<div className="source-area kit-source"><div className="hint">Chỉnh trực tiếp HTML. Bạn có thể chèn các khối mẫu tại vị trí con trỏ.</div><textarea ref={sourceRef} spellCheck={false} aria-label="Mã HTML bài viết" value={html} disabled={readOnly} onChange={e=>{revision.current++;setHTML(e.target.value);setDirty(true);}}/></div>}
           {mode==='preview'&&<Preview title={title||'Bài viết không tiêu đề'} html={html}/>}
-          <div className="kit-paper-status"><div className="kit-save-status" role="status" aria-live="polite"><span className={'kit-status-dot'+(dirty?' is-dirty':'')} aria-hidden="true"/><div><strong>{saving?'Đang lưu lên Blogger…':dirty?'Có thay đổi chưa lưu':post?'Đã đồng bộ với Blogger':'Sẵn sàng để viết'}</strong><small>{message||'Lưu bản nháp khi bạn sẵn sàng.'}</small></div></div><span className="kit-word-count">{wordCount.toLocaleString('vi-VN')} từ <span>·</span> {Math.ceil(wordCount/200)} phút đọc</span></div>
+          <div className={'kit-paper-status'+(dirty?' is-dirty':'')}>
+            <div className="kit-save-status" role="status" aria-live="polite">
+              <span className={'kit-status-dot'+(dirty?' is-dirty':'')} aria-hidden="true"/>
+              <div className="kit-save-copy">
+                <strong>{saving?'Đang lưu lên Blogger…':dirty?'Có thay đổi chưa lưu':post?'Đã đồng bộ với Blogger':'Sẵn sàng để viết'}</strong>
+                <small>{message||'Lưu bản nháp khi bạn sẵn sàng.'}</small>
+              </div>
+            </div>
+            <div className="kit-word-count" aria-label="Thống kê bài viết">
+              <span className="kit-stat-pill"><strong>{wordCount.toLocaleString('vi-VN')}</strong><span>từ</span></span>
+              <span className="kit-stat-pill"><strong>{Math.ceil(wordCount/200)}</strong><span>phút đọc</span></span>
+            </div>
+          </div>
         </section>
         <aside className="kit-right" aria-label="Lưu và xuất bản">
           <SeriesEditorPanel value={series} onChange={updateSeries} disabled={readOnly||saving||driveBusy}/>
