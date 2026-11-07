@@ -61,3 +61,13 @@ For user-entered Gemini/Groq API keys, do not persist by default. Where an expli
 - Prefer existing `apps/web/src/services/googleDriveService.js` and patterns in `apps/web/src/expenses/` and `apps/web/src/starbucks-insights/` over creating a new OAuth stack.
 - Maintain accessible, responsive **Reddit-inspired light mode** unless the owner explicitly requests otherwise; avoid changing unrelated layouts or approved behavior.
 - Follow the project's CI quality gate and keep changes scoped to one feature per PR.
+
+## Mandatory rule: avoid repetitive Google OAuth prompts on trusted browsers
+
+**BẮT BUỘC:** Every Editor utility using Google Drive, Sheets or another Google API must reuse the common Web Client ID and previously granted Google permissions whenever Google Identity Services allows it. On the same origin/browser, changing routes, refreshing or reopening a tool must NOT deliberately force an account chooser or consent dialog on every connection.
+
+- Prefer `requestAccessToken({prompt: ''})` after the configured Client ID and the minimum scopes have been determined. Never force `prompt: 'consent'` or `prompt: 'select_account'` on routine connections. Provide an explicit **Đổi tài khoản** action for deliberate account switching.
+- Reuse active in-memory credentials across components when their client ID, account and scopes are compatible; avoid parallel login popups. Google may still require fresh interaction after token expiration, revocation, new scopes or browser cookie restrictions. Do not claim indefinite silent login.
+- Persist only **non-secret** OAuth configuration, account hints and UI preferences on the device. **Never** persist access/refresh tokens in localStorage, sessionStorage, IndexedDB, URLs, source or logs. Use server-side encrypted secure session cookies if durable automatic renewal is a future requirement; implement CSRF protection, bounded lifetimes and explicit logout.
+- Authenticate each API call with the appropriate scopes, recover from HTTP 401/403 without deleting user data, and offer clear reconnect/logout messages. Explicit disconnect must invalidate local runtime credentials.
+- Add tests verifying no forced consent on ordinary reconnect, explicit account-switch behavior, missing scopes and expired/revoked sessions. Apply across all existing and future utility pages without changing approved UI layouts.
