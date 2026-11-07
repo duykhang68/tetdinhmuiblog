@@ -3,6 +3,7 @@ import {SHEET_ID,DRIVE_NAME,parseWikiUrl,parseAIJson,normalizeVocabulary,uniqueV
 import {discoverExpenseDriveClientId,validClientId,EDITOR_DRIVE_CLIENT_KEY} from '../expenses/driveClientResolver.js';
 import {readRememberedAiKeys,persistAiKeys} from './aiKeyStorage.js';
 import {generateGemini,generateGroq} from './aiModelDiscovery.js';
+import {loadQueue,persistQueue,enqueue,nextJob,updateJob} from './queue.js';
 const SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.appdata';
 const SHEETS='https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+'/values/';
 const DRIVE='https://www.googleapis.com/drive/v3/files';
@@ -50,6 +51,29 @@ export default function Writer(){
   let saved=false;try{saved=persistAiKeys(window.localStorage,true,gKey,qKey);}catch{}
   if(!saved)setKeyStorageError('Không thể cập nhật khóa đã lưu trên thiết bị.');
  },[rememberAiKeys,gKey,qKey]);
+ const [jobs,setJobs]=useState(()=>loadQueue(window.localStorage));
+ const queueRunning=useRef(false);
+ const latestKeys=useRef(null);
+ latestKeys.current={gKey,qKey};
+ useEffect(()=>{try{persistQueue(window.localStorage,jobs);}catch{setError('Không lưu được hàng đợi trên thiết bị này.');}},[jobs]);
+ function addToQueue(){
+  try{
+   const parsed=parseWikiUrl(url);
+   if(provider==='gemini'&&!gKey.trim()||provider==='groq'&&!qKey.trim()||provider==='auto'&&!gKey.trim()&&!qKey.trim())throw Error('Vui lòng cấu hình ít nhất một API key trước khi xếp hàng.');
+   setJobs(old=>enqueue(old,parsed.canonical,provider));
+   setUrl('');
+   setNotice('Đã thêm bài vào hàng đợi. Bài tiếp theo tự chạy khi trang này còn mở.');
+   setError('');
+  }catch(e){setError(e.message);}
+ }
+ function removeQueued(id){setJobs(old=>old.filter(j=>j.id!==id||j.status==='running'));}
+ function openQueueResult(job){
+  if(!job.result)return;
+  if(dirty&&!confirm('Thay bản thảo đang chỉnh sửa bằng kết quả bài này?'))return;
+  setUrl(job.url);setTitle(job.result.title);setArticle(job.result.article);setRows(job.result.vocabulary);
+  setSheetWriteSucceeded(false);setDirty(true);
+  setNotice('Đã mở kết quả hàng đợi để kiểm tra và biên tập. Chỉ ghi Sheets khi bạn chủ động xác nhận.');
+ }
  const [title,setTitle]=useState(''),[article,setArticle]=useState(''),[rows,setRows]=useState([]);
  const [busy,setBusy]=useState(''),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const [sheetWriteSucceeded,setSheetWriteSucceeded]=useState(false);
@@ -190,6 +214,39 @@ export default function Writer(){
     backup(s.access).catch(e=>setError('Tự đồng bộ Drive: '+e.message));},180000);
   return ()=>clearInterval(timer);
  },[busy]);
+ // One worker per open page. Persist completed results independently of the editable draft.
+ useEffect(()=>{
+  if(busy||queueRunning.current)return;
+  const job=nextJob(jobs);
+  if(!job)return;
+  const keys=latestKeys.current;
+  const candidates=job.provider==='gemini'?[['Gemini',keys.gKey,generateGemini]]:
+   job.provider==='groq'?[['Groq',keys.qKey,generateGroq]]:
+   [['Gemini',keys.gKey,generateGemini],['Groq',keys.qKey,generateGroq]];
+  if(!candidates.some(([,key])=>key?.trim()))return;
+  queueRunning.current=true;
+  setBusy('queue');
+  setJobs(old=>updateJob(old,job.id,{status:'running',startedAt:new Date().toISOString()}));
+  (async()=>{
+   try{
+    const wiki=await wikiExtract(job.url);
+    const prompt=PROMPT(wiki.canonical,wiki.text);
+    let output=null,model='',failures=[];
+    for(const [name,key,run] of candidates){
+     if(!key?.trim()){failures.push(name+': thiếu API key');continue;}
+     try{
+      const result=await run(key.trim(),prompt);
+      output=parseAIJson(result.text);
+      model=name+' / '+result.model;break;
+     }catch(e){failures.push(name+': '+e.message);}
+    }
+    if(!output)throw Error(failures.join(' | '));
+    setJobs(old=>updateJob(old,job.id,{status:'done',result:output,model,finishedAt:new Date().toISOString()}));
+   }catch(e){
+    setJobs(old=>updateJob(old,job.id,{status:'failed',error:String(e.message||e).slice(0,300),finishedAt:new Date().toISOString()}));
+   }finally{queueRunning.current=false;setBusy('');}
+  })();
+ },[jobs,busy,gKey,qKey]);
  const running=!!busy;
  return <div className="ww">
   <header className="ww-header"><a href="/" className="ww-brand">◉ DUY NGUYEN <span> / AI WRITER</span></a><span className="ww-chip">WIKIPEDIA → ARTICLE → VI · KR · EN</span></header>
@@ -203,7 +260,12 @@ export default function Writer(){
      <div className="ww-key-preference"><label><input type="checkbox" checked={rememberAiKeys} onChange={e=>updateRememberAiKeys(e.target.checked)}/> Lưu API keys trên thiết bị này</label><button type="button" onClick={clearSavedAiKeys}>Xóa khóa đã lưu</button></div>
      <p className="ww-note">Mặc định chỉ lưu khóa trong phiên trang hiện tại. Nếu tích chọn, Gemini và Groq API keys sẽ được giữ trong localStorage của trình duyệt này (không mã hóa), tự điền khi mở lại trên cùng thiết bị và không đồng bộ lên Drive, Sheet hoặc máy chủ. Chỉ bật trên thiết bị cá nhân đáng tin cậy; người có quyền truy cập trình duyệt hoặc tiện ích mở rộng có thể đọc khóa đã lưu.</p>
      {keyStorageError&&<p className="ww-note" role="alert">{keyStorageError}</p>}
-     <button disabled={running||!url.trim()} className="ww-primary" onClick={generate}>{busy==='ai'?'Đang đọc và viết…':'✦ Tạo bài báo & trích xuất từ vựng'}</button>
+     <div className="ww-queue-actions"><button disabled={running||!url.trim()} className="ww-primary" onClick={generate}>{busy==='ai'?'Đang đọc và viết…':'✦ Đọc & tạo bài viết'}</button><button disabled={!url.trim()} onClick={addToQueue}>＋ Xếp hàng thực thi</button></div>
+     <p className="ww-note">Hàng đợi chạy tuần tự trong khi trang còn mở; kết quả từng bài được lưu trên trình duyệt này để bạn duyệt trước khi ghi Google Sheets.</p>
+    </section>
+    <section className="ww-card ww-queue"><div className="ww-card-head"><span className="ww-step">☷</span><div><h2>Hàng đợi thực thi <span className="ww-count">{jobs.filter(j=>j.status==='queued'||j.status==='running').length}</span></h2><p>FIFO · Từng bài một · Chọn kết quả để duyệt</p></div></div>
+     {!jobs.length&&<p className="ww-empty">Chưa có bài nào trong hàng đợi.</p>}
+     <ol className="ww-queue-list">{jobs.map(job=><li key={job.id}><div className="ww-queue-meta"><strong>{decodeURIComponent(job.url.split('/wiki/')[1]||job.url).replaceAll('_',' ')}</strong><small>{job.status==='running'?'● Đang xử lý':job.status==='queued'?'◷ Đang chờ':job.status==='done'?'✓ Hoàn thành':'! Thất bại'} · {job.model||job.provider}</small>{job.error&&<small role="alert">{job.error}</small>}</div><div className="ww-queue-controls">{job.status==='done'&&<button type="button" onClick={()=>openQueueResult(job)}>Mở kết quả</button>}{job.status==='failed'&&<button type="button" onClick={()=>setJobs(old=>updateJob(old,job.id,{status:'queued',error:''}))}>Thử lại</button>}{job.status!=='running'&&<button type="button" onClick={()=>removeQueued(job.id)} aria-label="Xóa bài khỏi hàng đợi">×</button>}</div></li>)}</ol>
     </section>
     <section className="ww-card"><div className="ww-card-head"><span className="ww-step">02</span><div><h2>Bản thảo bài báo</h2><p>Nội dung có thể chỉnh sửa trước khi sử dụng</p></div></div>
      <label>Tiêu đề<input value={title} onChange={e=>change(setTitle)(e.target.value)} placeholder="Bài viết sẽ xuất hiện ở đây"/></label>
