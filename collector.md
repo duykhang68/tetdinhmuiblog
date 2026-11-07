@@ -5,15 +5,15 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 01:16 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 01:19 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 46 |
-| AUTO-MERGED có bằng chứng | 23 |
-| Auto-merge PR thường | 18 |
+| PR đã merge (tối đa 300 PR gần đây) | 47 |
+| AUTO-MERGED có bằng chứng | 24 |
+| Auto-merge PR thường | 19 |
 | Auto-merge PR thay đổi workflow | 5 |
 | Nguồn merge chưa xác minh | 23 |
 
@@ -21,16 +21,17 @@ Cập nhật: **2026-11-07 01:16 UTC** · Repository: `duykhang68/tetdinhmuiblog
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 23
+    "Auto-merge verified" : 24
     "Chưa xác minh" : 23
 ```
 
-`Auto-merge ` █████████░░░░░░░░░ **23/46**
+`Auto-merge ` █████████░░░░░░░░░ **24/47**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#48](https://github.com/duykhang68/tetdinhmuiblog/pull/48) feat(editor): add quick access links to Insights pages  | 2026-11-07T01:19:43Z | Code/docs | ✅ | CI green trên HEAD `fbdc25d1`; GitHub chấp nhận merge; [Run #42323443750](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42323443750) |
 | [#46](https://github.com/duykhang68/tetdinhmuiblog/pull/46) feat: connect Research Insights website traffic to veri | 2026-11-07T01:16:13Z | Code/docs | ✅ | CI green trên HEAD `8a9156a7`; GitHub chấp nhận merge; [Run #42323121552](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42323121552) |
 | [#47](https://github.com/duykhang68/tetdinhmuiblog/pull/47) fix(editor): remove workspace loading splash on homepag | 2026-11-07T01:12:49Z | Code/docs | ✅ | CI green trên HEAD `d6ec523e`; GitHub chấp nhận merge; [Run #42322793574](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42322793574) |
 | [#44](https://github.com/duykhang68/tetdinhmuiblog/pull/44) fix(quality-gate): diagnose GitHub API auth and preserv | 2026-11-07T01:10:49Z | Code/docs | ✅ | CI green trên HEAD `14d3ab25`; GitHub chấp nhận merge; [Run #42322591539](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42322591539) |
@@ -57,8 +58,8 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 21.7% (5/23).
-- **Quality gate:** 23 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 20.8% (5/24).
+- **Quality gate:** 24 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
