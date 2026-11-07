@@ -132,14 +132,6 @@ export default function StarbucksInsights() {
   const [receiptError, setReceiptError] = useState('');
   const [receiptResult, setReceiptResult] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState('');
-  const driveData = useMemo(() => ({ transactions, config }), [transactions, config]);
-  const setRestoredData = useCallback(data => {
-    setTransactions(data.transactions); setConfig(data.config);
-    setEditing(null); setForm(initialForm()); setNotice('Đã tải dữ liệu Starbucks từ Google Drive.');
-  }, []);
-  const { sync, conflict, connected, connect, synchronize, resolveConflict,
-    clientConfig, setManualClientId, toggleClientIdInput } = useStarbucksDriveSync(driveData, setRestoredData);
-  const today = todayVietnam();
   useEffect(() => () => { if (receiptPreview) URL.revokeObjectURL(receiptPreview); }, [receiptPreview]);
 
   useEffect(() => {
@@ -150,6 +142,15 @@ export default function StarbucksInsights() {
       setError('Không thể lưu vào trình duyệt. Hãy xuất JSON để tránh mất dữ liệu.');
     }
   }, [transactions, config]);
+
+  const driveData = useMemo(() => ({ transactions, config }), [transactions, config]);
+  const setRestoredData = useCallback(data => {
+    setTransactions(data.transactions); setConfig(data.config);
+    setEditing(null); setForm(initialForm()); setNotice('Đã tải dữ liệu Starbucks từ Google Drive.');
+  }, []);
+  const { sync, conflict, connected, connect, synchronize, resolveConflict,
+    clientConfig, setManualClientId, toggleClientIdInput } = useStarbucksDriveSync(driveData, setRestoredData);
+  const today = todayVietnam();
 
   const updateForm = (key, value) => setForm(current => {
     const next = { ...current, [key]: value };
