@@ -35,16 +35,20 @@ export function planDriveSync({localData,localMissing=false,remote,meta}) {
   const local=snapshotFingerprint(localData);
   const cloud=remote.exists?snapshotFingerprint(remote.data):snapshotFingerprint(emptyData());
   const sameAccount=meta?.ownerId===remote.ownerId;
-  if(local===cloud) {
-    // A different account can hold identical empty data; it is not the same sync identity.
-    return {action:'equal',local,cloud};
-  }
+  if(meta&&!sameAccount&&hasUserData(localData))
+    return {action:'conflict',local,cloud};
+  if(local===cloud)return {action:'equal',local,cloud};
   if(localMissing&&remote.exists)return {action:'pull',local,cloud};
   if(meta&&!sameAccount){
     if(!hasUserData(localData)&&remote.exists)return {action:'pull',local,cloud};
     return {action:'conflict',local,cloud};
   }
   if(meta&&sameAccount){
+    // An unrelated Drive snapshot can be a concurrent branch; do not silently
+    // replace an acknowledged local snapshot with a different branch head.
+    if(remote.exists&&meta.fileId&&remote.snapshotId!==meta.fileId&&
+       (!Array.isArray(remote.ancestorIds)||!remote.ancestorIds.includes(meta.fileId)))
+      return {action:'conflict',local,cloud};
     const localChanged=local!==meta.fingerprint;
     const remoteChanged=String(remote.snapshotId||'')!==meta.fileId||cloud!==meta.fingerprint;
     if(localChanged&&remoteChanged)return {action:'conflict',local,cloud};
