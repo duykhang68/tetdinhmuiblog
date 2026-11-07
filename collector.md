@@ -5,15 +5,15 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 03:11 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 03:15 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 66 |
-| AUTO-MERGED có bằng chứng | 41 |
-| Auto-merge PR thường | 35 |
+| PR đã merge (tối đa 300 PR gần đây) | 67 |
+| AUTO-MERGED có bằng chứng | 42 |
+| Auto-merge PR thường | 36 |
 | Auto-merge PR thay đổi workflow | 6 |
 | Nguồn merge chưa xác minh | 25 |
 
@@ -21,16 +21,17 @@ Cập nhật: **2026-11-07 03:11 UTC** · Repository: `duykhang68/tetdinhmuiblog
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 41
+    "Auto-merge verified" : 42
     "Chưa xác minh" : 25
 ```
 
-`Auto-merge ` ███████████░░░░░░░ **41/66**
+`Auto-merge ` ███████████░░░░░░░ **42/67**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#68](https://github.com/duykhang68/tetdinhmuiblog/pull/68) fix(starbucks): clean OCR artifacts from store and item | 2026-11-07T03:15:11Z | Code/docs | ✅ | CI green trên HEAD `274f1a7b`; GitHub chấp nhận merge; [Run #42333121584](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42333121584) |
 | [#67](https://github.com/duykhang68/tetdinhmuiblog/pull/67) fix(blogger): căn đều hai lề nội dung bài viết | 2026-11-07T03:11:11Z | Code/docs | ✅ | CI green trên HEAD `3f1d838b`; GitHub chấp nhận merge; [Run #42332802174](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42332802174) |
 | [#65](https://github.com/duykhang68/tetdinhmuiblog/pull/65) fix(blogger): light Reddit-inspired reading UI colors a | 2026-11-07T03:06:30Z | Code/docs | ✅ | CI green trên HEAD `c744b5a4`; GitHub chấp nhận merge; [Run #42332422276](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42332422276) |
 | [#64](https://github.com/duykhang68/tetdinhmuiblog/pull/64) feat(branding): standalone Tet Dinh Mui Branding Guidel | 2026-11-07T03:04:26Z | Code/docs | ✅ | CI green trên HEAD `6155bd1c`; GitHub chấp nhận merge; [Run #42332249417](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42332249417) |
@@ -75,8 +76,8 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 14.6% (6/41).
-- **Quality gate:** 41 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 14.3% (6/42).
+- **Quality gate:** 42 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
