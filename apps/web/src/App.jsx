@@ -22,7 +22,8 @@ import './components/series.css';
 const EDITOR_QUICK_LINKS = [
   {title: 'Research Insights', description: 'Theo dõi và phân tích dữ liệu nghiên cứu.', href: '/research-insights', symbol: '✦', accent: 'research'},
   {title: 'CI / Quality Gate Insights', description: 'Giám sát CI, build và trạng thái kiểm định.', href: '/quality-gate', symbol: '◈', accent: 'quality'},
-  {title: 'Collector Insights', description: 'Xem lịch sử tổng hợp và bằng chứng GitHub.', href: '/collector/', symbol: '▤', accent: 'collector'}
+  {title: 'Collector Insights', description: 'Xem lịch sử tổng hợp và bằng chứng GitHub.', href: '/collector/', symbol: '▤', accent: 'collector'},
+  {title: 'Starbucks Rewards & Insights', description: 'Theo dõi chi tiêu và tiến độ tích Stars.', href: '/starbucks-insights/', symbol: '☕', accent: 'starbucks'}
 ];
 
 const DEFAULT_HTML='<h2>Giới thiệu</h2><p>Bắt đầu viết bài tại đây…</p>';
@@ -312,7 +313,7 @@ export default function App(){
           <h2 id="editor-quick-links-heading">Truy cập nhanh<span>.</span></h2>
           <p>Mở các trang Insights của bạn chỉ với một cú nhấp.</p>
         </div>
-        <span className="kit-quick-links-count">03 công cụ</span>
+        <span className="kit-quick-links-count">{EDITOR_QUICK_LINKS.length.toString().padStart(2, "0")} công cụ</span>
       </div>
       <div className="kit-quick-links-grid">
         {EDITOR_QUICK_LINKS.map(link=><a key={link.href} className={'kit-quick-link kit-quick-link-'+link.accent} href={link.href} target="_blank" rel="noopener noreferrer" aria-label={link.title+' (mở tab mới)'}>
