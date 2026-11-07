@@ -60,7 +60,7 @@ export default function Writer(){
   try{
    const parsed=parseWikiUrl(url);
    if(provider==='gemini'&&!gKey.trim()||provider==='groq'&&!qKey.trim()||provider==='auto'&&!gKey.trim()&&!qKey.trim())throw Error('Vui lòng cấu hình ít nhất một API key trước khi xếp hàng.');
-   setJobs(old=>enqueue(old,parsed.canonical,provider));
+   setJobs(enqueue(jobs,parsed.canonical,provider));
    setUrl('');
    setNotice('Đã thêm bài vào hàng đợi. Bài tiếp theo tự chạy khi trang này còn mở.');
    setError('');
