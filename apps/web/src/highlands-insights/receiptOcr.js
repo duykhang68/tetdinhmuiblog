@@ -10,7 +10,9 @@ const ascii=value=>clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
 const brandPattern=/(?:h\s*i\s*g\s*h\s*l\s*a\s*n\s*d\s*s|h[i1l][gqc]h?lands)\s*(?:co[fep]{2,3}e?)?/i;
 const isBrand=line=>brandPattern.test(ascii(line));
 const moneyAtEnd=line=>{
-  const match=clean(line).match(/(?:^|[\s:])[-−]?\s*(?:₫|đ|d)?\s*(\d{1,3}(?:[.,]\d{3})+|\d{4,8})(?:\s*(?:₫|đ|vnd))?\s*$/iu);
+  // Chấp nhận các ký hiệu nhiễu OCR sau số tiền (vd. "54,000 —= .", "15.000 SSS").
+  // Vẫn chỉ đọc các token tiền VND 4+ chữ số để tránh Check/ShopID/QR.
+  const match=clean(line).match(/(?:^|[\s:])[-−]?\s*(?:₫|đ|d)?\s*(\d{1,3}(?:[.,]\d{3})+|\d{4,8})(?:\s*(?:₫|đ|vnd))?(?:[\s\-–—=.<~>S]{0,25})$/iu);
   if(!match)return null;
   const number=Number(match[1].replace(/\D/g,''));
   return Number.isSafeInteger(number)&&number>=0?number:null;
@@ -58,7 +60,7 @@ const parseOrder=lines=>{
   return found?.[1]||'';
 };
 const qtyItem=line=>{
-  const match=clean(line).match(/^(\d{1,3})\s+(.+?)\s+([₫đ]?\s*\d{1,3}(?:[.,]\d{3})+|[₫đ]?\s*\d{4,8})\s*$/iu);
+  const match=clean(line).match(/^(\d{1,3})\s+(.+?)\s+([₫đ]?\s*\d{1,3}(?:[.,]\d{3})+|[₫đ]?\s*\d{4,8})(?:[\s\-–—=.<~>S]{0,25})$/iu);
   if(!match)return null;
   const qty=Number(match[1]),amount=moneyAtEnd(line);
   if(!qty||qty>100||amount===null||amount===0)return null;
@@ -146,6 +148,12 @@ export function parseHighlandsReceipt(text){
   const subtotal=labelAmount(lines,labels.subtotal);
   const total=labelAmount(lines,labels.total);
   const fee=labelAmount(lines,labels.fee);
+  // Máy POS có thể in Thành tiền/Tổng tiền nhòe nhưng Payoo Bank Card rõ.
+  // Chỉ sử dụng tiền thanh toán khi có nhãn phương thức rõ ràng (không bao giờ
+  // lấy một số bất kỳ ở cuối ảnh như QR, ShopID hoặc hotline).
+  const paidLine=lines.find(line=>/(?:payoo\s*bank\s*card|bank\s*card|thanh\s*toan\s*(?:the|pos))/i.test(ascii(line)) &&
+    moneyAtEnd(line)!==null);
+  const paidAmount=paidLine?moneyAtEnd(paidLine):null;
   // Giữ giá món đã đọc; khi mất tên món, có thể khôi phục giá gốc từ
   // Thành tiền nếu không có phụ thu chưa nhận diện. Luôn gắn cảnh báo.
   if(!fields.baseAmount&&subtotal!==null&&extra===null){
@@ -169,6 +177,17 @@ export function parseHighlandsReceipt(text){
   }else if(subtotal!==null){
     fields.amount=String(subtotal);
     warnings.push('Không thấy nhãn Tổng tiền; vui lòng kiểm tra Thành tiền trên ảnh.');
+  }else if(paidAmount!==null&&paidAmount>0){
+    fields.amount=String(paidAmount);
+    warnings.push('Nhãn Tổng tiền bị OCR bỏ sót; đã điền số thanh toán từ Payoo/Bank Card. Cần đối chiếu ảnh.');
+  }
+  // Khi chỉ nhận ra một phần món và tổng Payoo chính xác hơn, không tính
+  // "thực trả" theo giá chưa đủ dòng món. Suy ra giá gốc CHỈ khi chưa thấy
+  // giảm giá/phụ thu/phí; đánh dấu là ước tính để người dùng sửa.
+  if(fields.amount&&extra===null&&discount===null&&fee===null&&subtotal===null&&
+     (!fields.baseAmount||Number(fields.baseAmount)!==Number(fields.amount))){
+    fields.baseAmount=fields.amount;
+    warnings.push('Chưa đọc đủ giá từng món; giá gốc được suy ra từ số thực trả Payoo khi chưa thấy phụ thu/giảm giá. Hãy kiểm tra và sửa nếu cần.');
   }
   if(subtotal!==null&&total!==null&&subtotal-(discount||0)!==total)
     warnings.push('Thành tiền, giảm giá và tổng tiền không khớp; hãy kiểm tra trước khi lưu.');
