@@ -6,7 +6,7 @@ import sanitizeHtml from 'sanitize-html';
 import { getQualityGateSnapshot } from '../web/src/services/qualityGateData.mjs';
 import { loadResearchInsights } from '../web/src/services/researchInsights.mjs';
 import { loadGa4Traffic } from '../web/src/services/ga4Traffic.mjs';
-import { randomToken, deriveKey, seal, unseal, secureEquals, codeChallenge, BLOGGER_SCOPE, BLOGGER_BASE, numericId, normalizeInput, safePost, readCookies, errorStatus } from './lib.mjs';
+import { randomToken, deriveKey, seal, unseal, secureEquals, codeChallenge, BLOGGER_SCOPE, BLOGGER_BASE, numericId, normalizeInput, safePost, readCookies, errorStatus, validatePublishDate } from './lib.mjs';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const SESSION_PATH=path.join(HERE,'data','sessions.enc');
@@ -189,7 +189,7 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
       }
       if(req.method==='GET'&&url.pathname==='/api/posts'){
         const blogId=await checkedBlog(s,url.searchParams.get('blogId'));
-        const status=url.searchParams.get('status')||'draft';if(!['draft','live'].includes(status))throw fail(400,'status phải là draft hoặc live');
+        const status=url.searchParams.get('status')||'draft';if(!['draft','live','scheduled'].includes(status))throw fail(400,'status phải là draft, live hoặc scheduled');
         const pageToken=(url.searchParams.get('pageToken')||'').slice(0,800);
         // Current discovery schema uses uppercase enums; the older reference shows lowercase.
         const result=await googleApi(s,'GET',`/blogs/${blogId}/posts`,{status:status.toUpperCase(),view:'ADMIN',fetchBodies:'false',orderBy:'UPDATED',maxResults:'30',pageToken});
@@ -229,6 +229,36 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
         const payload=normalizeInput(input);payload.content=sanitizeContent(payload.content);
         const post=await googleApi(s,'PATCH',`/blogs/${blogId}/posts/${patch[1]}`,{},payload);
         return json(res,200,{post:safePost(post)});
+      }
+      // Blogger schedules the publication itself. Cloudflare rebuilds cannot publish Blogger posts.
+      const scheduled=url.pathname.match(/^\/api\/schedule\/(\d+)$/);
+      if(scheduled&&(req.method==='POST'||req.method==='DELETE')){
+        verifyWrite(req,s);
+        const input=await readBody(req);
+        const blogId=await checkedBlog(s,input.blogId);
+        // Validate BEFORE changing a scheduled post to draft.
+        const publishDate=req.method==='POST'?validatePublishDate(input.publishDate):null;
+        const current=await getPost(s,blogId,scheduled[1]);
+        const state=String(current.status||'').toLowerCase();
+        if(!['draft','scheduled'].includes(state))throw fail(409,'Chỉ có thể đặt lịch hoặc hủy lịch với bản nháp và bài đang lên lịch.');
+        if(!input.expectedUpdated||current.updated!==input.expectedUpdated)
+          throw fail(409,'Bài viết đã thay đổi trên Blogger. Hãy tải lại để tránh ghi đè lịch khác.');
+        if(req.method==='DELETE'){
+          if(state!=='scheduled')throw fail(409,'Bài viết hiện không có lịch đăng.');
+          const draft=await googleApi(s,'POST',`/blogs/${blogId}/posts/${scheduled[1]}/revert`);
+          return json(res,200,{post:safePost(draft)});
+        }
+        // A scheduled Blogger post must first be reverted to draft before rescheduling.
+        if(state==='scheduled')await googleApi(s,'POST',`/blogs/${blogId}/posts/${scheduled[1]}/revert`);
+        try{
+          const result=await googleApi(s,'POST',`/blogs/${blogId}/posts/${scheduled[1]}/publish`,{publishDate});
+          if(String(result.status||'').toLowerCase()!=='scheduled')
+            throw fail(502,'Blogger không xác nhận trạng thái Scheduled. Vui lòng kiểm tra bài trong Blogger.');
+          return json(res,200,{post:safePost(result)});
+        }catch(e){
+          if(state==='scheduled')e.message+=' Bài có thể đã trở về bản nháp; hãy tải lại danh sách trước khi thử lại.';
+          throw e;
+        }
       }
       const pub=url.pathname.match(/^\/api\/publish\/(\d+)$/);
       if(req.method==='POST'&&pub){
