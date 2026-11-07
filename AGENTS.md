@@ -40,6 +40,21 @@ Acceptance criteria:
 
 This rule applies prospectively to new utilities; existing utility shortcuts may be audited or backfilled in separate scoped PRs.
 
+## Mandatory rule: reuse the Editor's Google OAuth configuration on every page
+
+**NON-NEGOTIABLE / BẮT BUỘC:** All tools, dashboards, standalone pages and new features on the Editor domain that connect to Google Drive, Sheets or other Google APIs MUST reuse the Editor's established Google OAuth Web Client ID discovery. Do not ask the owner to configure `VITE_GOOGLE_CLIENT_ID` independently for each page.
+
+Acceptance criteria:
+1. Use the shared `discoverExpenseDriveClientId` helper (or its centralized successor) in `apps/web/src/expenses/driveClientResolver.js`, with the Editor's `EDITOR_DRIVE_CLIENT_KEY`. Its precedence covers existing `VITE_GOOGLE_CLIENT_ID`, remembered same-origin public Client ID, and the server's public `/api/drive-client-config` endpoint (`GOOGLE_DRIVE_CLIENT_ID` then `GOOGLE_CLIENT_ID`).
+2. Resolve the ID at page mount, before the user clicks Google Sign-In, to avoid popup blockers. Never duplicate configuration screens for already connected Editor OAuth settings. Display actionable error states only if all safe discovery sources fail.
+3. Reusing the public Web Client ID does **not** reuse an OAuth access token or automatically grant access. Request only the scopes the page actually needs via Google Identity Services; support consent, denial and expiration.
+4. Never expose Google Client Secret, service account private keys, access or refresh tokens in source, localStorage, public endpoints, error logs or GitHub. The public OAuth Client ID is not secret. `GOOGLE_SERVICE_ACCOUNT_JSON` is server-only and not a browser OAuth substitute.
+5. Add regression tests proving reuse works when a new page's build-time `VITE_GOOGLE_CLIENT_ID` is absent, but the Editor's stored or backend Client ID exists. Do not break any existing Drive sync, data isolation, conflict protection, or approved layout.
+
+## Optional on-device storage of AI provider API keys
+
+For user-entered Gemini/Groq API keys, do not persist by default. Where an explicit **“Lưu API keys trên thiết bị này”** preference exists, allow a deliberate per-device opt-in and an easy clear/revoke control. Explain that browser localStorage is not encrypted, can be read by browser extensions or anyone with access to that browser, and is never synced to Drive, Sheets or server. Never store Google OAuth tokens or service account keys this way. Do not log or commit user keys. Prefer server-side secrets/proxy for shared devices and sensitive production use.
+
 ## Other engineering conventions
 
 - Never commit credentials or private user data.

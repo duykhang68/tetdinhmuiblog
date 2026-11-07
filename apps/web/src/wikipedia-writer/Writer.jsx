@@ -1,10 +1,11 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {SHEET_ID,DRIVE_NAME,parseWikiUrl,parseAIJson,normalizeVocabulary,uniqueVocabulary,toSheetRow,validateBackup} from './model.js';
+import {discoverExpenseDriveClientId,validClientId,EDITOR_DRIVE_CLIENT_KEY} from '../expenses/driveClientResolver.js';
+import {readRememberedAiKeys,persistAiKeys} from './aiKeyStorage.js';
 const SCOPE='https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.appdata';
 const SHEETS='https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID+'/values/';
 const DRIVE='https://www.googleapis.com/drive/v3/files';
 const escapeName=encodeURIComponent("'Sheet1'!A2:F");
-const CLIENT_ID=import.meta.env.VITE_GOOGLE_CLIENT_ID||'';
 const PROMPT=(source,text)=>`You are an experienced Vietnamese journalist and Vietnamese/Korean/English language educator. Using the Wikipedia material below as background, write an ORIGINAL, neutral, factually faithful Vietnamese explainer article with title, short lead, 3-5 topical subsections and a conclusion. NEVER invent events or quotes; separate uncertain information and attribute claims to Wikipedia. Do not copy passages verbatim. From YOUR GENERATED article select 12-25 useful meaningful words or expressions and provide precise translations. The grammar field should explain grammar and contain three short example sentences labelled VI:, KR:, EN:. Category should be a useful English category. Return ONLY one JSON object with keys "title", "article" (plain text, paragraphs separated by newlines), "vocabulary" (array of objects with keys "vi","ko","en","context","grammar","category"). All vocabulary must occur in article; no duplicates. Source: ${source}\nWikipedia background (may be truncated):\n${text.slice(0,16000)}`;
 async function responseJSON(response){
  const body=await response.json().catch(()=>({}));
@@ -34,17 +35,48 @@ async function groq(key,prompt){
 }
 const snapshot=(source,title,article,vocabulary)=>({schema:'wikipedia-writer-v1',source,title,article,vocabulary,savedAt:new Date().toISOString()});
 export default function Writer(){
- const [url,setUrl]=useState(''),[provider,setProvider]=useState('auto'),[gKey,setGKey]=useState(''),[qKey,setQKey]=useState('');
+ const [savedAiKeys]=useState(()=>{try{return readRememberedAiKeys(window.localStorage);}catch{return {remember:false,gemini:'',groq:''};}});
+ const [rememberAiKeys,setRememberAiKeys]=useState(savedAiKeys.remember);
+ const [url,setUrl]=useState(''),[provider,setProvider]=useState('auto'),[gKey,setGKey]=useState(savedAiKeys.gemini),[qKey,setQKey]=useState(savedAiKeys.groq);
+ const [keyStorageError,setKeyStorageError]=useState('');
+ function updateRememberAiKeys(checked){
+  setRememberAiKeys(checked);
+  let saved=false;try{saved=persistAiKeys(window.localStorage,checked,gKey,qKey);}catch{}
+  if(!saved){
+   setKeyStorageError('Trình duyệt không cho phép lưu trên thiết bị này.');
+   setRememberAiKeys(false);
+  }else setKeyStorageError('');
+ }
+ function clearSavedAiKeys(){
+  try{persistAiKeys(window.localStorage,false,'','');}catch{}
+  setRememberAiKeys(false);setGKey('');setQKey('');setKeyStorageError('');
+ }
+ useEffect(()=>{
+  if(!rememberAiKeys)return;
+  let saved=false;try{saved=persistAiKeys(window.localStorage,true,gKey,qKey);}catch{}
+  if(!saved)setKeyStorageError('Không thể cập nhật khóa đã lưu trên thiết bị.');
+ },[rememberAiKeys,gKey,qKey]);
  const [title,setTitle]=useState(''),[article,setArticle]=useState(''),[rows,setRows]=useState([]);
  const [busy,setBusy]=useState(''),[notice,setNotice]=useState(''),[error,setError]=useState('');
  const [access,setAccess]=useState(''),[driveFile,setDriveFile]=useState(null),[lastSync,setLastSync]=useState(''),[dirty,setDirty]=useState(false);
+ const [oauthConfig,setOauthConfig]=useState({clientId:'',loading:true,error:'',source:''});
+ useEffect(()=>{
+  let active=true;
+  let saved='';
+  try{saved=localStorage.getItem(EDITOR_DRIVE_CLIENT_KEY)||'';}catch{}
+  discoverExpenseDriveClientId({environmentValue:import.meta.env.VITE_GOOGLE_CLIENT_ID,storedValue:saved})
+   .then(result=>{if(active)setOauthConfig({...result,loading:false});})
+   .catch(()=>{if(active)setOauthConfig({clientId:'',loading:false,error:'Không đọc được cấu hình OAuth chung của Editor.',source:'missing'});});
+  return()=>{active=false;};
+ },[]);
  const stateRef=useRef({});stateRef.current={url,title,article,rows,driveFile,access,dirty};
  function change(fn){return value=>{fn(value);setDirty(true);};}
  async function auth(){
-  if(!CLIENT_ID)throw Error('Thiếu VITE_GOOGLE_CLIENT_ID trong Cloudflare Pages.');
+  if(oauthConfig.loading)throw Error('Đang đọc cấu hình Google OAuth từ Editor, hãy thử lại.');
+  if(!validClientId(oauthConfig.clientId))throw Error(oauthConfig.error||'Không tìm thấy Google OAuth Web Client ID đã cấu hình trong Editor.');
   if(!globalThis.google?.accounts?.oauth2)throw Error('Google Identity Services chưa tải.');
   const token=await new Promise((resolve,reject)=>{
-   const client=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPE,
+   const client=google.accounts.oauth2.initTokenClient({client_id:oauthConfig.clientId,scope:SCOPE,
     callback:result=>result.error?reject(Error(result.error)):resolve(result.access_token),
     error_callback:e=>reject(Error(e.type||'Không thể đăng nhập Google'))});
    client.requestAccessToken({prompt:'consent'});
@@ -135,8 +167,10 @@ export default function Writer(){
     <section className="ww-card"><div className="ww-card-head"><span className="ww-step">01</span><div><h2>Nguồn bài viết</h2><p>Wikipedia · vi / en / ko và các phiên bản khác</p></div></div>
      <label>Đường dẫn Wikipedia<input type="url" placeholder="https://vi.wikipedia.org/wiki/..." value={url} onChange={e=>change(setUrl)(e.target.value)}/></label>
      <div className="ww-grid"><label>Chọn AI<select value={provider} onChange={e=>setProvider(e.target.value)}><option value="auto">Gemini → Groq dự phòng</option><option value="gemini">Chỉ Gemini</option><option value="groq">Chỉ Groq</option></select></label></div>
-     <div className="ww-grid"><label>Gemini API key (chỉ phiên này)<input type="password" autoComplete="off" value={gKey} onChange={e=>setGKey(e.target.value)} placeholder="AIza..."/></label><label>Groq API key (chỉ phiên này)<input type="password" autoComplete="off" value={qKey} onChange={e=>setQKey(e.target.value)} placeholder="gsk_..."/></label></div>
-     <p className="ww-note">API keys gửi trực tiếp từ trình duyệt đến nhà cung cấp AI; không lưu vào Drive, Sheet hay localStorage. Trên máy dùng chung, nên dùng proxy server thay vì nhập khóa cá nhân.</p>
+     <div className="ww-grid"><label>Gemini API key<input type="password" autoComplete="off" value={gKey} onChange={e=>setGKey(e.target.value)} placeholder="AIza..."/></label><label>Groq API key<input type="password" autoComplete="off" value={qKey} onChange={e=>setQKey(e.target.value)} placeholder="gsk_..."/></label></div>
+     <div className="ww-key-preference"><label><input type="checkbox" checked={rememberAiKeys} onChange={e=>updateRememberAiKeys(e.target.checked)}/> Lưu API keys trên thiết bị này</label><button type="button" onClick={clearSavedAiKeys}>Xóa khóa đã lưu</button></div>
+     <p className="ww-note">Mặc định chỉ lưu khóa trong phiên trang hiện tại. Nếu tích chọn, Gemini và Groq API keys sẽ được giữ trong localStorage của trình duyệt này (không mã hóa), tự điền khi mở lại trên cùng thiết bị và không đồng bộ lên Drive, Sheet hoặc máy chủ. Chỉ bật trên thiết bị cá nhân đáng tin cậy; người có quyền truy cập trình duyệt hoặc tiện ích mở rộng có thể đọc khóa đã lưu.</p>
+     {keyStorageError&&<p className="ww-note" role="alert">{keyStorageError}</p>}
      <button disabled={running||!url.trim()} className="ww-primary" onClick={generate}>{busy==='ai'?'Đang đọc và viết…':'✦ Tạo bài báo & trích xuất từ vựng'}</button>
     </section>
     <section className="ww-card"><div className="ww-card-head"><span className="ww-step">02</span><div><h2>Bản thảo bài báo</h2><p>Nội dung có thể chỉnh sửa trước khi sử dụng</p></div></div>
@@ -146,7 +180,8 @@ export default function Writer(){
     </section>
    </div><div className="ww-stack">
     <section className="ww-card ww-connect"><div className="ww-card-head"><span className="ww-step">☁</span><div><h2>Google Sheets & Drive</h2><p>{access?'Đã kết nối tài khoản Google':'Kết nối OAuth để ghi dữ liệu trực tiếp'}</p></div></div>
-     <div className="ww-actions"><button disabled={running} onClick={connect}>{access?'↻ Kết nối lại / Khôi phục':'Kết nối Google'}</button><button disabled={running||!access||!article} onClick={save}>☁ Đồng bộ ngay</button></div>
+     <div className="ww-actions"><button disabled={running||oauthConfig.loading} onClick={connect}>{oauthConfig.loading?'Đang đọc cấu hình Google…':access?'↻ Kết nối lại / Khôi phục':'Kết nối Google'}</button><button disabled={running||!access||!article} onClick={save}>☁ Đồng bộ ngay</button></div>
+     {!oauthConfig.loading&&!validClientId(oauthConfig.clientId)&&<p className="ww-note" role="status">{oauthConfig.error||'Chưa tìm thấy OAuth Client ID dùng chung của Editor.'}</p>}
      <p className="ww-note">Sao lưu bản thảo vào Google Drive mỗi 3 phút khi trang mở và đã kết nối. Không ghi đè bản Drive có thay đổi từ thiết bị khác.</p>
      <p className="ww-status">{dirty?'● Có thay đổi chưa đồng bộ':'✓ Bản thảo chưa có thay đổi mới'}{lastSync?' · Lần lưu: '+lastSync:''}</p>
      <a href={'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/edit?gid=0'} target="_blank" rel="noopener noreferrer">Mở Google Sheet viethananh ↗</a>
