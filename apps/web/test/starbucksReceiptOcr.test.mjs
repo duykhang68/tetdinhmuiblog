@@ -159,6 +159,44 @@ test('Form import no longer deletes a read original price when the OCR breakdown
   assert.match(component, /Giá món gốc \+ phụ thu/);
 });
 
+test('OCR autofills customization descriptions even if the surcharge price is unreadable', () => {
+  const missingPrice = sora.replace('Lựa chọn Sữa: Sữa Half & Half ₫5,000', 'Lựa chọn Sữa: Sữa Half & Half');
+  const result = parseStarbucksReceipt(missingPrice);
+  assert.equal(result.fields.baseAmount, '80000');
+  assert.equal(result.fields.extraAmount, '5000');
+  assert.match(result.fields.extraReason, /Sữa: Sữa Half & Half/);
+  assert.match(result.fields.extraReason, /Độ ngọt: Không ngọt/);
+});
+
+test('OCR fills a discount reason only if receipt explicitly describes it', () => {
+  const explicit = parseStarbucksReceipt(sora.replace('Giảm giá -₫10,000', 'Giảm giá: Voucher thành viên -₫10,000'));
+  assert.equal(explicit.fields.discountAmount, '10000');
+  assert.equal(explicit.fields.discountReason, 'Voucher thành viên');
+  assert.equal(explicit.fields.amount, '75000');
+  const noReason = parseStarbucksReceipt(sora);
+  assert.equal(noReason.fields.discountReason, undefined);
+});
+
+test('OCR reads multiline discount descriptions and amounts', () => {
+  const multiline = parseStarbucksReceipt(sora.replace('Giảm giá -₫10,000', 'Giảm giá\nVoucher sinh nhật\n-₫10,000'));
+  assert.equal(multiline.fields.discountReason, 'Voucher sinh nhật');
+  assert.equal(multiline.fields.discountAmount, '10000');
+  assert.equal(multiline.fields.amount, '75000');
+});
+
+test('Receipt breakdown stays prominent and editable in Reddit light mode', () => {
+  const component = readFileSync(new URL('../src/starbucks-insights/StarbucksInsights.jsx', import.meta.url), 'utf8');
+  const stylesheet = readFileSync(new URL('../src/starbucks-insights/starbucks.css', import.meta.url), 'utf8');
+  assert.match(component, /sb-finance-equation/);
+  assert.match(component, /sb-finance-before/);
+  assert.match(component, /sb-finance-discount/);
+  assert.match(component, /sb-finance-payable/);
+  assert.match(component, /value=\{form\.extraReason\}/);
+  assert.match(component, /value=\{form\.discountReason\}/);
+  assert.match(stylesheet, /\.sb-finance-equation\{display:grid/);
+  assert.match(stylesheet, /@media\(max-width:740px\)\{\.sb-finance-equation/);
+});
+
 test('Upload remains opt-in, browser-only and does not save an OCR result', () => {
   const component = readFileSync(new URL('../src/starbucks-insights/StarbucksInsights.jsx', import.meta.url), 'utf8');
   const worker = readFileSync(new URL('../src/starbucks-insights/receiptOcrBrowser.js', import.meta.url), 'utf8');
