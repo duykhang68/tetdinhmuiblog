@@ -42,3 +42,13 @@ test('Cloudflare cache policy is limited to the Blogger asset directory', () => 
   assert.match(headers, /max-age=60/);
   assert.doesNotMatch(headers, /^\/\*\s*$/m);
 });
+
+test('Blogger article prose is justified without changing titles or structured blocks', () => {
+  const css = read('theme.css');
+  assert.match(css, /#main-wrapper\s+\.post-body\s+p:not\(/);
+  assert.match(css, /text-align:\s*justify\s*!important/);
+  assert.match(css, /text-align-last:\s*start/);
+  assert.match(css, /blockquote p, \.hd-quote p, \.hd-callout p, \.hd-note p/);
+  assert.match(css, /figcaption p, table p, \.hd-table-wrap p/);
+  assert.match(css, /\[style\\\*='text-align: center'\]/);
+});
