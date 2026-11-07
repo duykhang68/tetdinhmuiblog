@@ -43,12 +43,12 @@ function ActivityChart({data=[]}) {
   const total=data.reduce((s,d)=>s+d.count,0);
   return <div className="ri-plot" role="img" aria-label={'Số incident mới trong 14 ngày: '+total}>
     <svg viewBox={'0 0 '+width+' '+height} preserveAspectRatio="xMidYMid meet">
-      <defs><linearGradient id="researchArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#818cf8" stopOpacity=".34"/><stop offset="100%" stopColor="#818cf8" stopOpacity="0"/></linearGradient></defs>
-      {[0,.25,.5,.75,1].map(f=><g key={f}><line x1={left} x2={width-right} y1={y(max*f)} y2={y(max*f)} stroke="#29364b" strokeDasharray="4 6"/><text x="7" y={y(max*f)+4} fill="#8291a8" fontSize="11">{Math.round(max*f)}</text></g>)}
+      <defs><linearGradient id="researchArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#ff4500" stopOpacity=".20"/><stop offset="100%" stopColor="#ff4500" stopOpacity="0"/></linearGradient></defs>
+      {[0,.25,.5,.75,1].map(f=><g key={f}><line x1={left} x2={width-right} y1={y(max*f)} y2={y(max*f)} stroke="#dce4e7" strokeDasharray="4 6"/><text x="7" y={y(max*f)+4} fill="#667780" fontSize="11">{Math.round(max*f)}</text></g>)}
       {area&&<path d={area} fill="url(#researchArea)"/>}
-      <polyline points={points} fill="none" stroke="#a5b4fc" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"/>
-      {data.map((d,i)=><circle key={d.day} cx={x(i)} cy={y(d.count)} r="4.5" fill="#020617" stroke="#a5b4fc" strokeWidth="2"><title>{dayLabel(d.day)+': '+d.count+' incidents'}</title></circle>)}
-      {data.filter((_,i)=>i%3===0||i===data.length-1).map(d=><text key={d.day} x={x(data.indexOf(d))} y="217" textAnchor="middle" fill="#94a3b8" fontSize="11">{dayLabel(d.day)}</text>)}
+      <polyline points={points} fill="none" stroke="#ff4500" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"/>
+      {data.map((d,i)=><circle key={d.day} cx={x(i)} cy={y(d.count)} r="4.5" fill="#ffffff" stroke="#ff4500" strokeWidth="2"><title>{dayLabel(d.day)+': '+d.count+' incidents'}</title></circle>)}
+      {data.filter((_,i)=>i%3===0||i===data.length-1).map(d=><text key={d.day} x={x(data.indexOf(d))} y="217" textAnchor="middle" fill="#667780" fontSize="11">{dayLabel(d.day)}</text>)}
     </svg>
     {!total&&<p className="ri-plot-empty">Chưa có incident mới trong khoảng thời gian này.</p>}
   </div>;
@@ -56,13 +56,13 @@ function ActivityChart({data=[]}) {
 function TypesDonut({data=[]}) {
   const total=data.reduce((s,d)=>s+d.count,0);
   let used=0;const radius=71,circ=2*Math.PI*radius;
-  const colors={CI:'#818cf8',CONFLICT:'#34d399'};
+  const colors={CI:'#ff4500',CONFLICT:'#008e83'};
   return <div className="ri-donut-wrap">
     <svg viewBox="0 0 220 220" className="ri-donut" role="img" aria-label={'Phân loại: '+data.map(d=>d.name+' '+d.count).join(', ')}>
-      <circle cx="110" cy="110" r={radius} stroke="#263449" strokeWidth="20" fill="none"/>
-      {data.map(d=>{const len=total?d.count/total*circ:0;const offset=used;used+=len;return <circle key={d.name} cx="110" cy="110" r={radius} fill="none" stroke={colors[d.name]||'#64748b'} strokeWidth="20" strokeDasharray={len+' '+(circ-len)} strokeDashoffset={-offset} strokeLinecap={total&&len<circ?'butt':'round'} transform="rotate(-90 110 110)"/>;})}
-      <text x="110" y="107" textAnchor="middle" fill="#f8fafc" fontSize="31" fontWeight="750">{total}</text>
-      <text x="110" y="128" textAnchor="middle" fill="#94a3b8" fontSize="11">INCIDENTS</text>
+      <circle cx="110" cy="110" r={radius} stroke="#edf0f2" strokeWidth="20" fill="none"/>
+      {data.map(d=>{const len=total?d.count/total*circ:0;const offset=used;used+=len;return <circle key={d.name} cx="110" cy="110" r={radius} fill="none" stroke={colors[d.name]||'#7a9299'} strokeWidth="20" strokeDasharray={len+' '+(circ-len)} strokeDashoffset={-offset} strokeLinecap={total&&len<circ?'butt':'round'} transform="rotate(-90 110 110)"/>;})}
+      <text x="110" y="107" textAnchor="middle" fill="#1c2328" fontSize="31" fontWeight="750">{total}</text>
+      <text x="110" y="128" textAnchor="middle" fill="#667780" fontSize="11">INCIDENTS</text>
     </svg>
     <div className="ri-donut-legend">{data.map(d=><div key={d.name}><span className={'ri-legend-dot ri-'+d.name.toLowerCase()}/><span>{d.name==='CI'?'CI failures':'Merge conflicts'}</span><b>{total?Math.round(d.count/total*100):0}%</b></div>)}</div>
   </div>;
