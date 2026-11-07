@@ -5,32 +5,34 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 01:09 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 01:13 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 42 |
-| AUTO-MERGED có bằng chứng | 20 |
-| Auto-merge PR thường | 15 |
+| PR đã merge (tối đa 300 PR gần đây) | 45 |
+| AUTO-MERGED có bằng chứng | 22 |
+| Auto-merge PR thường | 17 |
 | Auto-merge PR thay đổi workflow | 5 |
-| Nguồn merge chưa xác minh | 22 |
+| Nguồn merge chưa xác minh | 23 |
 
 ### Phân bố bằng chứng
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 20
-    "Chưa xác minh" : 22
+    "Auto-merge verified" : 22
+    "Chưa xác minh" : 23
 ```
 
-`Auto-merge ` █████████░░░░░░░░░ **20/42**
+`Auto-merge ` █████████░░░░░░░░░ **22/45**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#47](https://github.com/duykhang68/tetdinhmuiblog/pull/47) fix(editor): remove workspace loading splash on homepag | 2026-11-07T01:12:49Z | Code/docs | ✅ | CI green trên HEAD `d6ec523e`; GitHub chấp nhận merge; [Run #42322793574](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42322793574) |
+| [#44](https://github.com/duykhang68/tetdinhmuiblog/pull/44) fix(quality-gate): diagnose GitHub API auth and preserv | 2026-11-07T01:10:49Z | Code/docs | ✅ | CI green trên HEAD `14d3ab25`; GitHub chấp nhận merge; [Run #42322591539](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42322591539) |
 | [#43](https://github.com/duykhang68/tetdinhmuiblog/pull/43) style(collector): replace dark UI with permanent light  | 2026-11-07T01:09:19Z | Code/docs | ✅ | CI green trên HEAD `ab2334c6`; GitHub chấp nhận merge; [Run #42322453259](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42322453259) |
 | [#42](https://github.com/duykhang68/tetdinhmuiblog/pull/42) fix: recover Quality Gate pipeline sync via public GitH | 2026-11-07T01:07:28Z | Code/docs | ✅ | CI green trên HEAD `5bae7630`; GitHub chấp nhận merge; [Run #42322277332](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42322277332) |
 | [#41](https://github.com/duykhang68/tetdinhmuiblog/pull/41) feat(editor): live GitHub Actions Queue in right sideba | 2026-11-07T01:04:31Z | Code/docs | ✅ | CI green trên HEAD `8b43b349`; GitHub chấp nhận merge; [Run #42321986154](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42321986154) |
@@ -54,12 +56,12 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 25.0% (5/20).
-- **Quality gate:** 20 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 22.7% (5/22).
+- **Quality gate:** 22 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
-- **Khoảng trống dữ liệu:** 22 PR đã merge chưa có bằng chứng collector; không tính là auto-merge.
+- **Khoảng trống dữ liệu:** 23 PR đã merge chưa có bằng chứng collector; không tính là auto-merge.
 
 ## 🛡️ Giới hạn và phương pháp
 

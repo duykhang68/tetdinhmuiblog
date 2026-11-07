@@ -49,3 +49,9 @@
 @media(max-width:1180px) and (min-width:621px){.gaq{align-self:start}}
 @media(max-width:620px){.gaq-head{padding:14px 15px}.gaq-content{padding-inline:14px}.gaq-stats{padding-inline:14px}.gaq-stats strong{font-size:21px}.gaq-item-title{font-size:12px}}
 @media(prefers-reduced-motion:reduce){.gaq-status.is-running .gaq-status-dot{animation:none}.gaq-item{transition:none}}
+
+/* Queue and Smart Insights share the same bottom dashboard row.
+   Keep the editor's publication sidebar completely separate. */
+.kit-github-dashboard{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:18px;align-items:start;width:min(100%,1120px);max-width:100%;margin:18px auto 30px}
+.kit-github-dashboard>.gaq,.kit-github-dashboard>.ghsi{width:100%;max-width:none;margin:0;min-width:0}
+@media(max-width:900px){.kit-github-dashboard{grid-template-columns:minmax(0,1fr);gap:14px}}

@@ -169,12 +169,12 @@ export function createApp(config=cfg(),fetcher=fetch,sessionFile=SESSION_PATH){
       const s=mustAuth(req);
       if(req.method==='GET'&&url.pathname==='/api/quality-gate'){
         await accessToken(s);
-        const snapshot=await getQualityGateSnapshot({fetcher,githubToken:process.env.GITHUB_TOKEN||'',cloudflare:{accountId:process.env.CLOUDFLARE_ACCOUNT_ID,projectName:process.env.CLOUDFLARE_PAGES_PROJECT,token:process.env.CLOUDFLARE_API_TOKEN}});
+        const snapshot=await getQualityGateSnapshot({fetcher,githubToken:process.env.GITHUB_TOKEN||process.env.RESEARCH_GITHUB_TOKEN||'',cloudflare:{accountId:process.env.CLOUDFLARE_ACCOUNT_ID,projectName:process.env.CLOUDFLARE_PAGES_PROJECT,token:process.env.CLOUDFLARE_API_TOKEN}});
         return json(res,200,snapshot);
       }
       if(req.method==='GET'&&url.pathname==='/api/ga4-traffic'){
         if(!s.token.analytics)return json(res,200,{status:'needs_consent'});
-        const ga4=await loadGa4Traffic({fetcher,token:await accessToken(s),propertyId:process.env.GA4_PROPERTY_ID||s.ga4PropertyId||''});
+        const ga4=await loadGa4Traffic({fetcher,token:await accessToken(s),propertyId:process.env.GA4_PROPERTY_ID||s.ga4PropertyId||'563038949'});
         if(ga4.status==='connected'){s.ga4PropertyId=ga4.propertyId;persist();}
         return json(res,200,ga4);
       }
