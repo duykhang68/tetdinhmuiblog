@@ -170,7 +170,7 @@ export default function Writer(){
      <div className="ww-grid"><label>Gemini API key<input type="password" autoComplete="off" value={gKey} onChange={e=>setGKey(e.target.value)} placeholder="AIza..."/></label><label>Groq API key<input type="password" autoComplete="off" value={qKey} onChange={e=>setQKey(e.target.value)} placeholder="gsk_..."/></label></div>
      <div className="ww-key-preference"><label><input type="checkbox" checked={rememberAiKeys} onChange={e=>updateRememberAiKeys(e.target.checked)}/> Lưu API keys trên thiết bị này</label><button type="button" onClick={clearSavedAiKeys}>Xóa khóa đã lưu</button></div>
      <p className="ww-note">Mặc định chỉ lưu khóa trong phiên trang hiện tại. Nếu tích chọn, Gemini và Groq API keys sẽ được giữ trong localStorage của trình duyệt này (không mã hóa), tự điền khi mở lại trên cùng thiết bị và không đồng bộ lên Drive, Sheet hoặc máy chủ. Chỉ bật trên thiết bị cá nhân đáng tin cậy; người có quyền truy cập trình duyệt hoặc tiện ích mở rộng có thể đọc khóa đã lưu.</p>
-     {keyStorageError&&<p className="ww-note" role="alert">{keyStorageError}</p>
+     {keyStorageError&&<p className="ww-note" role="alert">{keyStorageError}</p>}
      <button disabled={running||!url.trim()} className="ww-primary" onClick={generate}>{busy==='ai'?'Đang đọc và viết…':'✦ Tạo bài báo & trích xuất từ vựng'}</button>
     </section>
     <section className="ww-card"><div className="ww-card-head"><span className="ww-step">02</span><div><h2>Bản thảo bài báo</h2><p>Nội dung có thể chỉnh sửa trước khi sử dụng</p></div></div>
