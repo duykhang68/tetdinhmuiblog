@@ -250,9 +250,19 @@ export default function HighlandsInsights() {
       const preview = URL.createObjectURL(file);
       setReceiptPreview(preview);
       const recognized = await recognizeReceiptImage(file, setReceiptStatus);
-      if (!recognized.text.trim()) throw new Error('Không đọc thấy chữ trên ảnh; thử chụp rõ nét, đủ sáng.');
+      if (!recognized.text.trim()) {
+        setReceiptResult({lines:[],warnings:['OCR không nhận được ký tự từ ảnh gốc và ảnh đã xử lý. Thử chụp thẳng mặt hóa đơn, đủ sáng.'],mappedCount:0,confidence:recognized.confidence});
+        setReceiptError('Ảnh chưa đủ rõ để tự điền. Bạn có thể kiểm tra ảnh và thử lại.');
+        return;
+      }
       const result = parseHighlandsReceipt(recognized.text);
-      if (!Object.keys(result.fields).length) throw new Error('Không tìm thấy dữ liệu hóa đơn Highlands trong ảnh này.');
+      // Không chặn hoàn toàn OCR chỉ vì tiêu đề bị đọc sai: luôn giữ nội dung
+      // nhận diện để người dùng đối chiếu, kể cả khi chưa trích xuất được số liệu.
+      if (!Object.keys(result.fields).length) {
+        setReceiptResult({...result,confidence:recognized.confidence,mappedCount:0});
+        setReceiptError('OCR đã đọc ảnh nhưng chưa tìm đủ trường đáng tin cậy để tự điền. Mở “Xem văn bản OCR” bên dưới để đối chiếu hoặc thử ảnh khác.');
+        return;
+      }
       const mapped = { ...result.fields };
       if (mapped.baseAmount && mapped.amount &&
         calculatePayable(mapped.baseAmount, mapped.extraAmount || 0, mapped.discountAmount || 0) !== Number(mapped.amount)) {

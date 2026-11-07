@@ -56,6 +56,89 @@ test('Receipt parser rejects unrelated brands and never interprets QR or telepho
  assert.equal(data.items.length,2);
  assert.equal(data.subtotal,54000);
 });
+test('Thermal OCR keeps POS fields when the HIGH LANDS logo is corrupted or absent',()=>{
+  const corrupted=bauBang
+    .replace('HIGHLANDS COFFEE','HICHLANOS C0FFEE')
+    .replace('Thanh tien:','Thanh tién:')
+    .replace('Tong tien:','Tổng tiền:');
+  const parsed=parseHighlandsReceipt(corrupted);
+  assert.equal(parsed.fields.date,'2026-11-03');
+  assert.equal(parsed.fields.store,'KCN Bau Bang');
+  assert.equal(parsed.fields.orderId,'139154');
+  assert.equal(parsed.fields.baseAmount,'54000');
+  assert.equal(parsed.fields.amount,'54000');
+  assert.equal(parsed.fields.payment,'pos');
+  assert.equal(parsed.items.length,2);
+  assert.equal(parsed.recognizedBrand,false);
+  assert.ok(parsed.warnings.some(message=>/Logo Highlands đọc chưa rõ/.test(message)));
+});
+
+test('Highlands receipt accepts spaced logo; unrelated receipts still rejected',()=>{
+  const spaced=parseHighlandsReceipt(bauBang.replace('HIGHLANDS COFFEE','H I G H L A N D S  C O F F E E'));
+  assert.equal(spaced.recognizedBrand,true);
+  assert.equal(spaced.fields.amount,'54000');
+  const unrelated=parseHighlandsReceipt('STARBUCKS REWARDS\nShopID: 9999\nCheck: 123456\nTong tien: 54000\nPayoo Bank Card');
+  assert.deepEqual(unrelated.fields,{});
+});
+
+test('Thermal OCR supports price on next line and three-line printed items',()=>{
+  const broken=bauBang.replace('1     Banh Tiramisu               39.000','1 Banh Tiramisu\n39.000')
+    .replace('1     Nuoc Tinh Khiet Dasani       15.000','1\nNuoc Tinh Khiet Dasani\n15.000');
+  const parsed=parseHighlandsReceipt(broken);
+  assert.equal(parsed.items.length,2);
+  assert.equal(parsed.fields.itemsCount,'2');
+  assert.equal(parsed.fields.baseAmount,'54000');
+  assert.match(parsed.fields.item,/Dasani 510ml/);
+  assert.equal(parsed.fields.amount,'54000');
+});
+
+test('Thermal OCR can preserve trustworthy totals when item lines are damaged',()=>{
+  const withoutItems=bauBang.replace('1     Banh Tiramisu               39.000','Banh Tiramisu')
+    .replace('1     Nuoc Tinh Khiet Dasani       15.000','Nuoc Tinh Khiet Dasani');
+  const parsed=parseHighlandsReceipt(withoutItems);
+  assert.equal(parsed.items.length,0);
+  assert.equal(parsed.fields.baseAmount,'54000');
+  assert.equal(parsed.fields.amount,'54000');
+  assert.equal(parsed.fields.payment,'pos');
+  assert.equal(parsed.fields.itemsCount,undefined);
+  assert.ok(parsed.warnings.some(w=>/giá gốc tạm lấy từ Thành tiền/.test(w)));
+});
+
+test('Browser re-runs OCR when text omits amount, item or date even at high confidence',async()=>{
+  const {shouldRetryReceiptOcr}=await import('../src/highlands-insights/receiptOcrBrowser.js');
+  assert.equal(shouldRetryReceiptOcr({text:'HIGHLANDS COFFEE\nCheck:139154',confidence:99}),true);
+  assert.equal(shouldRetryReceiptOcr({text:bauBang,confidence:70}),false);
+  const component=readFileSync(new URL('../src/highlands-insights/HighlandsInsights.jsx',import.meta.url),'utf8');
+  assert.match(component,/setReceiptResult\(\{\.\.\.result,confidence:recognized.confidence,mappedCount:0\}\)/);
+  assert.doesNotMatch(component,/throw new Error\('Không tìm thấy dữ liệu hóa đơn Highlands trong ảnh này/);
+});
+
+test('Real sample photo OCR artifacts still recover Check, date and 54,000 VND Payoo amount',()=>{
+ const noisy=[
+   '= HAAS COFFE —',
+   'KCN B -p13+ van >',
+   'ShopID: 30799 :',
+   'SS Hoa Don Thanh Toan Se',
+   'In Store Pager 1 * —',
+   'Check: 139154 > —',
+   'Noay : 03-11-2026 17:45 posot — :',
+   'SSS anh Tiramisu 39. Se SS',
+   '1 Nuoc Tinh Khiet Dasani 15.000 SSS S<—S',
+   'Tong tien: 400) SS',
+   'Payoo Bank Card 54,000 —= .',
+   'Xuat hoa don: Quet OR va nhap thong tin'
+ ].join('\n');
+ const receipt=parseHighlandsReceipt(noisy);
+ assert.equal(receipt.recognizedBrand,false);
+ assert.equal(receipt.fields.date,'2026-11-03');
+ assert.equal(receipt.fields.orderId,'139154');
+ assert.equal(receipt.fields.payment,'pos');
+ assert.equal(receipt.fields.amount,'54000');
+ assert.equal(receipt.fields.baseAmount,'54000');
+ assert.ok(receipt.warnings.some(w=>/Payoo/.test(w)));
+ assert.ok(receipt.warnings.some(w=>/Chưa đọc đủ giá từng món/.test(w)));
+});
+
 test('DRIPS floor to 10,000 and TemDI only with verified member and >=50k',()=>{
  assert.equal(STORAGE_KEY,'dn-highlands-insights-v1');
  assert.equal(DRIVE_SYNC_KEY,'dn-highlands-drive-sync-v1');

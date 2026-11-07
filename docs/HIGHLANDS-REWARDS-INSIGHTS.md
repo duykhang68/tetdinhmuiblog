@@ -40,3 +40,14 @@
 - Chạy `npm run check`, `npm test`, `npm run build`; dùng CI trên PR để xác nhận.
 - Người dùng vẫn kiểm tra kết quả OCR thực tế trước khi bấm **Thêm giao dịch**.
 - Kiểm thử trực tiếp ảnh trên Chrome sau Cloudflare deploy vẫn cần đối soát riêng vì OCR phụ thuộc ánh sáng, góc chụp và chất lượng giấy in.
+
+## Hotfix OCR giấy in nhiệt trên ảnh thật — 07/11/2026
+
+- **Triệu chứng:** Ảnh hóa đơn Highlands giấy in nhiệt trả về `Không tìm thấy dữ liệu hóa đơn Highlands trong ảnh này` mặc dù có Check, ngày, các món và tổng tiền.
+- **Nguyên nhân:** Parser cũ dùng logo `HIGHLANDS COFFEE` như cổng chặn tuyệt đối; với ảnh nền gỗ và chữ mảnh OCR có thể đọc nhầm `HAAS COFFE`. Các trường bị bỏ hết dù OCR vẫn giữ được `ShopID: 30799`, `Check: 139154`, `03-11-2026 17:45`, `Payoo Bank Card 54,000`. Nhãn `Tổng tiền` có thể bị đọc thành `Tong tien: 400) SS`.
+- **Parser:** Logo chỉ là một trong nhiều tín hiệu. Nếu không có logo nhưng có ít nhất hai dấu hiệu POS như ShopID, Check, Hóa đơn thanh toán, Payoo hoặc Tổng tiền, giữ thông tin đã nhận diện cùng cảnh báo cần kiểm tra. Hóa đơn thương hiệu khác có tên rõ ràng vẫn bị từ chối.
+- **Tiền:** Có fallback lấy **54.000đ** từ dòng `Payoo Bank Card` được gắn nhãn rõ khi nhãn Tổng tiền OCR hỏng. Không lấy tiền từ bất kỳ dòng QR, mã máy hoặc số điện thoại. Nếu thiếu một phần chi tiết món, giá gốc có thể được suy ra từ tổng tiền khi chưa có dấu hiệu phụ thu, giảm giá hoặc phí; ghi cảnh báo rõ là khoản suy ra và cần kiểm tra thủ công; không tự bịa giá từng món.
+- **Ảnh:** Sau lượt Tesseract gốc, có thể tự tìm vùng giấy sáng độ bão hòa thấp trên nền gỗ, tạo crop, tăng tương phản và đọc lại phần trên hoặc toàn bộ giấy; chọn văn bản có nhiều trường có thể đối soát, không chỉ chọn theo confidence.
+- **UX:** Nếu cả ba lượt không tìm ra trường đáng tin cậy, vẫn hiển thị văn bản OCR thô và cảnh báo; không còn báo lỗi chung rồi vứt mất bản OCR. Không tự lưu giao dịch. Không gửi ảnh lên máy chủ.
+- **Kiểm thử:** Thêm ca kiểm thử từ một lượt nhận dạng thật của ảnh đính kèm (logo `HAAS COFFE`, tổng `Tong tien: 400) SS`, Payoo `54,000 —= .`), cùng ca logo tách chữ, giá món xuống dòng, nhãn không rõ và trường hợp tài liệu không phải Highlands.
+- **Giới hạn:** Tên món/giá món quá mờ có thể vẫn cần người dùng chỉnh lại. Bản CI chỉ kiểm thử parser bằng văn bản nhận diện đã lấy từ ảnh; không thay thế kiểm thử thực tế trên Chrome sau deploy.
