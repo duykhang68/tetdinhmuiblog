@@ -19,6 +19,12 @@ import SeriesIndexTable from './components/SeriesIndexTable.jsx';
 import {emptySeries, editableSeries, extractSeriesFromHTML, withSeriesHTML, normalizeSeries, seriesValidation} from './services/series.js';
 import './components/series.css';
 
+const EDITOR_QUICK_LINKS = [
+  {title: 'Research Insights', description: 'Theo dõi và phân tích dữ liệu nghiên cứu.', href: '/research-insights', symbol: '✦', accent: 'research'},
+  {title: 'CI / Quality Gate Insights', description: 'Giám sát CI, build và trạng thái kiểm định.', href: '/quality-gate', symbol: '◈', accent: 'quality'},
+  {title: 'Collector Insights', description: 'Xem lịch sử tổng hợp và bằng chứng GitHub.', href: '/collector/', symbol: '▤', accent: 'collector'}
+];
+
 const DEFAULT_HTML='<h2>Giới thiệu</h2><p>Bắt đầu viết bài tại đây…</p>';
 const fmt=d=>d?new Date(d).toLocaleString('vi-VN'):'';
 function localKey(blogId){return 'dn-reddit-editor-local-v1-'+(blogId||'new');}
@@ -299,6 +305,23 @@ export default function App(){
         <GitHubSmartInsights/>
       </div>
     </main>
+    <nav className="kit-quick-links" aria-labelledby="editor-quick-links-heading">
+      <div className="kit-quick-links-head">
+        <div>
+          <span className="kit-quick-links-eyebrow">DUY NGUYEN · WORKSPACE</span>
+          <h2 id="editor-quick-links-heading">Truy cập nhanh<span>.</span></h2>
+          <p>Mở các trang Insights của bạn chỉ với một cú nhấp.</p>
+        </div>
+        <span className="kit-quick-links-count">03 công cụ</span>
+      </div>
+      <div className="kit-quick-links-grid">
+        {EDITOR_QUICK_LINKS.map(link=><a key={link.href} className={'kit-quick-link kit-quick-link-'+link.accent} href={link.href} target="_blank" rel="noopener noreferrer" aria-label={link.title+' (mở tab mới)'}>
+          <span className="kit-quick-link-icon" aria-hidden="true">{link.symbol}</span>
+          <span className="kit-quick-link-copy"><strong>{link.title}</strong><small>{link.description}</small></span>
+          <span className="kit-quick-link-arrow" aria-hidden="true">↗</span>
+        </a>)}
+      </div>
+    </nav>
     {connected&&draftsOpen&&<div className="overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setDraftsOpen(false);}}><aside className="drafts-drawer" role="dialog" aria-modal="true" aria-label="Danh sách bài viết"><div className="dialog-head"><h2>Drafts &amp; Posts</h2><button className="dialog-close" onClick={()=>setDraftsOpen(false)} aria-label="Đóng">✕</button></div><div className="side-tabs"><button className={filter==='draft'?'active':''} onClick={()=>setFilter('draft')}>Bản nháp</button><button className={filter==='live'?'active':''} onClick={()=>setFilter('live')}>Đã đăng</button></div><div className="postlist">{busy&&<p className="micro">Đang tải...</p>}{!busy&&!items.length&&<div className="empty">Chưa có bài phù hợp.</div>}{items.map(p=><button key={p.id} className={'postitem '+(post?.id===p.id?'current':'')} onClick={()=>openPost(p)}><span>{p.title||'Không tiêu đề'}</span><small>{fmt(p.updated)}</small></button>)}{nextPage&&<button className="quiet full" onClick={()=>fetchPosts(filter,true,nextPage)}>Tải thêm →</button>}</div><div className="drawer-foot"><button className="quiet" onClick={()=>fetchPosts(filter)}>↻ Làm mới</button><button className="primary" onClick={()=>{newPost();setDraftsOpen(false);}}>＋ Bài mới</button></div></aside></div>}
     {connected&&communityOpen&&<div className="overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setCommunityOpen(false);}}><section className="community-dialog" role="dialog" aria-modal="true" aria-label="Choose blog"><div className="dialog-head"><h2>Choose blog</h2><button className="dialog-close" onClick={()=>setCommunityOpen(false)} aria-label="Đóng">✕</button></div><label className="search-wrap"><span aria-hidden="true">⌕</span><input autoFocus aria-label="Tìm blog" value={communitySearch} onChange={e=>setCommunitySearch(e.target.value)} placeholder="Search"/></label><p className="dialog-hint">Chọn blog Blogger của tài khoản Google đã kết nối</p><div className="community-list">{blogs.filter(b=>(b.name+' '+b.url).toLowerCase().includes(communitySearch.toLowerCase())).map(b=><button className="community-item" key={b.id} onClick={()=>selectBlog(b.id)}><span className="community-avatar">{(b.name||'B')[0].toUpperCase()}</span><span><strong>{b.name}</strong><small>{b.url||b.id}</small></span>{b.id===blogId&&<span className="current-check">✓</span>}</button>)}{!blogs.filter(b=>(b.name+' '+b.url).toLowerCase().includes(communitySearch.toLowerCase())).length&&<p className="empty">Không tìm thấy blog.</p>}</div></section></div>}
     <footer className="app-footer"><span>Duy Nguyen Editor · Lấy cảm hứng từ UI của Reddit, không liên kết với Reddit</span><span>Google OAuth → Blogger / Drive</span></footer>
