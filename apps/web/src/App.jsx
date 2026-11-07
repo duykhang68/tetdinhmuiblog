@@ -22,6 +22,7 @@ import {emptySeries, editableSeries, extractSeriesFromHTML, withSeriesHTML, norm
 import './components/series.css';
 
 const EDITOR_QUICK_LINKS = [
+  {title: 'Wikipedia AI Writer · Việt Hàn Anh', description: 'Viết bài từ Wikipedia bằng Gemini/Groq và đồng bộ từ vựng vào Google Sheets.', href: '/wikipedia-writer/', symbol: '✦', accent: 'expenses'},
   {title: 'Rollback ID Dashboard', description: 'Theo dõi lịch sử deploy và thao tác rollback an toàn từ GitHub.', href: '/rollback-dashboard/', symbol: '↶', accent: 'expenses'},
   {title: 'Vietnamese · Korean · English Vocabulary Insights', description: 'Từ điển ba ngôn ngữ, Smart Insights và flashcard đồng bộ Google Sheets.', href: '/vocabulary-insights/', symbol: '文', accent: 'expenses'},
   {title: 'Starbucks Rewards & Insights', description: 'Theo dõi chi tiêu và tiến độ tích Stars.', href: '/starbucks-insights/', symbol: '☕', accent: 'starbucks'},
