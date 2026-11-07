@@ -5,32 +5,33 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 04:55 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 04:58 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 83 |
-| AUTO-MERGED có bằng chứng | 56 |
+| PR đã merge (tối đa 300 PR gần đây) | 84 |
+| AUTO-MERGED có bằng chứng | 57 |
 | Auto-merge PR thường | 49 |
-| Auto-merge PR thay đổi workflow | 7 |
+| Auto-merge PR thay đổi workflow | 8 |
 | Nguồn merge chưa xác minh | 27 |
 
 ### Phân bố bằng chứng
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 56
+    "Auto-merge verified" : 57
     "Chưa xác minh" : 27
 ```
 
-`Auto-merge ` ████████████░░░░░░ **56/83**
+`Auto-merge ` ████████████░░░░░░ **57/84**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#85](https://github.com/duykhang68/tetdinhmuiblog/pull/85) fix(researcher): resolve GH-API-403 on incident issue c | 2026-11-07T04:57:52Z | Workflow/config | ✅ | CI green trên HEAD `d92f676a`; GitHub chấp nhận merge; [Run #42340664455](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42340664455) |
 | [#84](https://github.com/duykhang68/tetdinhmuiblog/pull/84) feat(payroll): opt-in AES-encrypted Google Drive sync + | 2026-11-07T04:55:38Z | Code/docs | ✅ | CI green trên HEAD `891d743c`; GitHub chấp nhận merge; [Run #42340517189](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42340517189) |
 | [#83](https://github.com/duykhang68/tetdinhmuiblog/pull/83) chore(ci): run Auditor every five days; document Cloudf | 2026-11-07T04:49:00Z | Workflow/config | ✅ | CI green trên HEAD `a37c8ffc`; GitHub chấp nhận merge; [Run #42340054629](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42340054629) |
 | [#82](https://github.com/duykhang68/tetdinhmuiblog/pull/82) feat(payroll): private PDF payslip viewer, smart formul | 2026-11-07T04:46:52Z | Code/docs | ✅ | CI green trên HEAD `9b9a7dde`; GitHub chấp nhận merge; [Run #42339907415](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42339907415) |
@@ -90,8 +91,8 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 12.5% (7/56).
-- **Quality gate:** 56 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 14.0% (8/57).
+- **Quality gate:** 57 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
