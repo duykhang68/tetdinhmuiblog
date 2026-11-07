@@ -5,15 +5,15 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 06:26 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 06:28 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 86 |
-| AUTO-MERGED có bằng chứng | 59 |
-| Auto-merge PR thường | 51 |
+| PR đã merge (tối đa 300 PR gần đây) | 87 |
+| AUTO-MERGED có bằng chứng | 60 |
+| Auto-merge PR thường | 52 |
 | Auto-merge PR thay đổi workflow | 8 |
 | Nguồn merge chưa xác minh | 27 |
 
@@ -21,16 +21,17 @@ Cập nhật: **2026-11-07 06:26 UTC** · Repository: `duykhang68/tetdinhmuiblog
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 59
+    "Auto-merge verified" : 60
     "Chưa xác minh" : 27
 ```
 
-`Auto-merge ` ████████████░░░░░░ **59/86**
+`Auto-merge ` ████████████░░░░░░ **60/87**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#88](https://github.com/duykhang68/tetdinhmuiblog/pull/88) feat: Vietnamese–Korean–English vocabulary dashboard sy | 2026-11-07T06:28:18Z | Code/docs | ✅ | CI green trên HEAD `d0ebe9a1`; GitHub chấp nhận merge; [Run #42347134483](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42347134483) |
 | [#87](https://github.com/duykhang68/tetdinhmuiblog/pull/87) policy: bắt buộc gắn shortcut Truy cập nhanh cho mọi ti | 2026-11-07T06:26:27Z | Code/docs | ✅ | CI green trên HEAD `65d2fb9c`; GitHub chấp nhận merge; [Run #42347002726](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42347002726) |
 | [#86](https://github.com/duykhang68/tetdinhmuiblog/pull/86) chore(editor): remove Research, Quality Gate and Collec | 2026-11-07T06:13:07Z | Code/docs | ✅ | CI green trên HEAD `3628f06d`; GitHub chấp nhận merge; [Run #42345999303](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42345999303) |
 | [#85](https://github.com/duykhang68/tetdinhmuiblog/pull/85) fix(researcher): resolve GH-API-403 on incident issue c | 2026-11-07T04:57:52Z | Workflow/config | ✅ | CI green trên HEAD `d92f676a`; GitHub chấp nhận merge; [Run #42340664455](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42340664455) |
@@ -93,8 +94,8 @@ pie showData
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 13.6% (8/59).
-- **Quality gate:** 59 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 13.3% (8/60).
+- **Quality gate:** 60 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.
