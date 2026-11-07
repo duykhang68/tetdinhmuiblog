@@ -4,7 +4,7 @@
 
 ## Bắt buộc: Google Drive sync cho trang thống kê / chi phí / dữ liệu
 
-> **Repository rule:** [AGENTS.md](../AGENTS.md) · [GLOBAL Google Drive sync policy](../docs/GLOBAL-GOOGLE-DRIVE-SYNC-POLICY.md)
+> **Repository rule:** [AGENTS.md](https://github.com/duykhang68/tetdinhmuiblog/blob/main/AGENTS.md) · [GLOBAL Google Drive sync policy](https://github.com/duykhang68/tetdinhmuiblog/blob/main/docs/GLOBAL-GOOGLE-DRIVE-SYNC-POLICY.md)
 >
 > Áp dụng cho mọi trang thống kê, tài chính/chi phí, dashboard analytics, dữ liệu, records (cả read-only). Không được ship trang thuộc nhóm này khi thiếu đồng bộ Google Drive.
 
