@@ -20,6 +20,12 @@
 
 ---
 
+## ☁️ Quy định bắt buộc — Google Drive cho mọi trang dữ liệu
+
+**Tất cả trang thống kê, Insights, dashboard, chi phí/tài chính và quản lý dữ liệu** phải có **Google Drive sync**: kết nối OAuth chung, tự đồng bộ 3 phút khi trang mở, nút **Đồng bộ ngay**, hiển thị trạng thái, sao lưu/khôi phục đa thiết bị và xử lý xung đột an toàn. Quy định áp dụng cho các trang mới và mọi trang hiện có khi được cập nhật; các trang cũ thiếu tính năng phải được triển khai bổ sung trong PR riêng.
+
+**Đọc rule:** [AGENTS.md](AGENTS.md) · [Chính sách chi tiết & bảng theo dõi trang hiện có](docs/GLOBAL-GOOGLE-DRIVE-SYNC-POLICY.md) · [Checklist trong PR](.github/PULL_REQUEST_TEMPLATE.md).
+
 ## ✨ Creator workspace
 
 <table><tr><td width="50%" valign="top">
