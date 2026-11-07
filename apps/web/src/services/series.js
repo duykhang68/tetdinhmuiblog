@@ -10,6 +10,7 @@ function validDate(date) {
 export function seriesValidation(value) {
   if (!value?.enabled) return '';
   if (!String(value.name || '').trim()) return 'Nhập tên Series.';
+  if (String(value.name).trim().length > 180) return 'Tên Series tối đa 180 ký tự.';
   const part = Number(value.part), total = Number(value.total_parts);
   if (!Number.isInteger(part) || part < 1 || part > 9999) return 'Tập hiện tại phải là số nguyên từ 1–9999.';
   if (!Number.isInteger(total) || total < 1 || total > 9999) return 'Tổng số tập phải là số nguyên từ 1–9999.';
@@ -91,6 +92,6 @@ export function consumeSeriesFrontmatter(content) {
     }
     const series=editableSeries(fields);
     if (seriesValidation(series)) return {content,series:emptySeries()};
-    return {content:String(content).slice(match[0].length),series};
+    return {content:String(content).slice(match[0].length).replace(/^\r?\n/, ''),series};
   } catch {return {content,series:emptySeries()};}
 }
