@@ -34,7 +34,7 @@ export function snapshotFingerprint(data) {
   return JSON.stringify(normalizeData(data));
 }
 export function hasUserData(data) {
-  return Boolean(data.transactions?.length||data.config?.tier==='gold'||Number(data.config?.membershipAdjustment)||Number(data.config?.rewardsAdjustment)||Number(data.config?.redeemed));
+  return Boolean(data.transactions?.length||(data.config?.cycleStart&&data.config.cycleStart!==todayVietnam())||data.config?.tier==='gold'||Number(data.config?.membershipAdjustment)||Number(data.config?.rewardsAdjustment)||Number(data.config?.redeemed));
 }
 export function readDriveSyncMeta(storage) {
   try {
