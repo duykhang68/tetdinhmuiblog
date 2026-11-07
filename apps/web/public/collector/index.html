@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#020617">
+  <meta name="description" content="Auto-Merge Collector: bằng chứng CI, lịch sử merge và Smart Insights từ collector.md trên GitHub main.">
+  <title>Collector Insights · Duy Nguyen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #020617;
+      --surface: #0f172a;
+      --surface-2: #111c34;
+      --border: rgba(148,163,184,.16);
+      --border-strong: rgba(148,163,184,.28);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --soft: #64748b;
+      --indigo: #a5b4fc;
+      --emerald: #6ee7b7;
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+      --body: "DM Sans", system-ui, sans-serif;
+      --display: "Manrope", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 112px; }
+    body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font: 15px/1.65 var(--body); }
+    body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background:
+      radial-gradient(ellipse 48% 32% at 11% -5%, rgba(79,70,229,.19), transparent 90%),
+      radial-gradient(ellipse 35% 25% at 92% 8%, rgba(16,185,129,.085), transparent 84%),
+      linear-gradient(180deg,#020617 0%,#071125 52%,#020617 100%); }
+    a { color: var(--indigo); text-decoration: none; }
+    a:hover { color: #c7d2fe; }
+    button { font: inherit; cursor: pointer; }
+    [hidden] { display: none !important; }
+    :focus-visible { outline: 2px solid var(--emerald); outline-offset: 4px; }
+    ::selection { background: rgba(99,102,241,.4); color: #fff; }
+    .shell { width: min(1440px, calc(100% - 72px)); margin-inline: auto; }
+    .topbar { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--border); background: rgba(2,6,23,.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    .topbar-inner { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .brand { display: inline-flex; align-items: center; gap: 13px; color: #f8fafc; font: 800 15px var(--display); letter-spacing: -.04em; white-space: nowrap; }
+    .brand-mark { display: grid; place-items: center; width: 37px; height: 37px; border: 1px solid rgba(165,180,252,.34); border-radius: 12px; color: #dbeafe; background: linear-gradient(140deg,#312e81,#164e63); box-shadow: 0 0 32px rgba(99,102,241,.13); font-size: 15px; }
+    .brand small { color: #8293b2; margin-left: 6px; font: 600 11px var(--mono); letter-spacing: .04em; }
+    .top-actions { display: flex; align-items: center; gap: 14px; }
+    .source-pill { display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(52,211,153,.23); border-radius: 100px; background: rgba(16,185,129,.065); padding: 8px 12px; font: 600 11px var(--mono); color: #a7f3d0; white-space: nowrap; }
+    .source-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #34d399; box-shadow: 0 0 10px rgba(52,211,153,.55); }
+    .top-link { color: #aebcd0; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .top-link:hover { color: #f8fafc; }
+    .hero { padding: 69px 0 37px; border-bottom: 1px solid rgba(148,163,184,.10); }
+    .eyebrow { display: flex; align-items: center; gap: 11px; color: #a5b4fc; font: 700 11px var(--mono); letter-spacing: .18em; text-transform: uppercase; }
+    .eyebrow::before { content: ""; width: 31px; height: 1px; background: #818cf8; }
+    .hero h1 { margin: 17px 0 13px; font: 800 clamp(40px,5.1vw,76px)/1.07 var(--display); letter-spacing: -.069em; color: #f8fafc; }
+    .hero h1 span { background: linear-gradient(102deg,#c7d2fe 7%,#818cf8 54%,#6ee7b7); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .hero-desc { margin: 0; max-width: 740px; color: #98abc5; font-size: clamp(14px,1.4vw,17px); line-height: 1.8; }
+    .details { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+    .detail { display: inline-flex; align-items: center; gap: 10px; padding: 9px 13px; border: 1px solid var(--border); border-radius: 10px; color: #b1bed2; background: rgba(15,23,42,.55); font-size: 12px; }
+    .detail b { color: #e2e8f0; font-weight: 700; }
+    .detail .dot { width: 6px; height: 6px; border-radius: 50%; background: #818cf8; }
+    .workspace { display: grid; grid-template-columns: 246px minmax(0, 1fr); align-items: start; gap: 45px; padding-top: 37px; padding-bottom: 94px; }
+    .sidebar { position: sticky; top: 116px; align-self: start; }
+    .sidebar-card { border: 1px solid var(--border); border-radius: 16px; background: rgba(15,23,42,.55); overflow: hidden; }
+    .sidebar-heading { margin: 0; padding: 22px 21px 12px; color: #8093b2; font: 700 10px var(--mono); letter-spacing: .13em; text-transform: uppercase; }
+    .toc { padding: 0 9px 11px; max-height: min(490px,65vh); overflow-y: auto; }
+    .toc a { display: block; color: #9caec7; border-radius: 8px; padding: 8px 12px; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; transition: background .2s,color .2s; }
+    .toc a:hover, .toc a:focus-visible { background: rgba(99,102,241,.12); color: #e0e7ff; }
+    .toc a.sub { padding-left: 25px; color: #7184a1; }
+    .sidebar-info { padding: 19px 21px 21px; border-top: 1px solid var(--border); }
+    .tiny-label { display: block; color: #6f819d; font: 700 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 8px; }
+    .sidebar-info p { margin: 0; color: #a9bad0; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+    .sidebar-info a { display: inline-block; margin-top: 12px; color: var(--emerald); font-size: 12px; font-weight: 700; }
+    .content-area { min-width: 0; }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin: 0 0 18px; }
+    .switcher { display: inline-flex; gap: 3px; border: 1px solid var(--border); border-radius: 11px; padding: 4px; background: rgba(15,23,42,.82); }
+    .switcher button { padding: 8px 15px; border: 0; border-radius: 8px; background: transparent; color: #91a4bf; font-size: 12px; font-weight: 700; }
+    .switcher button[aria-pressed="true"] { background: #283455; color: #eef2ff; box-shadow: inset 0 0 0 1px rgba(165,180,252,.12); }
+    .sync-wrap { display: flex; align-items: center; gap: 14px; }
+    .sync-time { color: #788ca7; font-size: 11px; white-space: nowrap; }
+    .refresh { display: inline-flex; gap: 9px; align-items: center; padding: 10px 15px; border-radius: 10px; border: 1px solid rgba(129,140,248,.25); background: rgba(99,102,241,.105); color: #c7d2fe; font-size: 12px; font-weight: 800; transition: background .2s,transform .2s; }
+    .refresh:hover { background: rgba(99,102,241,.2); transform: translateY(-1px); }
+    .refresh:disabled { opacity: .5; cursor: wait; transform: none; }
+    .refresh svg { width: 15px; height: 15px; }
+    .notice { margin-bottom: 17px; padding: 12px 16px; border-radius: 11px; border: 1px solid rgba(148,163,184,.18); background: rgba(15,23,42,.7); font-size: 12px; color: #a9bdd8; }
+    .notice.warning { border-color: rgba(251,191,36,.3); color: #fcd34d; background: rgba(120,53,15,.12); }
+    .document { background: linear-gradient(145deg,rgba(17,28,52,.94),rgba(11,19,36,.95)); border: 1px solid rgba(148,163,184,.17); border-radius: 22px; box-shadow: 0 28px 110px rgba(0,0,0,.18); padding: clamp(24px,4.2vw,66px); min-height: 360px; }
+    .document-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding-bottom: 22px; margin-bottom: 30px; border-bottom: 1px solid var(--border); }
+    .document-head strong { color: #d2dafa; font: 700 11px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+    .document-head span { color: #6a7f9d; font: 500 10px var(--mono); }
+    .markdown { color: #b8c5d8; font-size: 14px; line-height: 1.95; overflow-wrap: anywhere; }
+    .markdown > :first-child { margin-top: 0; }
+    .markdown > :last-child { margin-bottom: 0; }
+    .markdown h1, .markdown h2, .markdown h3, .markdown h4 { color: #f1f5f9; font-family: var(--display); font-weight: 800; letter-spacing: -.035em; line-height: 1.35; scroll-margin-top: 116px; }
+    .markdown h1 { font-size: clamp(25px,3vw,35px); margin: 0 0 25px; }
+    .markdown h2 { font-size: clamp(21px,2.2vw,26px); margin: 56px 0 22px; padding-bottom: 14px; border-bottom: 1px solid rgba(148,163,184,.16); }
+    .markdown h3 { font-size: 19px; margin: 36px 0 15px; }
+    .markdown h4 { font-size: 16px; margin: 26px 0 12px; }
+    .markdown p { margin: 16px 0; }
+    .markdown strong { color: #edf2ff; font-weight: 800; }
+    .markdown em { color: #d4dbeb; }
+    .markdown a { color: #a5b4fc; text-decoration: underline; text-decoration-color: rgba(165,180,252,.27); text-underline-offset: 4px; }
+    .markdown a:hover { text-decoration-color: currentColor; }
+    .markdown ul, .markdown ol { margin: 14px 0 22px; padding-left: 24px; }
+    .markdown li { margin: 8px 0; padding-left: 4px; }
+    .markdown li::marker { color: #818cf8; }
+    .markdown blockquote { margin: 24px 0 30px; padding: 17px 22px; border-left: 3px solid #818cf8; border-radius: 0 13px 13px 0; background: rgba(99,102,241,.07); color: #c2cbe3; }
+    .markdown blockquote p { margin: 3px 0; }
+    .markdown hr { border: 0; border-top: 1px solid var(--border); margin: 33px 0; }
+    .markdown :not(pre) > code { border: 1px solid rgba(129,140,248,.19); background: rgba(99,102,241,.1); color: #b8c7ff; border-radius: 5px; padding: .16em .37em; font: 500 .89em/1.6 var(--mono); overflow-wrap: anywhere; }
+    .table-scroll { margin: 23px 0 34px; max-width: 100%; overflow: auto; border: 1px solid rgba(148,163,184,.2); border-radius: 13px; background: rgba(2,6,23,.2); scrollbar-color: #475569 transparent; }
+    .markdown table { width: 100%; border-collapse: collapse; min-width: 495px; font-size: 12px; line-height: 1.65; }
+    .markdown th { background: rgba(99,102,241,.13); color: #dce4f9; font-weight: 800; white-space: nowrap; }
+    .markdown th, .markdown td { border-bottom: 1px solid rgba(148,163,184,.13); padding: 13px 16px; vertical-align: top; text-align: left; }
+    .markdown tr:last-child td { border-bottom: 0; }
+    .markdown tbody tr:hover { background: rgba(99,102,241,.055); }
+    .markdown td { color: #adbed4; }
+    .markdown td a { white-space: nowrap; }
+    .markdown th[align="right"], .markdown td[align="right"] { text-align: right; }
+    .markdown th[align="center"], .markdown td[align="center"] { text-align: center; }
+    .code-shell { position: relative; margin: 23px 0 28px; }
+    .markdown pre, .raw-source { margin: 0; padding: 42px 22px 23px; border-radius: 13px; overflow: auto; border: 1px solid rgba(148,163,184,.18); background: #060d1d; color: #c4d1e8; scrollbar-color: #475569 transparent; font: 12px/1.85 var(--mono); tab-size: 2; }
+    .markdown pre code { font: inherit; color: inherit; padding: 0; background: none; white-space: pre; overflow-wrap: normal; }
+    .copy-code { position: absolute; top: 10px; right: 10px; z-index: 2; border: 1px solid rgba(148,163,184,.22); border-radius: 7px; padding: 5px 10px; background: #15213a; color: #bac7dc; font: 600 10px var(--body); }
+    .copy-code:hover { color: #fff; }
+    .diagram { margin: 25px 0 34px; padding: 24px; border: 1px solid rgba(129,140,248,.21); border-radius: 15px; background: rgba(2,6,23,.3); overflow-x: auto; text-align: center; }
+    .diagram svg { display: block; max-width: 100%; height: auto; margin: auto; }
+    .markdown img { display: block; max-width: 100%; height: auto; border-radius: 12px; }
+    .raw-source { padding: 25px; white-space: pre; max-width: 100%; font-size: 12px; line-height: 1.9; }
+    .state { padding: 46px 18px; text-align: center; color: #9eb0c9; }
+    .state-icon { display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 16px; border: 1px solid rgba(129,140,248,.22); border-radius: 15px; background: rgba(99,102,241,.09); color: #c7d2fe; font-size: 25px; }
+    .state h2 { color: #e2e8f0; font: 800 20px var(--display); margin: 0 0 7px; }
+    .state p { max-width: 420px; margin: 0 auto 18px; }
+    .state a { color: var(--emerald); font-weight: 700; }
+    footer { border-top: 1px solid var(--border); color: #667b99; font-size: 12px; }
+    footer .shell { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 25px 0; }
+    footer a { color: #9eafd1; }
+    @media (max-width: 1050px) { .workspace { grid-template-columns: 195px minmax(0,1fr); gap: 22px; } .document { padding: 30px; } }
+    @media (max-width: 800px) {
+      .shell { width: min(100% - 36px, 740px); }
+      .topbar-inner { min-height: 66px; }
+      .brand small, .top-link { display: none; }
+      .hero { padding: 47px 0 30px; }
+      .workspace { display: flex; flex-direction: column; gap: 18px; padding-top: 21px; }
+      .sidebar { position: static; width: 100%; }
+      .sidebar-card { padding: 3px; }
+      .sidebar-heading, .sidebar-info { display: none; }
+      .toc { display: flex; overflow-x: auto; max-height: none; white-space: nowrap; padding: 7px; }
+      .toc a, .toc a.sub { padding: 9px 12px; flex: 0 0 auto; white-space: nowrap; }
+      .content-area { width: 100%; }
+    }
+    @media (max-width: 520px) {
+      .source-pill { font-size: 9px; padding: 7px 9px; }
+      .hero h1 { font-size: 43px; }
+      .hero-desc { font-size: 13px; }
+      .details { gap: 7px; }
+      .detail { font-size: 10px; padding: 8px 10px; }
+      .toolbar { align-items: stretch; }
+      .sync-wrap { width: 100%; justify-content: space-between; }
+      .document { border-radius: 15px; padding: 23px 18px; }
+      .document-head { margin-bottom: 24px; }
+      .markdown { font-size: 13px; }
+      .markdown h2 { margin-top: 42px; }
+      .markdown table { font-size: 11px; }
+      .markdown th, .markdown td { padding: 11px 12px; }
+      footer .shell { flex-direction: column; align-items: flex-start; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; } }
+  </style>
+  <script defer src="https://cdn.jsdelivr.net/npm/marked@18.1.3/lib/marked.umd.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="https://github.com/duykhang68/tetdinhmuiblog" target="_blank" rel="noopener noreferrer" aria-label="Mở repository GitHub">
+        <span class="brand-mark">D<span style="color:#6ee7b7">.</span></span>
+        <span>DUYNGUYEN <small>/ COLLECTOR</small></span>
+      </a>
+      <div class="top-actions">
+        <span class="source-pill">GITHUB · MAIN</span>
+        <a class="top-link" href="https://github.com/duykhang68/tetdinhmuiblog/blob/main/collector.md" target="_blank" rel="noopener noreferrer">Xem trên GitHub ↗</a>
+      </div>
+    </div>
+  </header>
+  <main>
+    <section class="hero shell" aria-labelledby="hero-title">
+      <div class="eyebrow">Evidence-driven DevOps</div>
+      <h1 id="hero-title">Collector <span>Insights.</span></h1>
+      <p class="hero-desc">Một không gian đọc tập trung cho báo cáo auto-merge, CI Quality Gate và bài học vận hành. Nội dung được lấy nguyên bản từ <strong>collector.md</strong> trên nhánh <strong>main</strong>, không chỉnh sửa dữ liệu.</p>
+      <div class="details">
+        <div class="detail"><span class="dot"></span><span>Repository <b>duykhang68/tetdinhmuiblog</b></span></div>
+        <div class="detail"><span class="dot" style="background:#34d399"></span><span>Nguồn <b>collector.md</b></span></div>
+        <div class="detail"><span class="dot" style="background:#38bdf8"></span><span>Kiểm tra <b>mỗi 60 giây</b></span></div>
+      </div>
+    </section>
+    <div class="shell workspace">
+      <aside class="sidebar" aria-label="Mục lục và thông tin nguồn">
+        <div class="sidebar-card">
+          <h2 class="sidebar-heading">Trong tài liệu</h2>
+          <nav id="toc" class="toc" aria-label="Mục lục"><a href="#document-start">Báo cáo Collector</a></nav>
+          <div class="sidebar-info">
+            <span class="tiny-label">Last source update</span>
+            <p id="source-updated">Đang đọc dữ liệu...</p>
+            <a href="https://github.com/duykhang68/tetdinhmuiblog/blob/main/collector.md" target="_blank" rel="noopener noreferrer">Xem Markdown gốc ↗</a>
+          </div>
+        </div>
+      </aside>
+      <section class="content-area" aria-label="Nội dung báo cáo">
+        <div class="toolbar">
+          <div class="switcher" role="group" aria-label="Chế độ hiển thị">
+            <button id="view-reader" type="button" aria-pressed="true">Đọc tài liệu</button>
+            <button id="view-source" type="button" aria-pressed="false">Markdown gốc</button>
+          </div>
+          <div class="sync-wrap">
+            <span class="sync-time" id="sync-time" aria-live="polite">Đang kết nối nguồn...</span>
+            <button class="refresh" id="refresh" type="button" aria-label="Tải lại dữ liệu collector.md">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.35 5.65M20 4v7h-7"/></svg>
+              Tải lại
+            </button>
+          </div>
+        </div>
+        <div class="notice" id="notice" role="status" aria-live="polite">Đang tải nội dung nguyên bản từ nhánh main...</div>
+        <div class="document" id="document-start">
+          <div class="document-head"><strong>Collector Report / main</strong><span>MARKDOWN · LIVE SOURCE</span></div>
+          <div id="loading" class="state" role="status">
+            <div class="state-icon" aria-hidden="true">↻</div>
+            <h2>Đang kết nối GitHub</h2>
+            <p>Đọc báo cáo nguồn và chuẩn bị bố cục hiển thị...</p>
+          </div>
+          <div id="failure" class="state" hidden role="alert">
+            <div class="state-icon" aria-hidden="true">!</div>
+            <h2>Không thể đọc collector.md</h2>
+            <p id="failure-reason">Không thể kết nối tới GitHub.</p>
+            <a href="https://github.com/duykhang68/tetdinhmuiblog/blob/main/collector.md" target="_blank" rel="noopener noreferrer">Mở bản gốc trên GitHub ↗</a>
+          </div>
+          <article id="markdown" class="markdown" aria-label="Nội dung collector.md được render" hidden></article>
+          <pre id="raw-source" class="raw-source" aria-label="Văn bản Markdown nguyên bản" hidden></pre>
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer><div class="shell"><span>DUYNGUYEN / COLLECTOR INSIGHTS · SOURCE OF TRUTH</span><span>Dữ liệu: <a href="https://github.com/duykhang68/tetdinhmuiblog/blob/main/collector.md" target="_blank" rel="noopener noreferrer">GitHub main / collector.md</a></span></div></footer>
+  <script>
+  (function () {
+    'use strict';
+    const owner = 'duykhang68';
+    const repo = 'tetdinhmuiblog';
+    const rawUrl = 'https://raw.githubusercontent.com/' + owner + '/' + repo + '/main/collector.md';
+    const apiUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/collector.md?ref=main';
+    const refreshMs = 60000;
+    const el = function (id) { return document.getElementById(id); };
+    let markdownText = null;
+    let mode = 'reader';
+    let busy = false;
+    let renderVersion = 0;
+    let chartModule = null;
+
+    function setNotice(message, warning) {
+      el('notice').textContent = message;
+      el('notice').classList.toggle('warning', Boolean(warning));
+    }
+
+    function humanError(error) {
+      return error && error.message ? error.message : 'Lỗi mạng hoặc nguồn dữ liệu không khả dụng.';
+    }
+
+    async function getSource() {
+      try {
+        const response = await fetch(rawUrl + '?ts=' + Date.now(), { cache: 'no-store' });
+        if (!response.ok) throw new Error('GitHub Raw trả về HTTP ' + response.status);
+        const content = await response.text();
+        if (!content.trim()) throw new Error('Tệp nguồn đang trống.');
+        return content;
+      } catch (primaryError) {
+        const response = await fetch(apiUrl + '&ts=' + Date.now(), {
+          cache: 'no-store',
+          headers: { Accept: 'application/vnd.github.raw+json' }
+        });
+        if (!response.ok) throw new Error('GitHub API trả về HTTP ' + response.status + ' (Raw: ' + humanError(primaryError) + ')');
+        const body = await response.text();
+        let content = body;
+        if (body.trimStart().startsWith('{')) {
+          const data = JSON.parse(body);
+          if (!data.content || data.encoding !== 'base64') throw new Error('GitHub API không trả nội dung Markdown hợp lệ.');
+          const binary = atob(data.content.replace(/\s/g, ''));
+          content = new TextDecoder().decode(Uint8Array.from(binary, function (char) { return char.charCodeAt(0); }));
+        }
+        if (!content.trim()) throw new Error('Tệp nguồn đang trống.');
+        return content;
+      }
+    }
+
+    function normalizeRelativeLinks(root) {
+      root.querySelectorAll('a[href]').forEach(function (a) {
+        const href = a.getAttribute('href');
+        if (href && !/^(?:[a-z][a-z0-9+.-]*:|\/\/|#|\/)/i.test(href)) {
+          a.href = new URL(href, 'https://github.com/' + owner + '/' + repo + '/blob/main/').href;
+        }
+        if (/^https?:\/\//i.test(a.href)) {
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+        }
+      });
+      root.querySelectorAll('img[src]').forEach(function (img) {
+        const src = img.getAttribute('src');
+        if (src && !/^(?:[a-z][a-z0-9+.-]*:|\/\/|\/)/i.test(src)) {
+          img.src = new URL(src, 'https://raw.githubusercontent.com/' + owner + '/' + repo + '/main/').href;
+        }
+        img.loading = 'lazy';
+      });
+    }
+
+    function buildToc() {
+      const toc = el('toc');
+      toc.replaceChildren();
+      const headings = el('markdown').querySelectorAll('h1, h2, h3');
+      headings.forEach(function (heading, index) {
+        const name = heading.textContent.trim();
+        const slug = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        heading.id = (slug || 'section') + '-' + index;
+        const link = document.createElement('a');
+        link.href = '#' + heading.id;
+        link.textContent = name;
+        if (heading.tagName === 'H3') link.className = 'sub';
+        toc.appendChild(link);
+      });
+      if (!headings.length) {
+        const link = document.createElement('a');
+        link.href = '#document-start';
+        link.textContent = 'Báo cáo Collector';
+        toc.appendChild(link);
+      }
+    }
+
+    function enhanceTablesAndCode() {
+      el('markdown').querySelectorAll('table').forEach(function (table) {
+        const container = document.createElement('div');
+        container.className = 'table-scroll';
+        container.tabIndex = 0;
+        container.setAttribute('role', 'region');
+        container.setAttribute('aria-label', 'Bảng dữ liệu cuộn ngang');
+        table.parentNode.insertBefore(container, table);
+        container.appendChild(table);
+      });
+      el('markdown').querySelectorAll('pre').forEach(function (pre) {
+        if (pre.querySelector('code.language-mermaid')) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'code-shell';
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+        const button = document.createElement('button');
+        button.className = 'copy-code';
+        button.type = 'button';
+        button.textContent = 'Sao chép';
+        button.addEventListener('click', async function () {
+          try {
+            await navigator.clipboard.writeText(pre.textContent);
+            button.textContent = 'Đã sao chép';
+          } catch (error) {
+            button.textContent = 'Không thể sao chép';
+          }
+        });
+        wrapper.appendChild(button);
+      });
+    }
+
+    async function enhanceMermaid(version) {
+      const blocks = Array.from(el('markdown').querySelectorAll('pre > code.language-mermaid'));
+      if (!blocks.length) return;
+      try {
+        if (!chartModule) {
+          chartModule = import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')
+            .then(function (module) {
+              const mermaid = module.default;
+              mermaid.initialize({
+                startOnLoad: false,
+                securityLevel: 'strict',
+                theme: 'dark',
+                themeVariables: {
+                  background: '#0f172a',
+                  primaryColor: '#312e81',
+                  primaryTextColor: '#f1f5f9',
+                  primaryBorderColor: '#818cf8',
+                  secondaryColor: '#064e3b',
+                  tertiaryColor: '#172554',
+                  lineColor: '#a5b4fc',
+                  textColor: '#e2e8f0',
+                  pie1: '#818cf8',
+                  pie2: '#34d399'
+                }
+              });
+              return mermaid;
+            });
+        }
+        const mermaid = await chartModule;
+        if (version !== renderVersion) return;
+        for (let i = 0; i < blocks.length; i++) {
+          if (version !== renderVersion) return;
+          const block = blocks[i];
+          try {
+            const drawing = await mermaid.render('collector-diagram-' + version + '-' + i, block.textContent);
+            if (version !== renderVersion || !block.isConnected) return;
+            const frame = document.createElement('div');
+            frame.className = 'diagram';
+            frame.setAttribute('role', 'img');
+            frame.setAttribute('aria-label', 'Biểu đồ Mermaid từ collector.md');
+            frame.innerHTML = window.DOMPurify.sanitize(drawing.svg, { USE_PROFILES: { svg: true, svgFilters: true } });
+            block.parentElement.replaceWith(frame);
+            if (drawing.bindFunctions) drawing.bindFunctions(frame);
+          } catch (error) {
+            // Keep original Mermaid source visible rather than silently dropping content.
+          }
+        }
+      } catch (error) {
+        // If the optional chart library is unavailable, original fenced code stays visible.
+      }
+    }
+
+    function renderReader() {
+      const target = el('markdown');
+      renderVersion++;
+      const version = renderVersion;
+      if (!window.marked || !window.DOMPurify) {
+        target.textContent = markdownText;
+        setNotice('Không tải được bộ render Markdown. Hiển thị văn bản gốc an toàn; có thể xem qua tab Markdown gốc.', true);
+        return;
+      }
+      window.marked.setOptions({ gfm: true, breaks: false });
+      const unsafeHtml = window.marked.parse(markdownText);
+      target.innerHTML = window.DOMPurify.sanitize(unsafeHtml, { USE_PROFILES: { html: true } });
+      normalizeRelativeLinks(target);
+      buildToc();
+      enhanceTablesAndCode();
+      enhanceMermaid(version);
+    }
+
+    function setMode(next) {
+      mode = next;
+      el('view-reader').setAttribute('aria-pressed', String(next === 'reader'));
+      el('view-source').setAttribute('aria-pressed', String(next === 'source'));
+      const loaded = markdownText !== null;
+      el('markdown').hidden = !loaded || next !== 'reader';
+      el('raw-source').hidden = !loaded || next !== 'source';
+      el('toc').hidden = next === 'source';
+      if (loaded && next === 'source') el('raw-source').textContent = markdownText;
+    }
+
+    function updateSourceDate(content) {
+      const match = content.match(/^Cập nhật:\s*\*\*([^*]+)\*\*/m);
+      el('source-updated').textContent = match ? match[1] : 'Theo tệp collector.md trên nhánh main';
+    }
+
+    async function load() {
+      if (busy) return;
+      busy = true;
+      el('refresh').disabled = true;
+      try {
+        const fresh = await getSource();
+        if (fresh !== markdownText) {
+          markdownText = fresh;
+          renderReader();
+          updateSourceDate(fresh);
+          el('raw-source').textContent = fresh;
+        }
+        el('loading').hidden = true;
+        el('failure').hidden = true;
+        setMode(mode);
+        const clock = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        el('sync-time').textContent = 'Kiểm tra lúc ' + clock;
+        if (window.marked && window.DOMPurify) {
+          setNotice('Đã đọc collector.md từ nhánh main · Tự kiểm tra mỗi 60 giây · Không thay đổi nội dung nguồn.', false);
+        }
+      } catch (error) {
+        el('sync-time').textContent = 'Không thể đồng bộ';
+        setNotice('Không thể cập nhật dữ liệu từ GitHub: ' + humanError(error) + (markdownText !== null ? ' · Đang giữ bản đã tải gần nhất.' : ''), true);
+        if (markdownText === null) {
+          el('loading').hidden = true;
+          el('failure').hidden = false;
+          el('failure-reason').textContent = humanError(error);
+        }
+      } finally {
+        busy = false;
+        el('refresh').disabled = false;
+      }
+    }
+
+    el('refresh').addEventListener('click', load);
+    el('view-reader').addEventListener('click', function () { setMode('reader'); });
+    el('view-source').addEventListener('click', function () { setMode('source'); });
+    window.addEventListener('DOMContentLoaded', function () {
+      load();
+      window.setInterval(function () { if (!document.hidden) load(); }, refreshMs);
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
+    });
+  })();
+  </script>
+</body>
+</html>
