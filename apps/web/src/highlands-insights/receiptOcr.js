@@ -240,8 +240,14 @@ export function mergeHighlandsReceiptCandidates(candidates){
   const warnings=[...primary.parsed.warnings];
   // ShopID từ bất kỳ lượt đọc rõ nào được tin hơn việc đoán tên cửa hàng
   // từ một dòng địa chỉ đã méo, nhưng chỉ khi không có ShopID mâu thuẫn.
-  const shopIds=[...new Set(attempts.map(a=>a.parsed.shopId).filter(Boolean))];
-  if(shopIds.length===1 && Object.hasOwn(VERIFIED_SHOP_IDS,shopIds[0])){
+  // Ảnh crop chỉ chứa phần header có thể chưa đủ 2 dấu hiệu POS để parser
+  // nhận dạng độc lập. Vẫn trích ShopID thô ở lượt này nhưng chỉ sử dụng
+  // khi một lượt khác đã xác nhận được loại hóa đơn.
+  const shopIds=[...new Set(attempts.map(a=>a.parsed.shopId||
+    shopIdFrom(a.text.split(/\r?\n/).map(clean))).filter(Boolean))];
+  const hasReceiptEvidence=attempts.some(a=>a.parsed.recognizedBrand||
+    (a.parsed.signals||0)>=2);
+  if(hasReceiptEvidence&&shopIds.length===1 && Object.hasOwn(VERIFIED_SHOP_IDS,shopIds[0])){
     const stable=VERIFIED_SHOP_IDS[shopIds[0]];
     if(fields.store!==stable){
       fields.store=stable;
