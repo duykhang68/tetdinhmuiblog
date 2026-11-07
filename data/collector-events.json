@@ -160,5 +160,23 @@
     "run_id": 42321986154,
     "ci": "success",
     "workflow_change": false
+  },
+  {
+    "pr": 42,
+    "head_sha": "5bae76307fbdc78b544cf587e54c3258265162c4",
+    "merge_sha": "729d535be434a5f1616bf6a88b9bb1b4803d2fcc",
+    "merged_at": "2026-11-07T01:07:28Z",
+    "run_id": 42322277332,
+    "ci": "success",
+    "workflow_change": false
+  },
+  {
+    "pr": 43,
+    "head_sha": "ab2334c665af8d11d27762776725123891bbdc32",
+    "merge_sha": "8b9d657ce61a1da56e22a359f2d0f7066721d0af",
+    "merged_at": "2026-11-07T01:09:19Z",
+    "run_id": 42322453259,
+    "ci": "success",
+    "workflow_change": false
   }
 ]
