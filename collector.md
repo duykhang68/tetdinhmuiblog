@@ -5,15 +5,15 @@
 > Các PR lịch sử không có bằng chứng được ghi **chưa xác minh nguồn merge**,
 > không tự suy đoán là merge thủ công hay tự động.
 
-Cập nhật: **2026-11-07 10:03 UTC** · Repository: `duykhang68/tetdinhmuiblog`
+Cập nhật: **2026-11-07 10:19 UTC** · Repository: `duykhang68/tetdinhmuiblog`
 
 ## 📊 Dashboard
 
 | Chỉ số | Giá trị |
 |---|---:|
-| PR đã merge (tối đa 300 PR gần đây) | 104 |
-| AUTO-MERGED có bằng chứng | 77 |
-| Auto-merge PR thường | 69 |
+| PR đã merge (tối đa 300 PR gần đây) | 105 |
+| AUTO-MERGED có bằng chứng | 78 |
+| Auto-merge PR thường | 70 |
 | Auto-merge PR thay đổi workflow | 8 |
 | Nguồn merge chưa xác minh | 27 |
 
@@ -21,16 +21,17 @@ Cập nhật: **2026-11-07 10:03 UTC** · Repository: `duykhang68/tetdinhmuiblog
 
 ```mermaid
 pie showData
-    "Auto-merge verified" : 77
+    "Auto-merge verified" : 78
     "Chưa xác minh" : 27
 ```
 
-`Auto-merge ` █████████████░░░░░ **77/104**
+`Auto-merge ` █████████████░░░░░ **78/105**
 
 ## ✅ Vì sao từng PR được auto-merge?
 
 | PR | Thời điểm UTC | Loại | CI HEAD | Bằng chứng & lý do |
 |---|---|---|---|---|
+| [#107](https://github.com/duykhang68/tetdinhmuiblog/pull/107) fix(wikipedia-writer): enable New Vocabulary Session wh | 2026-11-07T10:19:18Z | Code/docs | ✅ | CI green trên HEAD `eee33d0f`; GitHub chấp nhận merge; [Run #42363436714](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42363436714) |
 | [#105](https://github.com/duykhang68/tetdinhmuiblog/pull/105) feat: Voice Studio text-to-WAV web app with Azure, Gemi | 2026-11-07T10:03:27Z | Code/docs | ✅ | CI green trên HEAD `b76ae586`; GitHub chấp nhận merge; [Run #42362291890](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42362291890) |
 | [#106](https://github.com/duykhang68/tetdinhmuiblog/pull/106) feat: Wikipedia Writer sequential article queue and imp | 2026-11-07T10:02:17Z | Code/docs | ✅ | CI green trên HEAD `b8c84101`; GitHub chấp nhận merge; [Run #42362202825](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42362202825) |
 | [#104](https://github.com/duykhang68/tetdinhmuiblog/pull/104) feat: TypesettingTools subtitle and karaoke timing web  | 2026-11-07T09:59:49Z | Code/docs | ✅ | CI green trên HEAD `c4ffb1d6`; GitHub chấp nhận merge; [Run #42362017168](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42362017168) |
@@ -105,12 +106,11 @@ pie showData
 | [#28](https://github.com/duykhang68/tetdinhmuiblog/pull/28) feat(devops): add one-minute current-failure auditor wi | 2026-11-06T16:33:02Z | Workflow/config | ✅ | CI green trên HEAD `91daf4b7`; GitHub chấp nhận merge; [Run #42253388396](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42253388396) |
 | [#27](https://github.com/duykhang68/tetdinhmuiblog/pull/27) fix(ci): prevent researcher jobs being skipped by event | 2026-11-06T16:26:28Z | Workflow/config | ✅ | CI green trên HEAD `70559a0d`; GitHub chấp nhận merge; [Run #42252368788](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42252368788) |
 | [#26](https://github.com/duykhang68/tetdinhmuiblog/pull/26) fix(ci): run quality gate for collector-generated main  | 2026-11-06T16:22:42Z | Workflow/config | ✅ | CI green trên HEAD `0b80f4ee`; GitHub chấp nhận merge; [Run #42251750204](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42251750204) |
-| [#25](https://github.com/duykhang68/tetdinhmuiblog/pull/25) fix(ci): stop cancelling in-progress quality-gate runs | 2026-11-06T16:21:39Z | Workflow/config | ✅ | CI green trên HEAD `9a73e99b`; GitHub chấp nhận merge; [Run #42251562431](https://github.com/duykhang68/tetdinhmuiblog/actions/runs/42251562431) |
 
 ## 🧠 Smart Insights
 
-- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 10.4% (8/77).
-- **Quality gate:** 77 auto-merge có bằng chứng CI thành công trên SHA chính xác.
+- **Tỷ lệ workflow trong các auto-merge đã xác minh:** 10.3% (8/78).
+- **Quality gate:** 78 auto-merge có bằng chứng CI thành công trên SHA chính xác.
 - **Bài học:** Kiểm tra SHA hiện tại giúp tránh dùng kết quả CI của commit cũ.
 - **Bài học:** PR thay đổi GitHub Actions cần credential đủ quyền `Workflows: write`; CI xanh không tự cấp quyền.
 - **Bài học:** Branch protection và khả năng merge do GitHub thực thi; collector chỉ phản ánh kết quả đã xảy ra.

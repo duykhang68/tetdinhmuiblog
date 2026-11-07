@@ -691,5 +691,14 @@
     "run_id": 42362291890,
     "ci": "success",
     "workflow_change": false
+  },
+  {
+    "pr": 107,
+    "head_sha": "eee33d0ff5b1d38ef4a3da37ae9ab76bd36a1cca",
+    "merge_sha": "ba527f5aaf2519db10869826feff848313ea8c78",
+    "merged_at": "2026-11-07T10:19:18Z",
+    "run_id": 42363436714,
+    "ci": "success",
+    "workflow_change": false
   }
 ]
