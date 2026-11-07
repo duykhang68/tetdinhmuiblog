@@ -1,10 +1,8 @@
 // Cloudflare Pages Functions implementation of the Blogger Editor API.
 // No Node HTTP server or local filesystem dependencies.
 import sanitizeHtml from 'sanitize-html';
-import { loadResearchInsights } from '../src/services/researchInsights.mjs';
 import { loadGa4Traffic } from '../src/services/ga4Traffic.mjs';
 import { makeOutboundBudget, googleQuotaError } from '../src/services/freeQuotaPolicy.mjs';
-import { getQualityGateSnapshot } from '../src/services/qualityGateData.mjs';
 import {loadExpenseCloud,writeExpenseCloud} from '../src/expenses/cloudStore.mjs';
 
 const SCOPE = 'https://www.googleapis.com/auth/blogger';
@@ -121,8 +119,6 @@ export async function onRequest({request,env}) {
           out=response(ga4);
         }
       }
-      else if(request.method==='GET'&&pathname==='/api/quality-gate'){await accessToken();out=response(await getQualityGateSnapshot({fetcher:fetch,githubToken:String(env.GITHUB_TOKEN||env.RESEARCH_GITHUB_TOKEN||'').trim(),cloudflare:{accountId:env.CLOUDFLARE_ACCOUNT_ID,projectName:env.CLOUDFLARE_PAGES_PROJECT,token:env.CLOUDFLARE_API_TOKEN}}));}
-      else if(request.method==='GET'&&pathname==='/api/research-insights'){await accessToken();out=response(await loadResearchInsights({fetcher:fetch,token:String(env.GITHUB_TOKEN||env.RESEARCH_GITHUB_TOKEN||'').trim(),charge}));}
       else if(request.method==='GET'&&pathname==='/api/blogs'){const r=await googleApi('GET','/users/self/blogs');out=response({blogs:(r.items||[]).map(b=>({id:String(b.id),name:b.name,url:b.url})),defaultBlogId:cfg.blogId||null});}
       else if(request.method==='GET'&&pathname==='/api/posts'){const blog=checkedBlog(url.searchParams.get('blogId'));const status=url.searchParams.get('status')||'draft';if(!['draft','live','scheduled'].includes(status))throw failure(400,'status phải là draft, live hoặc scheduled');const r=await googleApi('GET',`/blogs/${blog}/posts`,{status:status.toUpperCase(),view:'ADMIN',fetchBodies:'false',orderBy:'UPDATED',maxResults:'30',pageToken:(url.searchParams.get('pageToken')||'').slice(0,800)});out=response({posts:(r.items||[]).map(p=>{const x=safePost(p);delete x.content;return x;}),nextPageToken:r.nextPageToken||null});}
       else if(request.method==='GET'&&/^\/api\/posts\/\d+$/.test(pathname)){const blog=checkedBlog(url.searchParams.get('blogId'));out=response({post:safePost(await getPost(blog,pathname.split('/').pop()))});}
