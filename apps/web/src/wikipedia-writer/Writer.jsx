@@ -171,7 +171,7 @@ export default function Writer(){
    setArticle('');
    setWritingProgress({state:'idle',completed:0,stage:'',detail:'Sẵn sàng cho bài Wikipedia mới',model:''});
    setDirty(true);
-   setNotice('Đã thêm +(result.updates?.updatedRows||fresh.length)+' dòng vào Google Sheet. '+(rows.length-fresh.length)+' dòng trùng được bỏ qua. Đã làm trống bản thảo để bắt đầu bài Wikipedia mới. Bạn có thể nhấn “Phiên từ vựng mới” để làm trống Section 4.');
+   setNotice('Đã thêm '+(result.updates?.updatedRows||fresh.length)+' dòng vào Google Sheet. '+(rows.length-fresh.length)+' dòng trùng được bỏ qua. Đã làm trống bản thảo để bắt đầu bài Wikipedia mới. Bạn có thể nhấn “Phiên từ vựng mới” để làm trống Section 4.');
   }catch(e){setError(e.message);}finally{setBusy('');}
  }
  function resetVocabularySession(){
