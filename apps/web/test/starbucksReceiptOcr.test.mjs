@@ -197,6 +197,18 @@ test('Receipt breakdown stays prominent and editable in Reddit light mode', () =
   assert.match(stylesheet, /@media\(max-width:740px\)\{\.sb-finance-equation/);
 });
 
+test('Reconciliation palette uses Reddit light neutrals with a green payable state', () => {
+  const stylesheet = readFileSync(new URL('../src/starbucks-insights/starbucks.css', import.meta.url), 'utf8');
+  assert.match(stylesheet, /\.sb-finance-summary\{[^}]*background:#fff;[^}]*border:1px solid #e3e6e8/);
+  assert.match(stylesheet, /\.sb-finance-before\{[^}]*background:#fff/);
+  assert.match(stylesheet, /\.sb-finance-discount\{[^}]*background:#fff9f8/);
+  assert.match(stylesheet, /\.sb-finance-discount strong\{color:#b42318\}/);
+  assert.match(stylesheet, /\.sb-finance-payable\{[^}]*background:#eaf6ef;[^}]*border-color:#c8e7d4/);
+  assert.match(stylesheet, /\.sb-finance-payable strong\{color:#006b43\}/);
+  assert.doesNotMatch(stylesheet, /\.sb-finance-payable\{[^}]*#ffede5/);
+  assert.doesNotMatch(stylesheet, /\.sb-finance-summary\{[^}]*#ffd6c5/);
+});
+
 test('Upload remains opt-in, browser-only and does not save an OCR result', () => {
   const component = readFileSync(new URL('../src/starbucks-insights/StarbucksInsights.jsx', import.meta.url), 'utf8');
   const worker = readFileSync(new URL('../src/starbucks-insights/receiptOcrBrowser.js', import.meta.url), 'utf8');
