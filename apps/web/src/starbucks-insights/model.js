@@ -17,6 +17,12 @@ const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 export const money = value => new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(value || 0) + ' ₫';
 export const starNumber = value => new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 }).format(value || 0);
 
+// Tiền thực trả là căn cứ tính chi tiêu và Stars, không cộng phụ thu lần thứ hai.
+export function calculatePayable(baseAmount, extraAmount = 0, discountAmount = 0) {
+  if (baseAmount === '' || baseAmount === null || baseAmount === undefined) return null;
+  return Number(baseAmount) + Number(extraAmount || 0) - Number(discountAmount || 0);
+}
+
 export function todayVietnam(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -42,9 +48,20 @@ export function normalizeTransaction(data) {
   const store = String(data?.store || '').trim();
   const item = String(data?.item || '').trim();
   const orderId = String(data?.orderId ?? '').trim();
+  const baseAmount = data?.baseAmount === '' || data?.baseAmount == null ? null : Number(data.baseAmount);
+  const extraAmount = Number(data?.extraAmount ?? 0);
+  const discountAmount = Number(data?.discountAmount ?? 0);
+  const extraReason = String(data?.extraReason ?? '').trim();
+  const discountReason = String(data?.discountReason ?? '').trim();
   if (!validDate(date)) throw new Error('Ngày giao dịch không hợp lệ.');
   if (!store && !item) throw new Error('Nhập tên món hoặc cửa hàng.');
   if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Số tiền phải là số nguyên dương.');
+  if (baseAmount !== null && (!Number.isSafeInteger(baseAmount) || baseAmount <= 0)) throw new Error('Tiền món gốc phải là số nguyên dương.');
+  if (!Number.isSafeInteger(extraAmount) || extraAmount < 0) throw new Error('Phụ thu phải là số nguyên không âm.');
+  if (!Number.isSafeInteger(discountAmount) || discountAmount < 0) throw new Error('Giảm giá phải là số nguyên không âm.');
+  if (baseAmount !== null && calculatePayable(baseAmount, extraAmount, discountAmount) !== amount) {
+    throw new Error('Tiền thực trả phải bằng giá món gốc + phụ thu − giảm giá.');
+  }
   if (!Number.isSafeInteger(fee) || fee < 0 || fee > amount) throw new Error('Phí không hợp lệ.');
   if (!Number.isSafeInteger(cups) || cups < 0 || cups > 1000) throw new Error('Số ly không hợp lệ.');
   if (!PAYMENT_SET.has(payment)) throw new Error('Phương thức thanh toán không hợp lệ.');
@@ -54,6 +71,11 @@ export function normalizeTransaction(data) {
     store: store.slice(0, 120),
     orderId: orderId.slice(0, 120),
     item: item.slice(0, 120),
+    baseAmount,
+    extraAmount,
+    extraReason: extraReason.slice(0, 200),
+    discountAmount,
+    discountReason: discountReason.slice(0, 200),
     amount,
     fee,
     cups,
@@ -154,7 +176,7 @@ export function rewardsProgress(transactions, config = {}, now = todayVietnam())
   };
 }
 export function toCsv(transactions) {
-  const columns = ['id', 'date', 'store', 'orderId', 'item', 'amount', 'fee', 'cups', 'payment', 'eligible', 'identified', 'linked', 'excluded'];
+  const columns = ['id', 'date', 'store', 'orderId', 'item', 'baseAmount', 'extraAmount', 'extraReason', 'discountAmount', 'discountReason', 'amount', 'fee', 'cups', 'payment', 'eligible', 'identified', 'linked', 'excluded'];
   const escape = value => '"' + String(value ?? '').replaceAll('"', '""') + '"';
   return '\uFEFF' + [columns.join(','), ...transactions.map(tx => columns.map(column => escape(tx[column])).join(','))].join('\r\n');
 }
