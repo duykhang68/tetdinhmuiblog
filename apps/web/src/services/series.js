@@ -81,11 +81,13 @@ export function seriesFrontmatter(value) {
     +'---\n\n';
 }
 export function consumeSeriesFrontmatter(content) {
-  const match=String(content).match(/^---\r?\n(series:\r?\n(?:  [^\r\n]*\r?\n)*)---\r?\n/);
+  const match=String(content).match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
   if (!match) return {content,series:emptySeries()};
+  const seriesBlock=match[1].match(/(?:^|\n)series:\r?\n((?:  [^\r\n]*(?:\r?\n|$))*)/);
+  if(!seriesBlock)return {content:String(content).slice(match[0].length).replace(/^\r?\n/,''),series:emptySeries()};
   try {
     const fields={};
-    for (const line of match[1].split(/\r?\n/).slice(1)) {
+    for (const line of seriesBlock[1].split(/\r?\n/)) {
       if (!line.trim()) continue;
       const item=line.match(/^  (name|part|total_parts|target_date|status): (.*)$/);
       if (item) fields[item[1]]=JSON.parse(item[2]);
