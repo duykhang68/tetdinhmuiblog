@@ -331,5 +331,32 @@
     "run_id": 42331471525,
     "ci": "success",
     "workflow_change": false
+  },
+  {
+    "pr": 63,
+    "head_sha": "e516ebf9b776a4925b85695508ce8f5e4ed532fa",
+    "merge_sha": "f5c8544b5dbf0c31cbea78d4576e2301e4bd7a6e",
+    "merged_at": "2026-11-07T03:00:04Z",
+    "run_id": 42331885813,
+    "ci": "success",
+    "workflow_change": false
+  },
+  {
+    "pr": 64,
+    "head_sha": "6155bd1c4a3e03e7d2b8e422d49e4eb2cff02cf5",
+    "merge_sha": "f62f26c2aa3fd448ef8cca905969c3e5f66a9cbd",
+    "merged_at": "2026-11-07T03:04:26Z",
+    "run_id": 42332249417,
+    "ci": "success",
+    "workflow_change": false
+  },
+  {
+    "pr": 65,
+    "head_sha": "c744b5a4541761093aab1787c5b9231338e63080",
+    "merge_sha": "cc0266c40575dd2b41ced30bcfec228e1f541a21",
+    "merged_at": "2026-11-07T03:06:30Z",
+    "run_id": 42332422276,
+    "ci": "success",
+    "workflow_change": false
   }
 ]
