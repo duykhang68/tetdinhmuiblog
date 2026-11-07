@@ -248,9 +248,9 @@ export default function StarbucksInsights() {
       const mapped = { ...result.fields };
       if (mapped.baseAmount && mapped.amount &&
         calculatePayable(mapped.baseAmount, mapped.extraAmount || 0, mapped.discountAmount || 0) !== Number(mapped.amount)) {
-        // Không tự thay đổi số thực trả trên hóa đơn để khớp phép tính OCR sai.
-        delete mapped.baseAmount;
-        result.warnings.push('Đã giữ tổng thực trả, chưa điền giá món gốc vì OCR không khớp. Hãy đối chiếu bằng ảnh.');
+        // Giữ các khoản tiền đọc được; không xóa giá món gốc khi OCR thiếu phụ thu.
+        // Validation khi lưu vẫn buộc người dùng đối soát tổng tiền.
+        result.warnings.push('Giá món gốc + phụ thu − giảm giá chưa khớp thực trả. Đã giữ số OCR; hãy kiểm tra và sửa các khoản trước khi lưu.');
       }
       setForm({ ...initialForm(), ...mapped });
       setEditing(null);
