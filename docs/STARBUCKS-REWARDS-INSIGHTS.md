@@ -1,0 +1,121 @@
+# Starbucks Rewards & Insights — Nhật ký triển khai
+
+**Ngày:** 07/11/2026 (Asia/Ho_Chi_Minh)  
+**Repository:** [duykhang68/tetdinhmuiblog](https://github.com/duykhang68/tetdinhmuiblog)  
+**Nhánh:** `feat/starbucks-rewards-light-insights-20261107`  
+**Trang:** `/starbucks-insights/`  
+**Local:** `http://localhost:5173/starbucks-insights/`  
+**Cloudflare Pages sau deploy:** `https://duynguyen-reddit-editor.pages.dev/starbucks-insights/`
+
+## 1. Mục tiêu và quyết định thiết kế
+
+Triển khai một trang độc lập dành cho việc ghi nhận chi tiêu tại Starbucks Việt Nam, thống kê theo tháng và tính Stars ước tính. Giao diện sử dụng hoàn toàn **light mode** theo ngôn ngữ thị giác Reddit, không kế thừa giao diện nền tối từ bản phác thảo ban đầu.
+
+- Nền trang `#f7f8fa`, surface `#ffffff`, nội dung `#171717`.
+- Accent cho thống kê và hành động: Reddit OrangeRed `#ff4500`.
+- Accent cho hội viên/Rewards: Starbucks Green `#00754a`.
+- Font Reddit Sans, responsive, card có viền sáng và nhiều khoảng trắng.
+- Không dùng biểu đồ xanh mặc định, Dark Mode, overlay loading toàn màn hình hoặc giả lập số liệu trong production.
+
+**Lưu ý:** Giao diện lấy cảm hứng từ Reddit, không phải sản phẩm chính thức của Reddit hay Starbucks.
+
+## 2. Các file đã triển khai
+
+| File | Chức năng |
+| --- | --- |
+| `apps/web/starbucks-insights/index.html` | HTML entry riêng cho /starbucks-insights/ |
+| `apps/web/src/starbucks-insights/main.jsx` | Mount React độc lập |
+| `apps/web/src/starbucks-insights/StarbucksInsights.jsx` | Form giao dịch, KPI, biểu đồ tương tác, Rewards, bảng lịch sử, sao lưu |
+| `apps/web/src/starbucks-insights/model.js` | Validation, tính điểm sao, nhóm theo tháng, chu kỳ hạng |
+| `apps/web/src/starbucks-insights/starbucks.css` | Design tokens và CSS scoped light mode |
+| `apps/web/vite.config.js` | Vite multi-page build cho route mới |
+| `apps/web/src/App.jsx` | Shortcut Starbucks tại khu vực Truy cập nhanh |
+| `apps/web/src/editor-kit.css` | Style shortcut xanh Starbucks trên Editor |
+| `apps/web/test/starbucksInsights.test.mjs` | Node unit tests và kiểm thử kết nối route |
+| `docs/STARBUCKS-REWARDS-INSIGHTS.md` | Tài liệu và nhật ký triển khai |
+
+## 3. Dòng chảy dữ liệu
+
+1. Người dùng nhập ngày, cửa hàng/món, số tiền VNĐ, số ly, phương thức thanh toán, phí không tính sao và điều kiện tích sao.
+2. `normalizeTransaction()` kiểm tra ngày, số tiền, phí, số ly, phương thức, rồi cập nhật state.
+3. `localStorage` ghi dữ liệu theo key `dn-starbucks-insights-v1`; lần mở tiếp theo đọc lại dữ liệu. Không có backend hay đồng bộ đa thiết bị trong phiên bản này.
+4. `monthlySeries()` nhóm theo tháng `YYYY-MM` và bổ sung các tháng có giá trị 0 trong thời gian chọn.
+5. `analytics()` tính tổng chi, số ly, số lượt, trung bình, tháng cao/thấp, MoM.
+6. SVG Bar/Line Chart dùng chung state, cho phép chuyển chế độ, xem chi tiết tháng; có bộ lọc kỳ 6/12/24 tháng, toàn bộ, năm và phương thức thanh toán.
+7. `starsFor()` tính Sao Xét Hạng và Sao Đổi Thưởng theo loại giao dịch đủ điều kiện.
+8. `rewardsProgress()` tính tiến độ chu kỳ 12 tháng và số dư Rewards ước tính có điều chỉnh thủ công.
+9. Bảng lịch sử có tìm kiếm, lọc cùng chart, sửa, xóa, phân trang và xuất/nhập JSON, xuất CSV.
+
+## 4. Chính sách Starbucks Rewards tại Việt Nam
+
+Nguồn điều khoản chính thức:  
+<https://starbucks.vn/ve-chung-toi/cong-ty/chinh-sach-truc-tuyen/starbucks-rewards-terms-and-conditions/>
+
+**Hiệu lực chính sách được áp dụng trong mô hình:** 18/08/2026.
+
+| Hình thức | VNĐ / 1 Sao Xét Hạng và 1 Sao Đổi Thưởng |
+| --- | ---: |
+| 100% Starbucks Card | 40.000 |
+| Tiền mặt, ví, POS, thanh toán kết hợp, Voucher Bundle tại quán | 60.000 |
+| Ứng dụng đối tác và thanh toán không tiền mặt, đã liên kết tài khoản đủ điều kiện | 80.000 |
+| Ứng dụng đối tác, thanh toán tiền mặt | 0 sao |
+
+Quy tắc được thực thi:
+
+- Chỉ dùng số tiền đã trả sau giảm giá; loại trừ phí giao hàng/đối tác.
+- Cần xác định tài khoản bằng thẻ/QR trước khi thanh toán trực tiếp; đơn đối tác phải liên kết tài khoản đủ điều kiện.
+- Không tính điểm cho giao dịch bị đánh dấu không đủ điều kiện, ví dụ sân bay quốc tế, hàng bị loại trừ hoặc nạp/khởi tạo thẻ.
+- Sao có thể là số thập phân.
+- Không áp dụng quy tắc từ 18/08/2026 cho giao dịch trước ngày này: người dùng đối soát thủ công.
+- **Membership Stars** và **Rewards Redemption Stars** tách riêng; không trừ chéo.
+- Gold được xét khi đạt **100 Membership Stars** trong chu kỳ 12 tháng; biểu đồ hiển thị tiến độ, không tự tuyên bố tài khoản chính thức đã chuyển hạng.
+- Chu kỳ có thể được người dùng đặt theo ngày hội viên thực tế; sao điều chỉnh và sao đã đổi được cấu hình riêng.
+- Mốc đổi thưởng tham khảo: Green 20 Sao Đổi Thưởng, Gold 10 Sao Đổi Thưởng; mức thưởng thực tế còn tùy hạng và điều kiện giao dịch.
+- Chính sách có thể thay đổi; mọi Stars trên dashboard là **ước tính** và có thể khác số dư ứng dụng do khuyến mại, hạng, ngày hết hạn, hoàn tiền, điều chỉnh hoặc chuyển chu kỳ.
+
+## 5. Quyết định kỹ thuật / rủi ro
+
+- **Không thêm dependency** cho chart: sử dụng React + SVG native để tránh làm nặng bundle và tránh thêm lockfile chỉ vì biểu đồ.
+- Trang dùng entry Vite riêng ở thư mục `starbucks-insights/`; Cloudflare Pages có thể phục vụ route tĩnh theo cấu trúc folder/index.html.
+- Tất cả số liệu giao dịch là do người dùng nhập; dashboard không gọi API Starbucks hoặc tự phát sinh giao dịch mẫu.
+- Dữ liệu không tự đồng bộ sang thiết bị khác. Cần xuất JSON để sao lưu và nhập lại khi đổi trình duyệt.
+- Phiên bản này chưa có auto-import hóa đơn, đồng bộ tài khoản Starbucks, server-side storage, tính promotional Stars hay engine xử lý voucher hết hạn.
+- Date grouping dùng ngày `YYYY-MM-DD` được nhập theo lịch Việt Nam; ngày hôm nay lấy theo timezone `Asia/Ho_Chi_Minh`.
+- Reset/đổi hạng/hết hạn chính thức vẫn cần người dùng đối soát, đặc biệt khi nâng hạng giữa chu kỳ.
+
+## 6. Kiểm thử và phát hành
+
+Các kiểm thử mới trong `apps/web/test/starbucksInsights.test.mjs`:
+
+- Tỷ lệ 40k/60k/80k và số sao phân số.
+- Giao dịch bị loại trừ, trước chính sách, chưa quét QR và đối tác trả tiền mặt.
+- Validation ngày, số tiền, số ly và phí.
+- Tổng hợp nhiều tháng, nhiều năm, tháng chi tiêu 0 và số lượt khác số ly.
+- Chu kỳ xét hạng 12 tháng, phân biệt mốc Green/Gold.
+- Kiểm tra đường dẫn độc lập, Vite entry, shortcut Editor và chỉ sử dụng light mode.
+
+**Lệnh dự kiến được CI sử dụng:**
+
+```bash
+npm run check
+npm test
+npm run build
+```
+
+Tài liệu này ghi lại quy trình và phạm vi thay đổi mã nguồn; **không khẳng định CI hoặc production đã thành công trước khi GitHub Actions xác nhận**.
+
+## 7. Hướng dẫn sử dụng nhanh
+
+1. Mở Editor, vào **Truy cập nhanh → Starbucks Rewards & Insights**.
+2. Nhập giao dịch trong **Ghi nhận giao dịch**.
+3. Xem KPI và chuyển **Bar / Line** ở **Monthly Spending Trends**.
+4. Thiết lập ngày bắt đầu chu kỳ, hạng và sao điều chỉnh nếu cần.
+5. Xem lịch sử, sửa/xóa hoặc xuất **Backup JSON** định kỳ.
+
+## 8. Nhật ký triển khai
+
+- 07/11/2026 — xác nhận repository và kiến trúc React 19 + Vite multi-page.
+- 07/11/2026 — xác minh lại điều khoản Starbucks Rewards VN áp dụng từ 18/08/2026.
+- 07/11/2026 — tạo branch riêng, model tính Stars và analytics, HTML entry, React page và CSS light mode.
+- 07/11/2026 — thêm Editor Quick Access, bộ lọc biểu đồ, lưu giao dịch, bảng lịch sử, sao lưu và tests.
+- 07/11/2026 — bổ sung tài liệu nhật ký này để theo dõi quá trình phát triển và giới hạn của phiên bản đầu tiên.
