@@ -1,5 +1,6 @@
 """Offline regression tests for the incident researcher. No GitHub calls."""
 import unittest
+from unittest import mock
 
 import researcher
 
@@ -59,6 +60,83 @@ class FingerprintingTests(unittest.TestCase):
     def test_repository_validation(self):
         with self.assertRaises(ValueError):
             researcher.GitHub("token", "other/path/with/more")
+
+
+class TokenRoutingTests(unittest.TestCase):
+    """Issue writes use GITHUB_TOKEN, knowledge PRs use a separate PAT."""
+
+    def test_recurring_issue_comment_uses_issue_token_not_pr_token(self):
+        record = {
+            "fingerprint": "CI-EXAMPLE123", "code": "CI-CHECK-FAILED",
+            "url": "https://github.com/test/repo/actions/runs/123",
+        }
+
+        class IssueGitHub:
+            def __init__(self):
+                self.calls = []
+
+            def paged(self, path, max_pages=5):
+                self.calls.append(("GET", path))
+                return []
+
+            def call(self, method, path, payload=None):
+                self.calls.append((method, path))
+                return {"id": 1}
+
+        issue_gh = IssueGitHub()
+        pr_gh = object()
+        with mock.patch.object(researcher, "find_incident_issue", return_value={"number": 35}):
+            new_issue = researcher.record_incident(issue_gh, record, pr_gh)
+        self.assertFalse(new_issue)
+        self.assertIn(("POST", "/issues/35/comments"), issue_gh.calls)
+
+    def test_new_incident_uses_dedicated_pr_token(self):
+        record = {
+            "fingerprint": "CI-EXAMPLE123", "code": "CI-CHECK-FAILED",
+            "kind": "CI", "signature": "test", "target": "main",
+            "url": "https://github.com/test/repo/actions/runs/123",
+            "guidance": "Investigate", "failed_steps": ["test step"],
+            "failed_jobs": [],
+        }
+
+        class IssueGitHub:
+            def call(self, method, path, payload=None):
+                self.last_request = (method, path)
+                return {"html_url": "https://github.com/test/repo/issues/35"}
+
+        issue_gh = IssueGitHub()
+        pr_gh = object()
+        with (mock.patch.object(researcher, "find_incident_issue", return_value=None),
+              mock.patch.object(researcher, "create_knowledge_pr") as create_pr):
+            is_new = researcher.record_incident(issue_gh, record, pr_gh)
+        self.assertTrue(is_new)
+        self.assertEqual(issue_gh.last_request, ("POST", "/issues"))
+        create_pr.assert_called_once_with(pr_gh, record)
+
+    def test_missing_pr_token_preserves_incident_without_untested_pr(self):
+        record = {
+            "fingerprint": "CI-EXAMPLE123", "code": "CI-CHECK-FAILED",
+            "kind": "CI", "signature": "test", "target": "main",
+            "url": "https://github.com/test/repo/actions/runs/123",
+            "guidance": "Investigate", "failed_steps": ["test step"],
+            "failed_jobs": [],
+        }
+
+        class IssueGitHub:
+            def __init__(self):
+                self.paths = []
+
+            def call(self, method, path, payload=None):
+                self.paths.append(path)
+                return {"html_url": "https://github.com/test/repo/issues/35"}
+
+        issue_gh = IssueGitHub()
+        with (mock.patch.object(researcher, "find_incident_issue", return_value=None),
+              mock.patch.object(researcher, "create_knowledge_pr") as create_pr):
+            is_new = researcher.record_incident(issue_gh, record)
+        self.assertTrue(is_new)
+        self.assertEqual(issue_gh.paths, ["/issues"])
+        create_pr.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -63,7 +63,11 @@ jobs:
 
       - name: Evaluate every event without skipping the job
         env:
-          GITHUB_TOKEN: ${{ secrets.AUTO_MERGE_WORKFLOW_TOKEN || github.token }}
+          # GitHub's job-scoped token has the explicit issues:write permission.
+          # The optional PAT is restricted to creating knowledge PRs, which
+          # must trigger their own CI via a non-GITHUB_TOKEN identity.
+          GITHUB_TOKEN: ${{ github.token }}
+          RESEARCHER_PR_TOKEN: ${{ secrets.AUTO_MERGE_WORKFLOW_TOKEN }}
         shell: bash
         run: |
           case "${{ github.event_name }}" in
