@@ -3,6 +3,7 @@ import {
   STORAGE_KEY,CATEGORIES,allCategories,amountValue,daysInMonth,emptyData,getBudget,insightTips,
   money,monthBefore,monthOf,newCategory,normalizeData,normalizeTransaction,spendingMetrics,toCsv,todayVN
 } from './model.js';
+import {useExpenseCloudSync} from './useExpenseCloudSync.js';
 
 const makeId=()=>globalThis.crypto?.randomUUID?.()||'expense-'+Date.now()+'-'+Math.random().toString(36).slice(2);
 const blankForm=()=>({amount:'',categoryId:'food',note:'',date:todayVN()});
@@ -66,6 +67,7 @@ export default function Expenses(){
     try{const raw=localStorage.getItem(STORAGE_KEY);return raw?normalizeData(JSON.parse(raw)):emptyData();}
     catch{return emptyData();}
   });
+  const {sync,conflict,synchronize,resolveConflict}=useExpenseCloudSync(data,setData);
   const [month,setMonth]=useState(()=>monthOf(todayVN()));
   const [categoryFilter,setCategoryFilter]=useState('all');
   const [form,setForm]=useState(blankForm);
@@ -181,8 +183,23 @@ export default function Expenses(){
       <div className="ex-identity"><span className="ex-brand-icon"><Icon name="wallet" size={27}/></span>
         <div><div className="ex-eyebrow">DUY NGUYEN · PERSONAL FINANCE</div><h1>Daily Expenses <em>&amp; Insights.</em></h1><p>Giữ mọi chi tiêu trong tầm kiểm soát.</p></div>
       </div>
-      <div className="ex-header-actions"><span className="ex-data-note"><span className="ex-live-dot"/> Dữ liệu trên thiết bị</span><a href="/starbucks-insights/" className="ex-outline-link">Starbucks Insights</a><a href="/" className="ex-outline-link"><Icon name="arrow" size={16}/> Editor</a></div>
+      <div className="ex-header-actions">
+        <span className={'ex-data-note ex-cloud-note ex-cloud-'+sync.status} role="status" title={sync.message}>
+          <span className="ex-live-dot"/> {sync.status==='synced'?'Đã lưu Cloudflare':sync.status==='ready'?'Cloud đã kết nối':sync.status==='syncing'||sync.status==='checking'?'Đang đồng bộ…':sync.status==='conflict'?'Xung đột dữ liệu':sync.status==='auth'?'Chưa kết nối Google':sync.status==='unconfigured'?'Cloud chưa cấu hình':sync.status==='pending'?'Chưa sao lưu thay đổi':'Chỉ lưu trên thiết bị'}
+        </span>
+        <button type="button" className="ex-outline-link ex-sync-button" onClick={()=>void synchronize()} disabled={sync.status==='syncing'||sync.status==='checking'} aria-label="Đồng bộ dữ liệu chi tiêu lên Cloudflare ngay">
+          <Icon name="upload" size={16}/> {sync.status==='syncing'?'Đang lưu…':'Đồng bộ ngay'}
+        </button>
+        {sync.status==='auth'&&<a className="ex-outline-link" href="/auth/google/start?return_to=expenses">Kết nối Google</a>}
+        <a href="/starbucks-insights/" className="ex-outline-link">Starbucks Insights</a>
+        <a href="/" className="ex-outline-link"><Icon name="arrow" size={16}/> Editor</a>
+      </div>
     </header>
+    <div className="ex-cloud-summary" aria-live="polite">
+      <span>{sync.message}</span>
+      <span>Auto sync mỗi 3 phút khi trang đang mở. {sync.lastSyncedAt?'Lần lưu cloud gần nhất: '+new Date(sync.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'Chưa xác nhận được bản lưu cloud.'}</span>
+      {sync.status==='unconfigured'&&<a href="https://github.com/duykhang68/tetdinhmuiblog/blob/main/docs/EXPENSES-CLOUDFLARE-D1-SYNC.md" target="_blank" rel="noopener noreferrer">Hướng dẫn cấu hình D1</a>}
+    </div>
 
     <section className="ex-panel ex-hero" aria-label="Tổng quan ngân sách">
       <div className="ex-hero-top"><div><div className="ex-eyebrow">MONTHLY BUDGET OVERVIEW</div><h2>Ngân sách sinh hoạt <span>tháng {monthLabel(month)}</span></h2></div>
@@ -205,6 +222,13 @@ export default function Expenses(){
       <div className="ex-hero-actions"><button className="ex-btn ex-btn-forest" onClick={startBudget} type="button"><Icon name="edit" size={16}/> Cài ngân sách tháng</button><span>Ngân sách tổng và từng danh mục được cấu hình riêng cho mỗi tháng.</span></div>
     </section>
 
+    {conflict&&<section className="ex-panel ex-cloud-conflict" aria-label="Xử lý xung đột dữ liệu">
+      <div className="ex-cloud-conflict-heading"><Icon name="alert" size={20}/><div><strong>Cần xử lý hai bản dữ liệu khác nhau</strong><p>Không tự ghi đè dữ liệu từ thiết bị khác. Cả bản local và bản Cloudflare được giữ nguyên cho đến khi bạn chọn; hệ thống sẽ tải backup JSON trước khi thay thế.</p></div></div>
+      <div className="ex-cloud-conflict-actions">
+        <button className="ex-btn ex-btn-subtle" type="button" onClick={()=>void resolveConflict('cloud')}>Sao lưu local &amp; dùng bản Cloud</button>
+        <button className="ex-btn ex-btn-forest" type="button" onClick={()=>void resolveConflict('local')}>Sao lưu Cloud &amp; dùng bản local</button>
+      </div>
+    </section>}
     {error&&<div className="ex-message ex-error" role="alert">{error}<button onClick={()=>setError('')} aria-label="Đóng lỗi" type="button">×</button></div>}
     {notice&&<div className="ex-message ex-success" role="status">{notice}<button onClick={()=>setNotice('')} aria-label="Đóng thông báo" type="button">×</button></div>}
 
@@ -223,7 +247,7 @@ export default function Expenses(){
           <label className="ex-field">Số tiền (VND)<input autoFocus inputMode="numeric" type="number" min="1" max="1000000000000" step="1" placeholder="Ví dụ: 45000" required value={form.amount} onChange={e=>updateForm('amount',e.target.value)}/></label>
           <label className="ex-field">Danh mục<select value={form.categoryId} onChange={e=>updateForm('categoryId',e.target.value)}>{categories.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
           <button type="button" className="ex-create-category" aria-expanded={categoryOpen} onClick={()=>setCategoryOpen(v=>!v)}><Icon name="plus" size={17}/> Thêm danh mục mới</button>
-          {categoryOpen&&<div className="ex-category-create"><label className="ex-field">Tên danh mục mới<input placeholder="Ví dụ: Nuôi thú cưng" maxLength="48" value={categoryName} onChange={e=>setCategoryName(e.target.value)}/></label><button className="ex-btn ex-btn-primary" type="button" onClick={createCategory}>Tạo &amp; lưu</button><p>Danh mục sẽ được lưu ngay trên thiết bị và dùng lại ở mọi tháng.</p></div>}
+          {categoryOpen&&<div className="ex-category-create"><label className="ex-field">Tên danh mục mới<input placeholder="Ví dụ: Nuôi thú cưng" maxLength="48" value={categoryName} onChange={e=>setCategoryName(e.target.value)}/></label><button className="ex-btn ex-btn-primary" type="button" onClick={createCategory}>Tạo &amp; lưu</button><p>Danh mục được lưu ngay trên thiết bị; Cloudflare tự sao lưu khi đã kết nối.</p></div>}
           <label className="ex-field">Ghi chú ngắn<input type="text" placeholder="Ví dụ: Bữa trưa, cà phê sáng…" maxLength="180" value={form.note} onChange={e=>updateForm('note',e.target.value)}/></label>
           <label className="ex-field">Ngày chi tiêu<input type="date" required value={form.date} min="2000-01-01" max="2100-12-31" onChange={e=>updateForm('date',e.target.value)}/></label>
           <div className="ex-form-actions"><button className="ex-btn ex-btn-primary" type="submit"><Icon name="plus" size={18}/>{editing?'Lưu thay đổi':'Ghi nhận chi tiêu'}</button>{editing&&<button className="ex-btn ex-btn-subtle" type="button" onClick={()=>{setEditing(null);setForm(blankForm());}}>Hủy sửa</button>}</div>
@@ -255,9 +279,9 @@ export default function Expenses(){
         <DailyChart month={month} dailyRows={metrics.dailyRows}/>
         <div className="ex-chart-foot"><span>Ngày có phát sinh: <strong>{metrics.dailyRows.length}</strong></span><span>Ngày bất thường: <strong>{metrics.anomalies.length}</strong></span></div>
       </section>
-      <section className="ex-panel ex-data-tools"><SectionHeading eyebrow="DATA & PRIVACY" title="Dữ liệu của bạn." sub="Giao dịch và danh mục lưu trên trình duyệt hiện tại; chưa đồng bộ tài khoản hoặc thiết bị khác."/>
+      <section className="ex-panel ex-data-tools"><SectionHeading eyebrow="DATA & PRIVACY" title="Dữ liệu của bạn." sub="Lưu ngay trên thiết bị và sao lưu có xác thực lên Cloudflare D1 khi đã cấu hình. Có thể khôi phục giữa các thiết bị đăng nhập cùng Google Blogger."/>
         <div className="ex-tool-stack"><button className="ex-btn ex-btn-subtle" onClick={exportJson} type="button"><Icon name="download" size={17}/> Sao lưu tất cả (JSON)</button><button className="ex-btn ex-btn-subtle" onClick={exportCsv} type="button"><Icon name="download" size={17}/> Xuất giao dịch lọc (CSV)</button><button className="ex-btn ex-btn-subtle" onClick={()=>importRef.current?.click()} type="button"><Icon name="upload" size={17}/> Khôi phục từ JSON</button><input ref={importRef} type="file" accept=".json,application/json" hidden onChange={importJson}/></div>
-        <p className="ex-privacy-note"><Icon name="shield" size={15}/> Hãy sao lưu thường xuyên. Xóa dữ liệu trình duyệt có thể làm mất dữ liệu đã lưu trên thiết bị.</p>
+        <p className="ex-privacy-note"><Icon name="shield" size={15}/> Lưu local tức thì; cloud sync 3 phút/lần khi tab mở, kèm nút đồng bộ thủ công. Trước khi Cloudflare xác nhận đã lưu, hãy giữ bản backup JSON nếu cần.</p>
       </section>
     </div>
 
