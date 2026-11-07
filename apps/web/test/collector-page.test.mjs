@@ -31,3 +31,15 @@ test('collector page supports sanitized GFM, source parity and Mermaid fallback'
   assert.match(html, /textContent = markdownText/);
   assert.match(html, /setMode\('source'\)/);
 });
+
+test('collector page always uses bright light mode including Mermaid diagrams', () => {
+  assert.match(html, /<meta name="theme-color" content="#f6f8fc"/);
+  assert.match(html, /color-scheme: light/);
+  assert.doesNotMatch(html, /color-scheme: dark/);
+  assert.match(html, /COLLECTOR LIGHT MODE/);
+  assert.match(html, /--bg: #f6f8fc/);
+  assert.match(html, /\.document \{[\s\S]*?background: #ffffff/);
+  assert.match(html, /theme: 'base'/);
+  assert.doesNotMatch(html, /theme: 'dark'/);
+  assert.match(html, /background: '#ffffff'/);
+});
