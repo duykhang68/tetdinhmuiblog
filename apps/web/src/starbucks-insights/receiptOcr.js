@@ -86,21 +86,25 @@ function parseItemsAndExtras(lines) {
   const subtotal = findIndex(lines, labels.subtotal);
   const limit = [count, subtotal].filter(index => index >= 0).sort((a, b) => a - b)[0] ?? lines.length;
   const start = shop >= 0 ? shop + 2 : 0;
-  const items = [], extras = [];
+  const items = [], extras = [], optionDetails = [];
   for (let index = start; index < limit; index += 1) {
     const line = lines[index];
     const key = ascii(line);
-    if (isSummary(line) || /(?:^vi tri|^dia chi|^location|^do ngot|^so luong|^qty|^x\s*\d+$)/.test(key)) continue;
+    if (isSummary(line) || /(?:^vi tri|^dia chi|^location|^so luong|^qty|^x\s*\d+$)/.test(key)) continue;
     const amount = moneyAtEnd(line);
-    if (amount === null) continue;
     let description = cleanReceiptName(removeMoneyAtEnd(line));
     if (!description && index > start) description = cleanReceiptName(lines[index - 1]);
     const name = ascii(description);
     if (!name || /(?:vi tri|dia chi|address|ma don|ngay|starbucks rewards|personal cup|ly ca nhan|^x\s*\d+$)/.test(name)) continue;
-    if (labels.option.test(name)) {
-      if (amount > 0) extras.push({ name: cleanReceiptName(description.replace(/^Lựa chọn\s*/i, '')), amount });
+    // Giữ lại dòng diễn giải tùy chỉnh, kể cả OCR không nhận ra giá ở cuối dòng.
+    // Bao gồm mức ngọt, sữa, topping, size... chứ không chỉ các khoản có giá.
+    if (labels.option.test(name) || /^(?:do ngot|sweetness|ice level|muc da|size\s*:)/.test(name)) {
+      const option = cleanReceiptName(description.replace(/^(?:Lựa chọn|Lua chon)\s*/i, ''));
+      if (option && !optionDetails.includes(option)) optionDetails.push(option);
+      if (amount !== null && amount > 0) extras.push({ name: option, amount });
       continue;
     }
+    if (amount === null) continue;
     if (amount > 0 && /[a-zA-ZÀ-ỹ]/u.test(description)) {
       const nextLine = ascii(lines[index + 1] || '');
       const quantityMatch = nextLine.match(/^x\s*(\d{1,2})$/);
@@ -108,7 +112,7 @@ function parseItemsAndExtras(lines) {
       items.push({ name: description, amount, quantity });
     }
   }
-  return { items, extras };
+  return { items, extras, optionDetails };
 }
 function parsePayment(lines) {
   const text = ascii(lines.join(' '));
@@ -123,9 +127,19 @@ function parsePayment(lines) {
 function parseDiscountReason(lines) {
   const index = findIndex(lines, labels.discount);
   if (index < 0) return '';
-  const line = removeMoneyAtEnd(lines[index]);
-  const reason = clean(line.replace(/^(?:giảm giá|giam gia|discount|ưu đãi|uu dai)\s*[:：\-]?\s*/i, ''));
-  return reason && ascii(reason) !== ascii(line) ? reason.slice(0, 200) : '';
+  // Chỉ chép nội dung thực có trên hóa đơn; không tự suy ra ưu đãi từ Personal Cup.
+  const original = cleanReceiptName(removeMoneyAtEnd(lines[index]));
+  const reason = cleanReceiptName(original.replace(/^(?:giảm giá|giam gia|discount|ưu đãi|uu dai)\s*[:：\-]?\s*/i, ''));
+  if (reason && ascii(reason) !== ascii(original)) return reason.slice(0, 200);
+  // Trường hợp OCR xuống dòng: "Giảm giá" -> "Voucher thành viên" -> "-10.000".
+  const next = cleanReceiptName(removeMoneyAtEnd(lines[index + 1] || ''));
+  const normalized = ascii(next);
+  if (next && /[a-zA-ZÀ-ỹ]/u.test(next) &&
+    ![labels.subtotal, labels.total, labels.count, labels.shipping, labels.order, labels.date, labels.shop].some(pattern => pattern.test(normalized)) &&
+    !/(?:phuong thuc thanh toan|payment method|visa|mastercard|starbucks card)/.test(normalized)) {
+    return next.slice(0, 200);
+  }
+  return '';
 }
 
 export function parseStarbucksReceipt(text) {
@@ -137,17 +151,16 @@ export function parseStarbucksReceipt(text) {
   if (orderId) fields.orderId = orderId;
   const store = parseStore(lines);
   if (store) fields.store = store;
-  const { items, extras } = parseItemsAndExtras(lines);
+  const { items, extras, optionDetails } = parseItemsAndExtras(lines);
   if (items.length) {
     fields.item = items.map(row => row.name).join(' · ').slice(0, 120);
     const drink = items.filter(row => /(?:latte|matcha|coffee|ca phe|tra |tea|frappuccino|espresso|americano|mocha|macchiato|cappuccino|cold brew)/.test(ascii(row.name)));
     if (drink.length) fields.cups = String(drink.reduce((sum, row) => sum + row.quantity, 0));
     fields.baseAmount = String(items.reduce((sum, row) => sum + row.amount * row.quantity, 0));
   }
-  if (extras.length) {
-    fields.extraAmount = String(extras.reduce((sum, row) => sum + row.amount, 0));
-    fields.extraReason = extras.map(row => row.name).join(' · ').slice(0, 200);
-  }
+  if (extras.length) fields.extraAmount = String(extras.reduce((sum, row) => sum + row.amount, 0));
+  // Diễn giải phải được autofill dù OCR chưa đọc được con số phụ thu.
+  if (optionDetails.length) fields.extraReason = optionDetails.join(' · ').slice(0, 200);
   const subtotal = readLabeledAmount(lines, labels.subtotal);
   const discount = readLabeledAmount(lines, labels.discount);
   const total = readLabeledAmount(lines, labels.total);
