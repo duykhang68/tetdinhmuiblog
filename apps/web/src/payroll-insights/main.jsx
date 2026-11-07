@@ -1,10 +1,11 @@
-import React,{useEffect,useMemo,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {MAX_PDF_BYTES,MAX_PDF_PAGES,CATEGORIES,CATEGORY_LABELS,readVnd,extractLedger,summarizeRows,
  formatVnd,REVIEW,MATCHED} from './model.js';
 import {extractPayslipPdf} from './pdfClient.js';
 import {downloadWorkbook} from './xlsxExport.js';
 import {knowledgeFor,WAGE_REGIONS} from './laws.js';
+import {usePayrollDriveSync} from './usePayrollDriveSync.js';
 import './payroll.css';
 
 const initialPeriod=()=>{
@@ -30,7 +31,20 @@ function App(){
  const [page,setPage]=useState(1);
  const [originalPdf,setOriginalPdf]=useState(null);
  const generation=useRef(0);
- useEffect(()=>()=>{generation.current+=1;if(url)URL.revokeObjectURL(url);},[url]);
+ // URL changes must not invalidate the in-flight PDF import.
+ useEffect(()=>()=>{if(url)URL.revokeObjectURL(url);},[url]);
+ useEffect(()=>()=>{generation.current+=1;},[]);
+ const [passphrase,setPassphrase]=useState('');
+ const restoreFromDrive=useCallback(snapshot=>{
+  generation.current+=1;setUrl('');setOriginalPdf(null);setRows(snapshot.rows);
+  setPeriod(snapshot.period);setRegion(snapshot.region);setDependents(String(snapshot.dependents||0));
+  setFileInfo({name:snapshot.filename,size:0,pages:null,remoteOnly:true});
+  setProgress('Đã phục hồi bản phân tích mã hóa. PDF gốc không nằm trong backup, hãy import lại nếu muốn xem bản PDF.');
+  setError('');
+ },[]);
+ const drivePayload=useMemo(()=>({version:1,filename:fileInfo?.name||'payroll.pdf',period,region,
+  dependents:Number(dependents)||0,rows}),[fileInfo?.name,period,region,dependents,rows]);
+ const drive=usePayrollDriveSync(drivePayload,restoreFromDrive);
  const summary=useMemo(()=>summarizeRows(rows),[rows]);
  const legal=useMemo(()=>knowledgeFor(rows,{period,region,dependents:Number(dependents)||0}),[rows,period,region,dependents]);
  const candidates=useMemo(()=>summary.enriched.filter(row=>(view==='all'||(view==='money'&&row.amount!==null)||
@@ -99,7 +113,7 @@ function App(){
    <a href="/" className="pr-back">Về Editor ↗</a>
   </header>
   <div className="pr-privacy"><strong>Riêng tư theo mặc định</strong>
-   <span>Tệp PDF được mở và phân tích trong trình duyệt; không tự gửi bảng lương lên máy chủ, không lưu vào localStorage hay Google Drive.
+   <span>Tệp PDF được mở và phân tích trong trình duyệt; không tự gửi bảng lương lên máy chủ, không lưu số liệu lương vào localStorage. Drive mặc định tắt; chỉ khi bạn chủ động bật mới lưu bản phân tích đã mã hóa AES-256, không upload PDF gốc.
    Thư viện PDF/OCR tải từ CDN; hãy chỉ tiếp tục nếu bạn chấp nhận tải mã thư viện đó.</span>
   </div>
 
@@ -112,7 +126,8 @@ function App(){
    <div className="pr-import-area">
     <label className="pr-pick" htmlFor="pr-file"><span className="pr-pick-icon">↑</span>
      <span><strong>{fileInfo?fileInfo.name:'Chọn bảng lương PDF'}</strong>
-      <small>{fileInfo?'Dung lượng '+(fileInfo.size/1024/1024).toFixed(2)+' MB · tài liệu đã được mở trên thiết bị':
+      <small>{fileInfo?.remoteOnly?'Đã khôi phục số liệu mã hóa, cần import lại PDF gốc để xem bản nguyên bản':
+       fileInfo?'Dung lượng '+(fileInfo.size/1024/1024).toFixed(2)+' MB · tài liệu đã được mở trên thiết bị':
        'Tệp PDF tối đa 15 MB, 30 trang. PDF có thể là bảng lương văn bản hoặc ảnh scan.'}</small></span>
      <b>{busy?'Đang xử lý…':'Chọn file'}</b>
     </label>
@@ -126,12 +141,50 @@ function App(){
       value={dependents} onChange={e=>setDependents(e.target.value)} /></label>
     </div>
     <div className="pr-import-actions">
-      {fileInfo&&<><button className="pr-btn pr-btn-soft" onClick={saveOriginal}>Tải lại PDF gốc</button>
+      {fileInfo&&<>{originalPdf&&<button className="pr-btn pr-btn-soft" onClick={saveOriginal}>Tải lại PDF gốc</button>}
        <button className="pr-btn pr-btn-link" onClick={clearDocument}>Xóa dữ liệu khỏi phiên xem</button></>}
     </div>
     {progress&&<p className="pr-status" role="status">{progress}</p>}
     {error&&<p className="pr-error" role="alert">{error}</p>}
    </div>
+  </section>
+
+  <section className="pr-panel pr-drive" aria-label="Sao lưu Google Drive mã hóa">
+   <div className="pr-drive-heading">
+    <div>{sectionLabel('↗','PRIVATE ENCRYPTED BACKUP')}<h2>Google Drive · Sao lưu có mã hóa</h2>
+     <p>Chỉ mã hóa JSON phân tích; PDF gốc không được upload. Tự đồng bộ mỗi 3 phút khi trang đang mở và bạn chủ động bật.</p></div>
+    <span className="pr-drive-state">{drive.enabled?'ĐÃ BẬT (MÃ HÓA)':'TẮT THEO MẶC ĐỊNH'}</span>
+   </div>
+   {!drive.enabled?<div className="pr-drive-controls">
+    <label>Mật khẩu mã hóa (ít nhất 12 ký tự)
+     <input type="password" autoComplete="new-password" value={passphrase}
+      placeholder="Mật khẩu riêng, không lưu vào trình duyệt" onChange={e=>setPassphrase(e.target.value)}/>
+    </label>
+    {drive.config.showInput&&<label>OAuth Web Client ID
+      <input type="text" autoComplete="off" spellCheck="false" value={drive.config.clientId}
+       placeholder="xxx.apps.googleusercontent.com" onChange={e=>drive.setClientId(e.target.value)}/></label>}
+    <button className="pr-btn pr-btn-primary" disabled={drive.config.loading||passphrase.length<12||drive.state.status==='connecting'}
+     onClick={async()=>{await drive.connect(passphrase);setPassphrase('');}}>
+     {drive.state.status==='connecting'?'Đang kết nối…':'Kết nối & bật sao lưu mã hóa'}</button>
+   </div>:<div className="pr-drive-actions">
+    <button className="pr-btn pr-btn-soft" disabled={!rows.length||drive.state.status==='syncing'||drive.state.status==='conflict'}
+     onClick={()=>void drive.save({force:true})}>Đồng bộ ngay</button>
+    {drive.state.status==='conflict'&&<>
+     <button className="pr-btn pr-btn-soft" onClick={()=>{
+      if(window.confirm('Khôi phục Drive sẽ thay các dòng hiện tại. PDF gốc không được lưu trên Drive. Tiếp tục?'))
+       void drive.restore();
+     }}>Giải mã & khôi phục từ Drive</button>
+     <button className="pr-btn pr-btn-soft" disabled={!rows.length} onClick={async()=>{
+      if(!window.confirm('Tạo snapshot mã hóa mới từ bản hiện tại? Bản Drive cũ vẫn được giữ.'))return;
+      await drive.acceptLocal();await drive.save({force:true});
+     }}>Giữ bản hiện tại, tạo snapshot mới</button>
+    </>}
+    <button className="pr-btn pr-btn-link" onClick={drive.disconnect}>Tắt tự đồng bộ</button>
+   </div>}
+   <p className={'pr-drive-message pr-drive-'+drive.state.status} role="status">{drive.state.message}
+    {drive.state.lastSyncedAt?' · Lần lưu: '+new Date(drive.state.lastSyncedAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):''}</p>
+   <p className="pr-fine">Mật khẩu không được lưu trên Drive hoặc thiết bị. Nếu quên mật khẩu sẽ không giải mã được bản sao.
+    Không có upload tự động trước khi bạn bật sao lưu. Chỉ dữ liệu bảng phân tích được lưu; muốn xem đúng PDF 1:1 vẫn cần file gốc.</p>
   </section>
 
   <section className="pr-panel" aria-labelledby="pr-two">

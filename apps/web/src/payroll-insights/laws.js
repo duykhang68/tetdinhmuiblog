@@ -28,7 +28,7 @@ export const WAGE_REGIONS=['I','II','III','IV'];
 export function minimumWage(period,region){
  const year=Number(String(period||'').slice(0,4));
  const index=WAGE_REGIONS.indexOf(region);
- if(index===-1||!Number.isFinite(year)||year<2026)return null;
+ if(index===-1||!Number.isFinite(year)||year<2026||year>2027)return null;
  const numbers=year===2026?[5310000,4730000,4140000,3700000]:[5700000,5080000,4450000,4040000];
  return {minimum:numbers[index],law:year===2026?LAWS.min2026:LAWS.min2027};
 }
